@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:with_force/dialogs/confirmation_dialog.dart';
+import 'package:with_force/styles/colors.dart';
 import 'package:with_force/styles/text_styles.dart';
 import 'package:with_force/widgets/reusable_app_bar.dart';
 import 'package:with_force/widgets/reusable_button.dart';
@@ -76,7 +78,7 @@ class _TermsAgreementScreenState extends State<TermsAgreementScreen> {
   void _handleConfirm() {
     if (_isButtonEnabled) {
       // Navigate to next screen (home or success screen)
-      Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+      context.push('/sign-up-complete');
     }
   }
 
@@ -84,6 +86,7 @@ class _TermsAgreementScreenState extends State<TermsAgreementScreen> {
     required String title,
     required bool value,
     required ValueChanged<bool?> onChanged,
+    required TextStyle textStyle,
     bool showArrow = false,
     VoidCallback? onArrowTap,
     bool isBold = false,
@@ -93,27 +96,21 @@ class _TermsAgreementScreenState extends State<TermsAgreementScreen> {
       child: Row(
         children: [
           SizedBox(
-            width: 24,
-            height: 24,
+            width: 32,
+            height: 32,
             child: Checkbox(
               value: value,
               onChanged: onChanged,
               activeColor: Colors.black,
-              checkColor: Colors.white,
+              checkColor: CustomColors.limeGreen,
               side: BorderSide(color: Colors.grey[400]!, width: 1.5),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              title,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: isBold ? FontWeight.w600 : FontWeight.w400,
-                color: Colors.black,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4.0),
               ),
             ),
           ),
+          const SizedBox(width: 12),
+          Expanded(child: Text(title, style: textStyle)),
           if (showArrow)
             GestureDetector(
               onTap: onArrowTap,
@@ -151,50 +148,23 @@ class _TermsAgreementScreenState extends State<TermsAgreementScreen> {
             const SizedBox(height: 40),
 
             // Title text
-            const Text(
-              '안전한 이용을 위해',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
-            ),
+            Text('안전한 이용을 위해', style: TextStyles.kBody),
             const SizedBox(height: 8),
-            const Text(
-              '약관에 동의해주세요',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
-            ),
+            Text('약관에 동의해주세요', style: TextStyles.kBody),
 
             const SizedBox(height: 24),
 
             // Subtitle text
-            const Text(
-              '동의하신 내용은 언제든지 앱에서',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w400,
-                color: Colors.grey,
-              ),
-            ),
+            Text('동의하신 내용은 언제든지 앱에서', style: TextStyles.kHint),
             const SizedBox(height: 4),
-            const Text(
-              '다시 확인하실 수 있어요.',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w400,
-                color: Colors.grey,
-              ),
-            ),
+            Text('다시 확인하실 수 있어요.', style: TextStyles.kHint),
 
             const SizedBox(height: 60),
 
             // Agree all checkbox
             _buildCheckboxRow(
               title: '전체동의',
+              textStyle: TextStyles.kSecondTitle,
               value: _agreeAll,
               onChanged: _handleAgreeAllChanged,
               isBold: true,
@@ -206,6 +176,7 @@ class _TermsAgreementScreenState extends State<TermsAgreementScreen> {
             // Individual agreement checkboxes
             _buildCheckboxRow(
               title: '[필수] 서비스 이용 약관',
+              textStyle: TextStyles.kTrailingBottomButton,
               value: _agreeService,
               onChanged: _handleServiceChanged,
               showArrow: true,
@@ -214,6 +185,7 @@ class _TermsAgreementScreenState extends State<TermsAgreementScreen> {
 
             _buildCheckboxRow(
               title: '[필수] 개인정보 수집 및 이용 동의',
+              textStyle: TextStyles.kTrailingBottomButton,
               value: _agreePrivacy,
               onChanged: _handlePrivacyChanged,
               showArrow: true,
@@ -222,6 +194,7 @@ class _TermsAgreementScreenState extends State<TermsAgreementScreen> {
 
             _buildCheckboxRow(
               title: '[선택] 위치 정보 수집 동의',
+              textStyle: TextStyles.kTrailingBottomButton,
               value: _agreeLocation,
               onChanged: _handleLocationChanged,
               showArrow: true,

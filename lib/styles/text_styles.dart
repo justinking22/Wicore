@@ -2,82 +2,104 @@ import 'package:flutter/material.dart';
 import 'package:with_force/styles/colors.dart';
 
 class TextStyles {
-  static String kFontFamily = 'Pretendard';
-  static String kSubtitleFontFamily = 'SF Pro Text';
+  static const String kFontFamily = 'Pretendard';
+  static const String kSubtitleFontFamily = 'SF Pro Text';
 
-  static TextStyle? kTitle = TextStyle(
+  static const TextStyle kTitle = TextStyle(
     fontSize: 20,
     fontWeight: FontWeight.w500,
     fontFamily: kFontFamily,
-    color: const Color(0xFF333333),
+    color: Color(0xFF333333),
   );
 
-  static TextStyle? kTrailingButton = TextStyle(
+  static const TextStyle kTrailingButton = TextStyle(
     fontSize: 16,
     fontWeight: FontWeight.w500,
     fontFamily: kFontFamily,
   );
-  static TextStyle? kButton = TextStyle(
+  static const TextStyle kButton = TextStyle(
     fontSize: 22,
     fontWeight: FontWeight.w600,
     fontFamily: kFontFamily,
     color: Color(0xFFFFFFFF),
   );
-  static TextStyle? kHint = TextStyle(
+  static const TextStyle kHint = TextStyle(
     fontSize: 18,
     fontWeight: FontWeight.w500,
     fontFamily: kFontFamily,
     color: Color(0xFF999999),
   );
-  static TextStyle? kInput = TextStyle(
+  static const TextStyle kSecondTitle = TextStyle(
+    fontSize: 22,
+    fontWeight: FontWeight.w600,
+    fontFamily: kFontFamily,
+    color: CustomColors.darkGray,
+  );
+  static TextStyle kInput = TextStyle(
     fontSize: 16,
     fontWeight: FontWeight.w400,
     fontFamily: kFontFamily,
     color: Colors.black,
   );
-  static TextStyle? kSecondBody = TextStyle(
+  static const TextStyle kSecondBody = TextStyle(
     fontSize: 18,
     fontWeight: FontWeight.w500,
     fontFamily: kFontFamily,
     color: Color(0xFF666666),
   );
-  static TextStyle? kHeader = TextStyle(
+  static const TextStyle kHeader = TextStyle(
     fontSize: 22,
     fontWeight: FontWeight.w600,
     fontFamily: kFontFamily,
-    color: const Color(0xFF333333),
+    color: Color(0xFF333333),
   );
 
-  static TextStyle? kBody = TextStyle(
+  static TextStyle kBody = TextStyle(
     fontSize: 32,
     fontWeight: FontWeight.w600,
     fontFamily: kFontFamily,
   );
-  static TextStyle? kSubtitle = TextStyle(
+  static const TextStyle kSubtitle = TextStyle(
     fontSize: 13,
     fontWeight: FontWeight.w400,
     fontFamily: kSubtitleFontFamily,
-    color: const Color(0xFF181818),
+    color: Color(0xFF181818),
   );
-  static TextStyle? kError = TextStyle(
+  static const TextStyle kError = TextStyle(
     fontSize: 18,
     fontWeight: FontWeight.w500,
     fontFamily: kFontFamily,
     color: CustomColors.redOrange,
   );
-  static TextStyle? kInputText = const TextStyle(
+  static const TextStyle kInputText = TextStyle(
+    fontFamily: kFontFamily,
     fontSize: 16,
     fontWeight: FontWeight.w400,
     color: Colors.black,
   );
-  static TextStyle? kThirdBody = const TextStyle(
+  static const TextStyle kThirdBody = TextStyle(
+    fontFamily: kFontFamily,
     fontSize: 18,
     fontWeight: FontWeight.w500,
     color: CustomColors.lighGray,
   );
-  static TextStyle? kTrailingBottomButton = const TextStyle(
+  static const TextStyle kTrailingBottomButton = TextStyle(
+    fontFamily: kFontFamily,
     fontSize: 18,
     fontWeight: FontWeight.w400,
     color: CustomColors.darkGray,
+  );
+  static const TextStyle kTrailingBottomButtonWithUnderline = TextStyle(
+    fontFamily: kFontFamily,
+    fontSize: 18,
+    fontWeight: FontWeight.w400,
+    color: CustomColors.darkGray,
+    decoration: TextDecoration.underline,
+  );
+  static const TextStyle kLogo = TextStyle(
+    fontFamily: kFontFamily,
+    fontSize: 22,
+    fontWeight: FontWeight.w600,
+    color: CustomColors.pureBlack,
   );
 }

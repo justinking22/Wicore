@@ -23,40 +23,9 @@ class AuthService with ChangeNotifier {
   String? get token => _token;
   String? get confirmationEmail => _confirmationEmail;
   bool get isAuthenticated => _authStatus == AuthStatus.authenticated;
-  static const String _isFirstTimeKey = 'is_first_time_user';
-  bool _isFirstTime = true;
-
-  bool get isFirstTime => _isFirstTime;
-
-  // Check if this is the user's first time opening the app
-  Future<bool> checkIsFirstTime() async {
-    final prefs = await SharedPreferences.getInstance();
-    _isFirstTime = prefs.getBool(_isFirstTimeKey) ?? true;
-    return _isFirstTime;
-  }
-
-  // Mark that the user has completed the welcome flow
-  Future<void> markWelcomeCompleted() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_isFirstTimeKey, false);
-    _isFirstTime = false;
-    notifyListeners();
-  }
-
-  // Reset first-time flag (useful for testing)
-  Future<void> resetFirstTimeFlag() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_isFirstTimeKey, true);
-    _isFirstTime = true;
-    notifyListeners();
-  }
 
   // INITIALIZATION
   Future<void> init() async {
-    // Check first-time status
-    await checkIsFirstTime();
-
-    // ... your existing init code ...
     final prefs = await SharedPreferences.getInstance();
     final savedAccessToken = prefs.getString('access_token');
     final savedRefreshToken = prefs.getString('refresh_token');
@@ -550,8 +519,6 @@ class AuthService with ChangeNotifier {
     await prefs.remove('username');
     await prefs.remove('id');
     await prefs.remove('token_expiration');
-
-    // Don't clear first-time flag on logout - only on welcome completion
 
     _token = null;
     _userData = null;

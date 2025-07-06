@@ -7,6 +7,10 @@ import 'package:with_force/screens/email_verification_screen.dart';
 import 'package:with_force/screens/email_verification_success_screen.dart';
 import 'package:with_force/screens/password_input_screen.dart';
 import 'package:with_force/screens/password_re_enter_screen.dart';
+import 'package:with_force/screens/password_reset_screen.dart';
+import 'package:with_force/screens/password_reset_succes_screen.dart';
+import 'package:with_force/screens/sign_in_screen.dart';
+import 'package:with_force/screens/sign_up_complete_screen.dart';
 import 'package:with_force/screens/splash_screen.dart';
 import 'package:with_force/screens/terms_and_conditions_screen.dart';
 import 'package:with_force/screens/welcome_screen.dart';
@@ -24,7 +28,6 @@ class AppRouter {
       redirect: (context, state) {
         final isInitialized = authService.authStatus != AuthStatus.unknown;
         final isAuthenticated = authService.isAuthenticated;
-        final isFirstTime = authService.isFirstTime;
         final currentPath = state.matchedLocation;
 
         // Don't redirect if we're still initializing
@@ -34,31 +37,20 @@ class AppRouter {
 
         // If initialized, handle navigation flow
         if (isInitialized) {
-          // First-time users should see welcome screen (but allow registration flow)
-          if (isFirstTime &&
-              currentPath != '/welcome' &&
-              currentPath != '/name-input' &&
-              currentPath != '/register') {
-            return '/welcome';
+          // Authenticated users should go to home unless they're on allowed routes
+          if (isAuthenticated &&
+              (currentPath == '/login' ||
+                  currentPath == '/register' ||
+                  currentPath == '/welcome' ||
+                  currentPath == '/name-input' ||
+                  currentPath == '/splash')) {
+            return '/home';
           }
 
-          // Non-first-time users
-          if (!isFirstTime) {
-            // Authenticated users should go to home
-            if (isAuthenticated &&
-                (currentPath == '/login' ||
-                    currentPath == '/register' ||
-                    currentPath == '/welcome' ||
-                    currentPath == '/name-input' ||
-                    currentPath == '/splash')) {
-              return '/home';
-            }
-
-            // Non-authenticated users should go to login (but allow registration flow)
-            if (!isAuthenticated &&
-                (currentPath == '/home' || currentPath == '/splash')) {
-              return '/login';
-            }
+          // Non-authenticated users should go to login unless they're on allowed routes
+          if (!isAuthenticated &&
+              (currentPath == '/home' || currentPath == '/splash')) {
+            return '/login';
           }
         }
 
@@ -83,7 +75,7 @@ class AppRouter {
         GoRoute(
           path: '/login',
           name: 'login',
-          builder: (context, state) => LoginScreen(),
+          builder: (context, state) => SignInScreen(),
         ),
         GoRoute(
           path: '/register',
@@ -129,6 +121,21 @@ class AppRouter {
           path: '/terms-and-conditions',
           name: 'terms-and-conditions',
           builder: (context, state) => const TermsAgreementScreen(),
+        ),
+        GoRoute(
+          path: '/sign-up-complete',
+          name: 'sign-up-complete',
+          builder: (context, state) => const SignupCompleteScreen(),
+        ),
+        GoRoute(
+          path: '/password-reset',
+          name: 'password-reset',
+          builder: (context, state) => const PasswordResetScreen(),
+        ),
+        GoRoute(
+          path: '/password-reset-success',
+          name: 'password-reset-success',
+          builder: (context, state) => const PasswordResetSuccessScreen(),
         ),
       ],
       errorBuilder:
