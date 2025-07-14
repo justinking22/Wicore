@@ -4,6 +4,7 @@ import 'package:with_force/styles/colors.dart';
 class TextStyles {
   static const String kFontFamily = 'Pretendard';
   static const String kSubtitleFontFamily = 'SF Pro Text';
+  static const String kTitleFontfamily = 'Futura';
 
   static const TextStyle kTitle = TextStyle(
     fontSize: 20,

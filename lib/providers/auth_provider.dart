@@ -70,6 +70,14 @@ class AuthService with ChangeNotifier {
     notifyListeners();
   }
 
+  void clearConfirmationState() {
+    _confirmationEmail = null;
+    if (_authStatus == AuthStatus.needsConfirmation) {
+      _authStatus = AuthStatus.unauthenticated;
+      notifyListeners();
+    }
+  }
+
   // AUTHENTICATION METHODS
   Future<Map<String, dynamic>> signUp({
     required String email,
@@ -292,23 +300,25 @@ class AuthService with ChangeNotifier {
   Future<Map<String, dynamic>> signOut() async {
     try {
       // Call logout endpoint if available
-      try {
-        await http.post(
-          Uri.parse('$_baseUrl/auth/logout'),
-          headers: {
-            'Authorization': 'Bearer $_token',
-            'Content-Type': 'application/json',
-          },
-        );
-      } catch (e) {
-        if (kDebugMode) {
-          print('Error calling logout endpoint: $e');
+      if (_token != null) {
+        try {
+          await http.post(
+            Uri.parse('$_baseUrl/auth/logout'),
+            headers: {
+              'Authorization': 'Bearer $_token',
+              'Content-Type': 'application/json',
+            },
+          );
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error calling logout endpoint: $e');
+          }
         }
       }
 
       // Clear local auth state
       await _clearAuthData();
-      _authStatus = AuthStatus.unauthenticated;
+      _authStatus = AuthStatus.unauthenticated; // Don't set to unknown
       notifyListeners();
 
       if (kDebugMode) {
@@ -320,6 +330,11 @@ class AuthService with ChangeNotifier {
       if (kDebugMode) {
         print('Error during logout: $e');
       }
+      // Even on error, clear local state
+      await _clearAuthData();
+      _authStatus = AuthStatus.unauthenticated;
+      notifyListeners();
+
       return {'success': false, 'message': 'An unexpected error occurred: $e'};
     }
   }
@@ -630,9 +645,9 @@ class AuthService with ChangeNotifier {
           }
         }
 
-        // Failed to refresh, clear auth data
+        // Failed to refresh, clear auth data but don't set to unknown
         await _clearAuthData();
-        _authStatus = AuthStatus.unauthenticated;
+        _authStatus = AuthStatus.unauthenticated; // Changed from unknown
         notifyListeners();
 
         return {
@@ -641,7 +656,6 @@ class AuthService with ChangeNotifier {
           'statusCode': response.statusCode,
         };
       }
-
       // Parse response body
       dynamic responseData;
       if (response.body.isNotEmpty) {

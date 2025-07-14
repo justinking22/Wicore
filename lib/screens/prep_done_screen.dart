@@ -3,17 +3,15 @@ import 'package:go_router/go_router.dart';
 import 'package:with_force/styles/text_styles.dart';
 import 'package:with_force/widgets/reusable_button.dart';
 
-class SignupCompleteScreen extends StatefulWidget {
-  const SignupCompleteScreen({Key? key}) : super(key: key);
+class PrepDoneScreen extends StatefulWidget {
+  const PrepDoneScreen({Key? key}) : super(key: key);
 
   @override
-  State<SignupCompleteScreen> createState() => _SignupCompleteScreenState();
+  State<PrepDoneScreen> createState() => _PrepDoneScreenState();
 }
 
-class _SignupCompleteScreenState extends State<SignupCompleteScreen> {
-  void _handleNext() {
-    context.push('/personal-info-input');
-  }
+class _PrepDoneScreenState extends State<PrepDoneScreen> {
+  void _handleNext() {}
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +21,7 @@ class _SignupCompleteScreenState extends State<SignupCompleteScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         automaticallyImplyLeading: false, // Remove back button
-        title: const Text('회원가입 완료', style: TextStyles.kTitle),
+        title: const Text('준비 완료', style: TextStyles.kTitle),
         centerTitle: true,
       ),
       body: Padding(
@@ -34,18 +32,20 @@ class _SignupCompleteScreenState extends State<SignupCompleteScreen> {
             const SizedBox(height: 30),
 
             // Party emoji
-            const Text('🥳', style: TextStyle(fontSize: 30)),
+            const Text('🎉', style: TextStyle(fontSize: 30)),
+
+            const SizedBox(height: 8),
 
             // Title text
-            Text('회원가입 완료!', style: TextStyles.kBody),
-
-            Text('이용준비를 해볼까요?', style: TextStyles.kBody),
+            Text('모두 마무리 되었어요', style: TextStyles.kBody),
+            Text('이제 이용을', style: TextStyles.kBody),
+            Text('시작해 주세요', style: TextStyles.kBody),
 
             const Spacer(),
 
             // Next button
             CustomButton(
-              text: '다음',
+              text: '시작하기',
               isEnabled: true,
               onPressed: _handleNext,
               disabledBackgroundColor: Colors.grey,

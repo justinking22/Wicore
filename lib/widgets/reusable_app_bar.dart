@@ -82,7 +82,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     return TextButton(
       onPressed: onTrailingPressed,
       child: Text(
-        '그만두기',
+        trailingButtonText != null ? '건너뛰기' : '그만두기',
         style: TextStyle(
           color: trailingButtonColor ?? Colors.black,
           fontSize: 16,

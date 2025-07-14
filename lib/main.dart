@@ -54,12 +54,17 @@ class _MyAppState extends State<MyApp> {
       // Initialize AuthService
       _authService = AuthService(baseUrl: _apiBaseUrl!);
 
+      // Initialize the auth service (check current auth state)
+      debugPrint('🔄 Initializing AuthService...');
+      await _authService!.init();
+      debugPrint('✅ AuthService initialized successfully');
+
       setState(() {
         _isConfiguring = false;
         _configurationSuccess = true;
       });
     } catch (e) {
-      debugPrint('Error initializing app: $e');
+      debugPrint('❌ Error initializing app: $e');
       setState(() {
         _isConfiguring = false;
         _configurationSuccess = false;
@@ -164,7 +169,7 @@ class _MyAppState extends State<MyApp> {
 
           return MaterialApp.router(
             debugShowCheckedModeBanner: false,
-            title: 'Auth Demo',
+            title: 'Wicore',
             theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: true),
             routerConfig: router,
           );
