@@ -1,10 +1,10 @@
 import 'dart:io';
 import 'dart:convert';
+import 'package:Wicore/providers/auth_provider.dart';
+import 'package:Wicore/screens/scan_qr_code_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:with_force/providers/auth_provider.dart';
-import 'package:with_force/screens/scan_qr_code_screen.dart';
 
 class RegisterDeviceScreen extends StatefulWidget {
   const RegisterDeviceScreen({Key? key}) : super(key: key);
@@ -13,11 +13,12 @@ class RegisterDeviceScreen extends StatefulWidget {
   _RegisterDeviceScreenState createState() => _RegisterDeviceScreenState();
 }
 
-class _RegisterDeviceScreenState extends State<RegisterDeviceScreen> with TickerProviderStateMixin {
+class _RegisterDeviceScreenState extends State<RegisterDeviceScreen>
+    with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _deviceNameController = TextEditingController();
   final _locationController = TextEditingController();
-  
+
   bool _isLoading = false;
   String? _scannedDeviceId;
   Map<String, dynamic>? _scannedDeviceData;
@@ -32,25 +33,21 @@ class _RegisterDeviceScreenState extends State<RegisterDeviceScreen> with Ticker
       duration: const Duration(seconds: 2),
       vsync: this,
     )..repeat(reverse: true);
-    
-    _pulseAnimation = Tween<double>(
-      begin: 0.8,
-      end: 1.2,
-    ).animate(CurvedAnimation(
-      parent: _pulseController,
-      curve: Curves.easeInOut,
-    ));
-    
+
+    _pulseAnimation = Tween<double>(begin: 0.8, end: 1.2).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
     _loadRegisteredDevices();
   }
 
   // Load registered devices similar to your original implementation
   Future<void> _loadRegisteredDevices() async {
     setState(() => _isLoading = true);
-    
+
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
-      
+
       final result = await authService.makeAuthenticatedRequest(
         endpoint: 'device/get',
         method: 'GET',
@@ -58,7 +55,7 @@ class _RegisterDeviceScreenState extends State<RegisterDeviceScreen> with Ticker
           // Add any query params you need for filtering devices
         },
       );
-      
+
       if (result['success'] && result['data'] != null) {
         final deviceData = result['data'];
         if (deviceData is Map<String, dynamic>) {
@@ -95,22 +92,22 @@ class _RegisterDeviceScreenState extends State<RegisterDeviceScreen> with Ticker
           builder: (context) => const RegisterDeviceQRScanScreen(),
         ),
       );
-      
+
       if (result != null && result['success'] == true) {
         setState(() {
           _scannedDeviceId = result['deviceId'];
           _scannedDeviceData = result['deviceData'];
         });
-        
+
         // Show success dialog since device is registered
         _showSuccessDialog(
           'Device Registered Successfully!',
           'Your IoT device has been successfully registered and linked to your account.',
           () {
             Navigator.pushReplacementNamed(context, '/home');
-          }
+          },
         );
-        
+
         // Reload the devices list to show the new device
         _loadRegisteredDevices();
       } else if (result != null && result['success'] == false) {
@@ -122,7 +119,6 @@ class _RegisterDeviceScreenState extends State<RegisterDeviceScreen> with Ticker
   }
 
   // Handle device registration
-
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -139,42 +135,47 @@ class _RegisterDeviceScreenState extends State<RegisterDeviceScreen> with Ticker
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.check_circle,
-                color: Colors.green,
-                size: 32,
-              ),
+      builder:
+          (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
-            const SizedBox(width: 16),
-            Expanded(child: Text(title)),
-          ],
-        ),
-        content: Text(message),
-        actions: [
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              onOk();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).primaryColor,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.check_circle,
+                    color: Colors.green,
+                    size: 32,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(child: Text(title)),
+              ],
             ),
-            child: const Text('Continue'),
+            content: Text(message),
+            actions: [
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  onOk();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text('Continue'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -220,7 +221,9 @@ class _RegisterDeviceScreenState extends State<RegisterDeviceScreen> with Ticker
                             child: Container(
                               padding: const EdgeInsets.all(20),
                               decoration: BoxDecoration(
-                                color: Theme.of(context).primaryColor.withOpacity(0.1),
+                                color: Theme.of(
+                                  context,
+                                ).primaryColor.withOpacity(0.1),
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
@@ -235,7 +238,9 @@ class _RegisterDeviceScreenState extends State<RegisterDeviceScreen> with Ticker
                       const SizedBox(height: 16),
                       Text(
                         'Scan Your Device',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        style: Theme.of(
+                          context,
+                        ).textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: Theme.of(context).primaryColor,
                         ),
@@ -253,7 +258,7 @@ class _RegisterDeviceScreenState extends State<RegisterDeviceScreen> with Ticker
                   ),
                 ),
                 const SizedBox(height: 32),
-                
+
                 // QR Code section
                 Container(
                   padding: const EdgeInsets.all(20),
@@ -275,12 +280,20 @@ class _RegisterDeviceScreenState extends State<RegisterDeviceScreen> with Ticker
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: _scannedDeviceId != null ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+                              color:
+                                  _scannedDeviceId != null
+                                      ? Colors.green.withOpacity(0.1)
+                                      : Colors.orange.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Icon(
-                              _scannedDeviceId != null ? Icons.qr_code : Icons.qr_code_scanner,
-                              color: _scannedDeviceId != null ? Colors.green : Colors.orange,
+                              _scannedDeviceId != null
+                                  ? Icons.qr_code
+                                  : Icons.qr_code_scanner,
+                              color:
+                                  _scannedDeviceId != null
+                                      ? Colors.green
+                                      : Colors.orange,
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -289,14 +302,16 @@ class _RegisterDeviceScreenState extends State<RegisterDeviceScreen> with Ticker
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  _scannedDeviceId != null ? 'Device Scanned' : 'Scan QR Code',
+                                  _scannedDeviceId != null
+                                      ? 'Device Scanned'
+                                      : 'Scan QR Code',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 16,
                                   ),
                                 ),
                                 Text(
-                                  _scannedDeviceId != null 
+                                  _scannedDeviceId != null
                                       ? 'Device ID: ${_scannedDeviceId!.substring(0, 12)}...'
                                       : 'Tap to scan device QR code',
                                   style: TextStyle(
@@ -316,22 +331,30 @@ class _RegisterDeviceScreenState extends State<RegisterDeviceScreen> with Ticker
                         child: OutlinedButton.icon(
                           onPressed: _isLoading ? null : _scanQRCode,
                           icon: const Icon(Icons.qr_code_scanner),
-                          label: Text(_scannedDeviceId != null ? 'Scan Again' : 'Scan QR Code'),
+                          label: Text(
+                            _scannedDeviceId != null
+                                ? 'Scan Again'
+                                : 'Scan QR Code',
+                          ),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Theme.of(context).primaryColor,
-                            side: BorderSide(color: Theme.of(context).primaryColor),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            side: BorderSide(
+                              color: Theme.of(context).primaryColor,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                         ),
                       ),
-                          ],
+                    ],
                   ),
                 ),
-              ],  // Closes Column children
-            ),   // Closes Form
-          ),    // Closes SingleChildScrollView
-        ),     // Closes SafeArea
-      ),      // Closes Scaffold
-    );       // Closes build method return
-  }        // Closes build method
-}    
+              ], // Closes Column children
+            ), // Closes Form
+          ), // Closes SingleChildScrollView
+        ), // Closes SafeArea
+      ), // Closes Scaffold
+    ); // Closes build method return
+  } // Closes build method
+}

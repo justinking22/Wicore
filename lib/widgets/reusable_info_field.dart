@@ -1,5 +1,5 @@
+import 'package:Wicore/styles/text_styles.dart';
 import 'package:flutter/material.dart';
-import 'package:with_force/styles/text_styles.dart';
 
 class InfoField extends StatelessWidget {
   final String label;
@@ -54,7 +54,7 @@ class InfoField extends StatelessWidget {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(label, style: TextStyles.kTrailingBottomButton),
+                Text(label, style: TextStyles.kRegular),
                 if (isPlaceholder) ...[
                   SizedBox(width: 8),
                   Text(
@@ -87,10 +87,7 @@ class InfoField extends StatelessWidget {
                         SizedBox(
                           width: 2,
                         ), // Small space between number and unit
-                        Text(
-                          splitValue['unit']!,
-                          style: TextStyles.kTrailingBottomButton,
-                        ),
+                        Text(splitValue['unit']!, style: TextStyles.kRegular),
                       ],
                     ],
                   ),

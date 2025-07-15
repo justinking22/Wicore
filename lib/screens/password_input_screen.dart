@@ -1,12 +1,13 @@
+import 'package:Wicore/dialogs/confirmation_dialog.dart'
+    show ExitConfirmationDialogWithOptions;
+import 'package:Wicore/providers/sign_up_provider.dart';
+import 'package:Wicore/styles/colors.dart';
+import 'package:Wicore/styles/text_styles.dart';
+import 'package:Wicore/widgets/reusable_app_bar.dart';
+import 'package:Wicore/widgets/reusable_button.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:with_force/dialogs/confirmation_dialog.dart';
-import 'package:with_force/providers/sign_up_provider.dart';
-import 'package:with_force/styles/colors.dart';
-import 'package:with_force/styles/text_styles.dart';
-import 'package:with_force/widgets/reusable_app_bar.dart';
-import 'package:with_force/widgets/reusable_button.dart';
 
 class PasswordInputScreen extends StatefulWidget {
   const PasswordInputScreen({Key? key}) : super(key: key);
@@ -151,7 +152,7 @@ class _PasswordInputScreenState extends State<PasswordInputScreen> {
                   obscuringCharacter: '●', // Medium circle (smaller than ⚫)
                   decoration: InputDecoration(
                     hintText: '비밀번호를 입력해주세요',
-                    hintStyle: TextStyles.kHint,
+                    hintStyle: TextStyles.kMedium,
                     errorText: _errorText,
                     suffixIcon: IconButton(
                       icon: Icon(

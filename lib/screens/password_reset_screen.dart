@@ -1,11 +1,9 @@
+import 'package:Wicore/styles/text_styles.dart';
+import 'package:Wicore/widgets/reusable_app_bar.dart';
+import 'package:Wicore/widgets/reusable_button.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:with_force/dialogs/confirmation_dialog.dart';
-import 'package:with_force/providers/auth_provider.dart';
-import 'package:with_force/styles/text_styles.dart';
-import 'package:with_force/widgets/reusable_app_bar.dart';
-import 'package:with_force/widgets/reusable_button.dart';
 
 class PasswordResetScreen extends StatefulWidget {
   const PasswordResetScreen({Key? key}) : super(key: key);
@@ -181,7 +179,7 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
               controller: _emailController,
               decoration: InputDecoration(
                 hintText: '예) withforce@naver.com',
-                hintStyle: TextStyles.kHint,
+                hintStyle: TextStyles.kMedium,
                 border: UnderlineInputBorder(
                   borderSide: BorderSide(color: Colors.grey[300]!, width: 1),
                 ),

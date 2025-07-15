@@ -1,5 +1,5 @@
+import 'package:Wicore/styles/colors.dart';
 import 'package:flutter/material.dart';
-import 'package:with_force/styles/colors.dart';
 
 class TextStyles {
   static const String kFontFamily = 'Pretendard';
@@ -10,7 +10,7 @@ class TextStyles {
     fontSize: 20,
     fontWeight: FontWeight.w500,
     fontFamily: kFontFamily,
-    color: Color(0xFF333333),
+    color: CustomColors.pureBlack,
   );
 
   static const TextStyle kTrailingButton = TextStyle(
@@ -24,17 +24,17 @@ class TextStyles {
     fontFamily: kFontFamily,
     color: Color(0xFFFFFFFF),
   );
-  static const TextStyle kHint = TextStyle(
+  static const TextStyle kMedium = TextStyle(
     fontSize: 18,
     fontWeight: FontWeight.w500,
     fontFamily: kFontFamily,
-    color: Color(0xFF999999),
+    color: CustomColors.lightGray,
   );
-  static const TextStyle kSecondTitle = TextStyle(
+  static const TextStyle kSemiBold = TextStyle(
     fontSize: 22,
     fontWeight: FontWeight.w600,
     fontFamily: kFontFamily,
-    color: CustomColors.darkGray,
+    color: CustomColors.darkCharcoal,
   );
   static TextStyle kInput = TextStyle(
     fontSize: 16,
@@ -82,19 +82,19 @@ class TextStyles {
     fontFamily: kFontFamily,
     fontSize: 18,
     fontWeight: FontWeight.w500,
-    color: CustomColors.lighGray,
+    color: CustomColors.lightGray,
   );
-  static const TextStyle kTrailingBottomButton = TextStyle(
+  static const TextStyle kRegular = TextStyle(
     fontFamily: kFontFamily,
     fontSize: 18,
     fontWeight: FontWeight.w400,
-    color: CustomColors.darkGray,
+    color: CustomColors.darkCharcoal,
   );
   static const TextStyle kTrailingBottomButtonWithUnderline = TextStyle(
     fontFamily: kFontFamily,
     fontSize: 18,
     fontWeight: FontWeight.w400,
-    color: CustomColors.darkGray,
+    color: CustomColors.darkCharcoal,
     decoration: TextDecoration.underline,
   );
   static const TextStyle kLogo = TextStyle(

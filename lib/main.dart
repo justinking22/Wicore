@@ -1,34 +1,40 @@
+import 'package:Wicore/app_router.dart';
+import 'package:Wicore/providers/auth_provider.dart';
+import 'package:Wicore/providers/sign_up_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
 import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
 import 'package:amplify_api/amplify_api.dart';
-import 'package:with_force/app_router.dart';
-import 'package:with_force/providers/auth_provider.dart';
-import 'package:with_force/providers/sign_up_provider.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 
 import 'services/config_service.dart';
 
 void main() {
   // Ensure Flutter is initialized
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MyApp());
+  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+
+  // Keep the native splash screen visible
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+
+  runApp(const Wicore());
 }
 
-class MyApp extends StatefulWidget {
-  const MyApp({Key? key}) : super(key: key);
+class Wicore extends StatefulWidget {
+  const Wicore({Key? key}) : super(key: key);
 
   @override
-  State<MyApp> createState() => _MyAppState();
+  State<Wicore> createState() => _WicoreState();
 }
 
-class _MyAppState extends State<MyApp> {
-  bool _isConfiguring = true;
-  bool _configurationSuccess = false;
+class _WicoreState extends State<Wicore> {
+  bool _isInitialized = false;
+  bool _initializationSuccess = false;
   String? _apiBaseUrl;
   final _configService = ConfigService();
   AuthService? _authService;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -60,15 +66,19 @@ class _MyAppState extends State<MyApp> {
       debugPrint('✅ AuthService initialized successfully');
 
       setState(() {
-        _isConfiguring = false;
-        _configurationSuccess = true;
+        _isInitialized = true;
+        _initializationSuccess = true;
       });
     } catch (e) {
       debugPrint('❌ Error initializing app: $e');
       setState(() {
-        _isConfiguring = false;
-        _configurationSuccess = false;
+        _isInitialized = true;
+        _initializationSuccess = false;
+        _errorMessage = e.toString();
       });
+    } finally {
+      // Remove the native splash screen once initialization is complete
+      FlutterNativeSplash.remove();
     }
   }
 
@@ -97,53 +107,55 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isConfiguring) {
-      return MaterialApp(
-        debugShowCheckedModeBanner: false,
-        home: Scaffold(
-          body: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text('Loading configuration...'),
-              ],
-            ),
-          ),
-        ),
-      );
+    // Show nothing while initializing (native splash screen is visible)
+    if (!_isInitialized) {
+      return const SizedBox.shrink();
     }
 
-    if (!_configurationSuccess || _apiBaseUrl == null || _authService == null) {
+    // Show error screen if initialization failed
+    if (!_initializationSuccess ||
+        _apiBaseUrl == null ||
+        _authService == null) {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         home: Scaffold(
           body: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                const SizedBox(height: 16),
-                const Text('Failed to configure application'),
-                const SizedBox(height: 8),
-                Text(
-                  _apiBaseUrl == null
-                      ? 'No API endpoint found in configuration'
-                      : 'Error configuring Amplify',
-                  style: const TextStyle(color: Colors.grey),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      _isConfiguring = true;
-                    });
-                    _initializeApp();
-                  },
-                  child: const Text('Retry'),
-                ),
-              ],
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Failed to initialize application',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _errorMessage ?? 'Unknown error occurred',
+                    style: const TextStyle(color: Colors.grey),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        _isInitialized = false;
+                        _initializationSuccess = false;
+                        _errorMessage = null;
+                      });
+                      // Show splash screen again
+                      FlutterNativeSplash.preserve(
+                        widgetsBinding: WidgetsBinding.instance,
+                      );
+                      _initializeApp();
+                    },
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

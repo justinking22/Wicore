@@ -1,9 +1,9 @@
+import 'package:Wicore/styles/colors.dart';
+import 'package:Wicore/styles/text_styles.dart';
+import 'package:Wicore/widgets/reusable_app_bar.dart';
+import 'package:Wicore/widgets/reusable_button.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:with_force/styles/colors.dart';
-import 'package:with_force/styles/text_styles.dart';
-import 'package:with_force/widgets/reusable_app_bar.dart';
-import 'package:with_force/widgets/reusable_button.dart';
 
 class PhoneInputScreen extends StatefulWidget {
   @override
@@ -76,7 +76,7 @@ class _PhoneInputScreenState extends State<PhoneInputScreen> {
                       width: double.infinity,
                       child: Text(
                         '비상연락이 필요한 경우\n작성해주신 연락처로 연락이 갈 예정이에요.',
-                        style: TextStyles.kHint,
+                        style: TextStyles.kMedium,
                       ),
                     ),
                   ),

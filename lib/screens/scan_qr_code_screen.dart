@@ -2,25 +2,27 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:Wicore/providers/auth_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
-import 'package:with_force/providers/auth_provider.dart';
 
 class RegisterDeviceQRScanScreen extends StatefulWidget {
   const RegisterDeviceQRScanScreen({Key? key}) : super(key: key);
 
   @override
-  _RegisterDeviceQRScanScreenState createState() => _RegisterDeviceQRScanScreenState();
+  _RegisterDeviceQRScanScreenState createState() =>
+      _RegisterDeviceQRScanScreenState();
 }
 
-class _RegisterDeviceQRScanScreenState extends State<RegisterDeviceQRScanScreen> {
+class _RegisterDeviceQRScanScreenState
+    extends State<RegisterDeviceQRScanScreen> {
   MobileScannerController cameraController = MobileScannerController(
     detectionSpeed: DetectionSpeed.noDuplicates,
     facing: CameraFacing.back,
     torchEnabled: false,
   );
-  
+
   bool _isFlashOn = false;
   bool _hasScanned = false;
 
@@ -49,36 +51,31 @@ class _RegisterDeviceQRScanScreenState extends State<RegisterDeviceQRScanScreen>
 
   void _onDetect(BarcodeCapture capture) async {
     if (_hasScanned) return;
-    
+
     final List<Barcode> barcodes = capture.barcodes;
-    
+
     if (barcodes.isNotEmpty) {
       final String? code = barcodes.first.rawValue;
-      
+
       if (code != null && code.isNotEmpty) {
         setState(() {
           _hasScanned = true;
         });
-        
+
         await cameraController.stop();
-        
+
         try {
           // Parse QR code data to extract device information
           Map<String, dynamic> qrData = {};
-          
+
           try {
             // If QR code contains JSON data
             qrData = json.decode(code);
           } catch (e) {
             // If QR code is just a device ID, create basic structure
-            qrData = {
-              'd_id': code,
-              'fv': '0.0.1',
-              'rev': 1,
-              'offset': 540
-            };
+            qrData = {'d_id': code, 'fv': '0.0.1', 'rev': 1, 'offset': 540};
           }
-          
+
           // Get current user data
           final authService = Provider.of<AuthService>(context, listen: false);
           final user = authService.userData;
@@ -87,7 +84,9 @@ class _RegisterDeviceQRScanScreenState extends State<RegisterDeviceQRScanScreen>
             if (mounted) {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('User not found. Please login again.')),
+                const SnackBar(
+                  content: Text('User not found. Please login again.'),
+                ),
               );
             }
             return;
@@ -100,8 +99,8 @@ class _RegisterDeviceQRScanScreenState extends State<RegisterDeviceQRScanScreen>
               "d_id": qrData['d_id'] ?? code,
               "fv": qrData['fv'] ?? "0.0.1",
               "rev": qrData['rev'] ?? 1,
-              "offset": qrData['offset'] ?? 540
-            }
+              "offset": qrData['offset'] ?? 540,
+            },
           };
 
           // Make API call using your makeAuthenticatedRequest method
@@ -125,7 +124,9 @@ class _RegisterDeviceQRScanScreenState extends State<RegisterDeviceQRScanScreen>
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(result['message'] ?? 'Device registration failed'),
+                  content: Text(
+                    result['message'] ?? 'Device registration failed',
+                  ),
                   backgroundColor: Colors.red,
                 ),
               );
@@ -178,14 +179,11 @@ class _RegisterDeviceQRScanScreenState extends State<RegisterDeviceQRScanScreen>
       body: Stack(
         children: [
           // Camera scanner
-          MobileScanner(
-            controller: cameraController,
-            onDetect: _onDetect,
-          ),
-          
+          MobileScanner(controller: cameraController, onDetect: _onDetect),
+
           // Custom overlay
           _buildScannerOverlay(context),
-          
+
           // Header text
           const Positioned(
             top: 24,
@@ -201,7 +199,7 @@ class _RegisterDeviceQRScanScreenState extends State<RegisterDeviceQRScanScreen>
               textAlign: TextAlign.center,
             ),
           ),
-          
+
           // Bottom instructions
           Positioned(
             bottom: 80,
@@ -242,17 +240,14 @@ class _RegisterDeviceQRScanScreenState extends State<RegisterDeviceQRScanScreen>
                   const SizedBox(height: 8),
                   const Text(
                     'Make sure the code is clearly visible and well-lit',
-                    style: TextStyle(
-                      color: Colors.grey,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
                     textAlign: TextAlign.center,
                   ),
                 ],
               ),
             ),
           ),
-          
+
           // Success overlay when scanned
           if (_hasScanned)
             Container(
@@ -267,11 +262,7 @@ class _RegisterDeviceQRScanScreenState extends State<RegisterDeviceQRScanScreen>
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        Icons.check_circle,
-                        color: Colors.green,
-                        size: 64,
-                      ),
+                      Icon(Icons.check_circle, color: Colors.green, size: 64),
                       const SizedBox(height: 16),
                       const Text(
                         'QR Code Scanned!',
@@ -283,10 +274,7 @@ class _RegisterDeviceQRScanScreenState extends State<RegisterDeviceQRScanScreen>
                       const SizedBox(height: 8),
                       const Text(
                         'Processing device information...',
-                        style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 14,
-                        ),
+                        style: TextStyle(color: Colors.grey, fontSize: 14),
                       ),
                     ],
                   ),
@@ -302,7 +290,7 @@ class _RegisterDeviceQRScanScreenState extends State<RegisterDeviceQRScanScreen>
     final double cutOutSize = MediaQuery.of(context).size.width * 0.6;
     final double screenWidth = MediaQuery.of(context).size.width;
     final double screenHeight = MediaQuery.of(context).size.height;
-    
+
     return Container(
       width: screenWidth,
       height: screenHeight,
@@ -343,9 +331,9 @@ class _ScannerOverlayShape extends ShapeBorder {
     final double centerX = rect.center.dx;
     final double centerY = rect.center.dy;
     final double halfSize = cutOutSize / 2;
-    
-    return Path()
-      ..addRRect(RRect.fromRectAndRadius(
+
+    return Path()..addRRect(
+      RRect.fromRectAndRadius(
         Rect.fromLTWH(
           centerX - halfSize,
           centerY - halfSize,
@@ -353,7 +341,8 @@ class _ScannerOverlayShape extends ShapeBorder {
           cutOutSize,
         ),
         Radius.circular(borderRadius),
-      ));
+      ),
+    );
   }
 
   @override
@@ -366,38 +355,41 @@ class _ScannerOverlayShape extends ShapeBorder {
     final double centerX = rect.center.dx;
     final double centerY = rect.center.dy;
     final double halfSize = cutOutSize / 2;
-    
+
     // Create the overlay with transparent center
-    final Paint overlayPaint = Paint()
-      ..color = Colors.black.withOpacity(0.6);
-    
-    final Path overlayPath = Path()
-      ..addRect(rect)
-      ..addRRect(RRect.fromRectAndRadius(
-        Rect.fromLTWH(
-          centerX - halfSize,
-          centerY - halfSize,
-          cutOutSize,
-          cutOutSize,
-        ),
-        Radius.circular(borderRadius),
-      ))
-      ..fillType = PathFillType.evenOdd;
-    
+    final Paint overlayPaint = Paint()..color = Colors.black.withOpacity(0.6);
+
+    final Path overlayPath =
+        Path()
+          ..addRect(rect)
+          ..addRRect(
+            RRect.fromRectAndRadius(
+              Rect.fromLTWH(
+                centerX - halfSize,
+                centerY - halfSize,
+                cutOutSize,
+                cutOutSize,
+              ),
+              Radius.circular(borderRadius),
+            ),
+          )
+          ..fillType = PathFillType.evenOdd;
+
     canvas.drawPath(overlayPath, overlayPaint);
-    
+
     // Draw corner borders
-    final Paint borderPaint = Paint()
-      ..color = borderColor
-      ..strokeWidth = borderWidth
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    
+    final Paint borderPaint =
+        Paint()
+          ..color = borderColor
+          ..strokeWidth = borderWidth
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round;
+
     final double left = centerX - halfSize;
     final double top = centerY - halfSize;
     final double right = centerX + halfSize;
     final double bottom = centerY + halfSize;
-    
+
     // Top-left corner
     canvas.drawLine(
       Offset(left, top + borderRadius),
@@ -409,7 +401,7 @@ class _ScannerOverlayShape extends ShapeBorder {
       Offset(left + borderRadius + borderLength, top),
       borderPaint,
     );
-    
+
     // Top-right corner
     canvas.drawLine(
       Offset(right, top + borderRadius),
@@ -421,7 +413,7 @@ class _ScannerOverlayShape extends ShapeBorder {
       Offset(right - borderRadius - borderLength, top),
       borderPaint,
     );
-    
+
     // Bottom-left corner
     canvas.drawLine(
       Offset(left, bottom - borderRadius),
@@ -433,7 +425,7 @@ class _ScannerOverlayShape extends ShapeBorder {
       Offset(left + borderRadius + borderLength, bottom),
       borderPaint,
     );
-    
+
     // Bottom-right corner
     canvas.drawLine(
       Offset(right, bottom - borderRadius),

@@ -1,10 +1,10 @@
+import 'package:Wicore/dialogs/confirmation_dialog.dart';
+import 'package:Wicore/styles/colors.dart';
+import 'package:Wicore/styles/text_styles.dart';
+import 'package:Wicore/widgets/reusable_app_bar.dart';
+import 'package:Wicore/widgets/reusable_button.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:with_force/dialogs/confirmation_dialog.dart';
-import 'package:with_force/styles/colors.dart';
-import 'package:with_force/styles/text_styles.dart';
-import 'package:with_force/widgets/reusable_app_bar.dart';
-import 'package:with_force/widgets/reusable_button.dart';
 
 class TermsAgreementScreen extends StatefulWidget {
   const TermsAgreementScreen({Key? key}) : super(key: key);
@@ -155,16 +155,16 @@ class _TermsAgreementScreenState extends State<TermsAgreementScreen> {
             const SizedBox(height: 24),
 
             // Subtitle text
-            Text('동의하신 내용은 언제든지 앱에서', style: TextStyles.kHint),
+            Text('동의하신 내용은 언제든지 앱에서', style: TextStyles.kMedium),
             const SizedBox(height: 4),
-            Text('다시 확인하실 수 있어요.', style: TextStyles.kHint),
+            Text('다시 확인하실 수 있어요.', style: TextStyles.kMedium),
 
             const SizedBox(height: 60),
 
             // Agree all checkbox
             _buildCheckboxRow(
               title: '전체동의',
-              textStyle: TextStyles.kSecondTitle,
+              textStyle: TextStyles.kSemiBold,
               value: _agreeAll,
               onChanged: _handleAgreeAllChanged,
               isBold: true,
@@ -176,7 +176,7 @@ class _TermsAgreementScreenState extends State<TermsAgreementScreen> {
             // Individual agreement checkboxes
             _buildCheckboxRow(
               title: '[필수] 서비스 이용 약관',
-              textStyle: TextStyles.kTrailingBottomButton,
+              textStyle: TextStyles.kRegular,
               value: _agreeService,
               onChanged: _handleServiceChanged,
               showArrow: true,
@@ -185,7 +185,7 @@ class _TermsAgreementScreenState extends State<TermsAgreementScreen> {
 
             _buildCheckboxRow(
               title: '[필수] 개인정보 수집 및 이용 동의',
-              textStyle: TextStyles.kTrailingBottomButton,
+              textStyle: TextStyles.kRegular,
               value: _agreePrivacy,
               onChanged: _handlePrivacyChanged,
               showArrow: true,
@@ -194,7 +194,7 @@ class _TermsAgreementScreenState extends State<TermsAgreementScreen> {
 
             _buildCheckboxRow(
               title: '[선택] 위치 정보 수집 동의',
-              textStyle: TextStyles.kTrailingBottomButton,
+              textStyle: TextStyles.kRegular,
               value: _agreeLocation,
               onChanged: _handleLocationChanged,
               showArrow: true,

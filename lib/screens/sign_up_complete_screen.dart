@@ -1,7 +1,7 @@
+import 'package:Wicore/styles/text_styles.dart';
+import 'package:Wicore/widgets/reusable_button.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:with_force/styles/text_styles.dart';
-import 'package:with_force/widgets/reusable_button.dart';
 
 class SignupCompleteScreen extends StatefulWidget {
   const SignupCompleteScreen({Key? key}) : super(key: key);

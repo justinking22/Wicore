@@ -1,10 +1,10 @@
+import 'package:Wicore/providers/auth_provider.dart';
+import 'package:Wicore/styles/colors.dart';
+import 'package:Wicore/styles/text_styles.dart';
+import 'package:Wicore/widgets/reusable_button.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:with_force/providers/auth_provider.dart';
-import 'package:with_force/styles/colors.dart';
-import 'package:with_force/styles/text_styles.dart';
-import 'package:with_force/widgets/reusable_button.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -241,7 +241,7 @@ class _SignInScreenState extends State<SignInScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: const [
-                  Text('회원가입', style: TextStyles.kTrailingBottomButton),
+                  Text('회원가입', style: TextStyles.kRegular),
                   SizedBox(width: 4),
                   Icon(Icons.arrow_forward, size: 20),
                 ],
@@ -291,20 +291,20 @@ class _SignInScreenState extends State<SignInScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('이메일', style: TextStyles.kSecondTitle),
+                      const Text('이메일', style: TextStyles.kSemiBold),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
                         decoration: InputDecoration(
                           hintText: '이메일주소를 입력해주세요',
-                          hintStyle: TextStyles.kHint,
+                          hintStyle: TextStyles.kMedium,
                           border: const UnderlineInputBorder(
                             borderSide: BorderSide(color: Color(0xFFE0E0E0)),
                           ),
                           focusedBorder: const UnderlineInputBorder(
                             borderSide: BorderSide(
-                              color: CustomColors.darkGray,
+                              color: CustomColors.darkCharcoal,
                               width: 2,
                             ),
                           ),
@@ -338,20 +338,20 @@ class _SignInScreenState extends State<SignInScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('비밀번호', style: TextStyles.kSecondTitle),
+                      const Text('비밀번호', style: TextStyles.kSemiBold),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _passwordController,
                         obscureText: _isObscurePassword,
                         decoration: InputDecoration(
                           hintText: '비밀번호를 입력해주세요',
-                          hintStyle: TextStyles.kHint,
+                          hintStyle: TextStyles.kMedium,
                           border: const UnderlineInputBorder(
                             borderSide: BorderSide(color: Color(0xFFE0E0E0)),
                           ),
                           focusedBorder: const UnderlineInputBorder(
                             borderSide: BorderSide(
-                              color: CustomColors.darkGray,
+                              color: CustomColors.darkCharcoal,
                               width: 2,
                             ),
                           ),
@@ -401,17 +401,14 @@ class _SignInScreenState extends State<SignInScreen> {
                                   _isAutoLogin = value ?? false;
                                 });
                               },
-                              activeColor: CustomColors.darkGray,
+                              activeColor: CustomColors.darkCharcoal,
                               checkColor: CustomColors.limeGreen,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(4.0),
                               ),
                             ),
                           ),
-                          const Text(
-                            '자동로그인',
-                            style: TextStyles.kTrailingBottomButton,
-                          ),
+                          const Text('자동로그인', style: TextStyles.kRegular),
                         ],
                       ),
                       TextButton(

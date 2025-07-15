@@ -1,28 +1,35 @@
+import 'package:Wicore/providers/auth_provider.dart';
+import 'package:Wicore/screens/calendar_screen.dart';
+import 'package:Wicore/screens/device_history_screen.dart';
+import 'package:Wicore/screens/email_input_screen.dart';
+import 'package:Wicore/screens/email_verification_screen.dart';
+import 'package:Wicore/screens/email_verification_success_screen.dart';
+import 'package:Wicore/screens/forgot_password_screen.dart';
+import 'package:Wicore/screens/home_screen.dart';
+import 'package:Wicore/screens/name_input_screen.dart';
+import 'package:Wicore/screens/notifications_settings_screen.dart';
+import 'package:Wicore/screens/password_input_screen.dart';
+import 'package:Wicore/screens/password_re_enter_screen.dart';
+import 'package:Wicore/screens/password_reset_confirmation_screen.dart';
+import 'package:Wicore/screens/password_reset_screen.dart';
+import 'package:Wicore/screens/password_reset_succes_screen.dart';
+import 'package:Wicore/screens/personal_info_display_screen.dart';
+import 'package:Wicore/screens/personal_info_input_screen.dart';
+import 'package:Wicore/screens/phone_input_screen.dart';
+import 'package:Wicore/screens/prep_done_screen.dart';
+import 'package:Wicore/screens/qr_acanner_screen.dart';
+import 'package:Wicore/screens/register_screen.dart';
+import 'package:Wicore/screens/resave_phone_number_screen.dart';
+import 'package:Wicore/screens/sign_in_screen.dart';
+import 'package:Wicore/screens/sign_up_complete_screen.dart';
+import 'package:Wicore/screens/splash_screen.dart';
+import 'package:Wicore/screens/terms_and_conditions_screen.dart';
+import 'package:Wicore/screens/terms_of_use_screen.dart';
+import 'package:Wicore/screens/welcome_screen.dart';
+import 'package:Wicore/utilities/main_navigation.dart';
+import 'package:Wicore/widgets/device_details_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
-import 'package:with_force/providers/auth_provider.dart';
-import 'package:with_force/screens/email_input_screen.dart';
-import 'package:with_force/screens/email_verification_screen.dart';
-import 'package:with_force/screens/email_verification_success_screen.dart';
-import 'package:with_force/screens/home_screen.dart';
-import 'package:with_force/screens/password_input_screen.dart';
-import 'package:with_force/screens/password_re_enter_screen.dart';
-import 'package:with_force/screens/password_reset_screen.dart';
-import 'package:with_force/screens/password_reset_succes_screen.dart';
-import 'package:with_force/screens/personal_info_input_screen.dart';
-import 'package:with_force/screens/phone_input_screen.dart';
-import 'package:with_force/screens/prep_done_screen.dart';
-import 'package:with_force/screens/sign_in_screen.dart';
-import 'package:with_force/screens/sign_up_complete_screen.dart';
-import 'package:with_force/screens/splash_screen.dart';
-import 'package:with_force/screens/terms_and_conditions_screen.dart';
-import 'package:with_force/screens/welcome_screen.dart';
-import 'package:with_force/screens/register_screen.dart';
-import 'package:with_force/screens/home_page.dart';
-import 'package:with_force/screens/forgot_password_screen.dart';
-import 'package:with_force/screens/name_input_screen.dart';
-import 'package:with_force/utilities/main_navigation.dart';
 
 class AppRouter {
   static GoRouter createRouter(AuthService authService) {
@@ -167,6 +174,66 @@ class AppRouter {
           path: '/navigation',
           name: 'navigation',
           builder: (context, state) => MainNavigation(),
+        ),
+        GoRoute(
+          path: '/qr-scan-screen',
+          builder:
+              (context, state) => Scaffold(
+                body: QRScannerWidget(
+                  onQRScanned: (qrCode) {
+                    // Navigate back with result
+                    context.go('/home?qrResult=$qrCode');
+                  },
+                  onBackPressed: () {
+                    // Navigate back without result
+                    context.go('/home');
+                  },
+                ),
+                // Add your bottom navigation bar here if needed
+                // bottomNavigationBar: YourBottomNavigationBar(),
+              ),
+        ),
+        GoRoute(
+          path: '/device-details',
+          builder: (context, state) {
+            final deviceId = state.uri.queryParameters['deviceId'] ?? 'UNKNOWN';
+            return DeviceDetailsWidget(deviceId: deviceId);
+          },
+        ),
+        GoRoute(
+          path: '/calendar-screen',
+          name: 'calendar-screen',
+          builder: (context, state) => KoreanCalendar(),
+        ),
+        GoRoute(
+          path: '/device-history-screen',
+          name: 'device-history-screen',
+          builder: (context, state) => ChronologicalListScreen(),
+        ),
+        GoRoute(
+          path: '/personal-info-display-screen',
+          name: 'personal-info-display-screen',
+          builder: (context, state) => PersonalInfoDisplayScreen(),
+        ),
+        GoRoute(
+          path: '/notificatios-settings',
+          name: 'notificatios-settings',
+          builder: (context, state) => NotificationSettingsScreen(),
+        ),
+        GoRoute(
+          path: '/terms-of-use',
+          name: 'terms-of-use',
+          builder: (context, state) => TermsOfServiceScreen(),
+        ),
+        GoRoute(
+          path: '/re-save-phone-number-screen',
+          name: 're-save-phone-number-screen',
+          builder: (context, state) => ResavePhoneNumberScreen(),
+        ),
+        GoRoute(
+          path: '/password-reset-confirmation-screen',
+          name: 'password-reset-confirmation-screen',
+          builder: (context, state) => PasswordResetConfirmationScreen(),
         ),
       ],
       errorBuilder:

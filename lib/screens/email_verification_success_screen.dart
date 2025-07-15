@@ -1,9 +1,9 @@
+import 'package:Wicore/dialogs/confirmation_dialog.dart';
+import 'package:Wicore/styles/text_styles.dart';
+import 'package:Wicore/widgets/reusable_app_bar.dart';
+import 'package:Wicore/widgets/reusable_button.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:with_force/dialogs/confirmation_dialog.dart';
-import 'package:with_force/styles/text_styles.dart';
-import 'package:with_force/widgets/reusable_app_bar.dart';
-import 'package:with_force/widgets/reusable_button.dart';
 
 class EmailVerificationSuccessScreen extends StatefulWidget {
   const EmailVerificationSuccessScreen({Key? key}) : super(key: key);

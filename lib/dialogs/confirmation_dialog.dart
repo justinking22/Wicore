@@ -1,8 +1,8 @@
+import 'package:Wicore/styles/colors.dart';
+import 'package:Wicore/styles/text_styles.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:with_force/styles/colors.dart';
-import 'package:with_force/styles/text_styles.dart';
 
 class ExitConfirmationDialog {
   static Future<void> show(BuildContext context) async {

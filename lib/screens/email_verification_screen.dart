@@ -123,16 +123,16 @@
 //     );
 //   }
 // }
+import 'package:Wicore/dialogs/confirmation_dialog.dart';
+import 'package:Wicore/providers/sign_up_provider.dart';
+import 'package:Wicore/styles/colors.dart';
+import 'package:Wicore/styles/text_styles.dart';
+import 'package:Wicore/widgets/reusable_app_bar.dart';
+import 'package:Wicore/widgets/reusable_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:with_force/dialogs/confirmation_dialog.dart';
-import 'package:with_force/providers/sign_up_provider.dart';
-import 'package:with_force/styles/colors.dart';
-import 'package:with_force/styles/text_styles.dart';
-import 'package:with_force/widgets/reusable_app_bar.dart';
-import 'package:with_force/widgets/reusable_button.dart';
 
 class EmailVerificationScreen extends StatefulWidget {
   const EmailVerificationScreen({Key? key}) : super(key: key);
@@ -296,7 +296,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
               decoration: BoxDecoration(
-                color: const Color(0xFFF5F5F5), // Light grey background
+                color: CustomColors.lighterGray, // Light grey background
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -372,7 +372,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
               controller: _codeController,
               decoration: InputDecoration(
                 hintText: '이메일을 열어보시고, 숫자를 입력해주세요.',
-                hintStyle: TextStyles.kHint,
+                hintStyle: TextStyles.kMedium,
                 border: UnderlineInputBorder(
                   borderSide: BorderSide(color: Colors.grey[300]!, width: 1),
                 ),
@@ -416,14 +416,14 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
                     decoration: const BoxDecoration(
                       border: Border(
                         bottom: BorderSide(
-                          color: CustomColors.darkGray,
+                          color: CustomColors.darkCharcoal,
                           width: 1,
                         ),
                       ),
                     ),
                     child: Text(
                       _isResending ? '전송 중...' : '인증번호가 도착하지 않았어요',
-                      style: TextStyles.kTrailingBottomButton,
+                      style: TextStyles.kRegular,
                     ),
                   ),
                 ),

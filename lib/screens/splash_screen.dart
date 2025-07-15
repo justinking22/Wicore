@@ -1,9 +1,9 @@
+import 'package:Wicore/providers/auth_provider.dart';
+import 'package:Wicore/styles/colors.dart';
+import 'package:Wicore/styles/text_styles.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:with_force/providers/auth_provider.dart';
-import 'package:with_force/styles/colors.dart';
-import 'package:with_force/styles/text_styles.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
@@ -36,7 +36,7 @@ class _SplashScreenState extends State<SplashScreen>
     );
 
     // Create fade animation (from full opacity to slightly faded)
-    _fadeAnimation = Tween<double>(begin: 1.0, end: 0.7).animate(
+    _fadeAnimation = Tween<double>(begin: 1.0, end: 0.3).animate(
       CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
     );
 
@@ -118,10 +118,10 @@ class _SplashScreenState extends State<SplashScreen>
             height: double.infinity,
             color: _colorAnimation.value,
             child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+              child: Stack(
+                alignment: Alignment.center,
                 children: [
-                  // Animated logo
+                  // Logo (background layer)
                   AnimatedBuilder(
                     animation: _fadeAnimation,
                     builder: (context, child) {
@@ -133,7 +133,7 @@ class _SplashScreenState extends State<SplashScreen>
                             BlendMode.dst,
                           ),
                           child: Image.asset(
-                            'assets/images/logo.png', // Replace with your logo asset path
+                            'assets/images/splash.png', // Replace with your logo asset path
                             width: 394,
                             height: 197,
                           ),
@@ -141,27 +141,29 @@ class _SplashScreenState extends State<SplashScreen>
                       );
                     },
                   ),
-                  const SizedBox(height: 30),
 
-                  // Animated text (if you want to add it)
-                  AnimatedBuilder(
-                    animation: _colorController,
-                    builder: (context, child) {
-                      return AnimatedOpacity(
-                        opacity: _colorController.value,
-                        duration: const Duration(milliseconds: 300),
-                        child: Text(
-                          'WICORE',
-                          style: TextStyle(
-                            fontSize: 40,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                            letterSpacing: 4.8,
-                            fontFamily: TextStyles.kTitleFontfamily,
+                  // Text overlay (foreground layer) - positioned lower
+                  Positioned(
+                    top: 100, // Adjust this value to move text up/down
+                    child: AnimatedBuilder(
+                      animation: _colorController,
+                      builder: (context, child) {
+                        return AnimatedOpacity(
+                          opacity: _colorController.value,
+                          duration: const Duration(milliseconds: 300),
+                          child: Text(
+                            'WICORE',
+                            style: TextStyle(
+                              fontSize: 40,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
+                              letterSpacing: 4.8,
+                              fontFamily: TextStyles.kTitleFontfamily,
+                            ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
                 ],
               ),

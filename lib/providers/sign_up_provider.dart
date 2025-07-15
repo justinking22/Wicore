@@ -1,5 +1,5 @@
+import 'package:Wicore/providers/auth_provider.dart';
 import 'package:flutter/material.dart';
-import 'package:with_force/providers/auth_provider.dart';
 
 class SignUpProvider extends ChangeNotifier {
   final AuthService _authService;

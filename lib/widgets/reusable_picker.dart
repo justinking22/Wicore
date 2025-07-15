@@ -1,7 +1,7 @@
 // Enhanced Reusable Picker Component
+import 'package:Wicore/styles/colors.dart';
+import 'package:Wicore/styles/text_styles.dart';
 import 'package:flutter/material.dart';
-import 'package:with_force/styles/colors.dart' show CustomColors;
-import 'package:with_force/styles/text_styles.dart';
 
 class ReusablePicker extends StatefulWidget {
   final String title;

@@ -1,7 +1,10 @@
+import 'package:Wicore/screens/home_screen.dart';
+import 'package:Wicore/screens/qr_acanner_screen.dart';
+import 'package:Wicore/screens/records_screen.dart';
+import 'package:Wicore/screens/settings_screen.dart';
+import 'package:Wicore/styles/colors.dart';
 import 'package:flutter/material.dart';
-import 'package:with_force/screens/home_screen.dart';
-import 'package:with_force/screens/records_screen.dart';
-import 'package:with_force/screens/settings_screen.dart';
+import 'package:go_router/go_router.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({Key? key}) : super(key: key);
@@ -22,61 +25,84 @@ class _MainNavigationState extends State<MainNavigation> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
       body: IndexedStack(
         index: _currentIndex,
-        children: const [HomeScreen(), RecordsScreen(), SettingsScreen()],
+        children: [HomeScreen(), RecordsScreen(), SettingsScreen()],
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          child: SizedBox(
-            height: 80,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildNavItem(Icons.home, '홈', 0),
-                _buildNavItem(Icons.description, '기록', 1),
-                _buildNavItem(Icons.settings, '설정', 2),
-              ],
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Dividing line
+          Container(height: 1, color: CustomColors.lightGray),
+          Container(
+            color: Colors.white,
+            child: SafeArea(
+              child: SizedBox(
+                height: 70,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildNavItem(
+                      'assets/icons/home_icon.png',
+                      'assets/icons/home_selected.png',
+                      '홈',
+                      0,
+                    ),
+                    _buildNavItem(
+                      'assets/icons/records_icon.png',
+                      'assets/icons/records_selected.png',
+                      '기록',
+                      1,
+                    ),
+                    _buildNavItem(
+                      'assets/icons/settings_icon.png',
+                      'assets/icons/settings_selected.png',
+                      '설정',
+                      2,
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
 
-  Widget _buildNavItem(IconData icon, String label, int index) {
+  Widget _buildNavItem(
+    String unselectedIconPath,
+    String selectedIconPath,
+    String label,
+    int index,
+  ) {
     final isSelected = _currentIndex == index;
 
     return GestureDetector(
       onTap: () => _onTabTapped(index),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            size: 24,
-            color: isSelected ? Colors.blue : Colors.grey[600],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: isSelected ? Colors.blue : Colors.grey[600],
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              isSelected ? selectedIconPath : unselectedIconPath,
+              width: 28,
+              height: 28,
             ),
-          ),
-        ],
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                color: isSelected ? Colors.black : const Color(0xFF9E9E9E),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,6 +1,6 @@
+import 'package:Wicore/styles/colors.dart';
+import 'package:Wicore/styles/text_styles.dart';
 import 'package:flutter/material.dart';
-import 'package:with_force/styles/colors.dart' show CustomColors;
-import 'package:with_force/styles/text_styles.dart';
 
 class CustomButton extends StatelessWidget {
   final String text;
@@ -48,7 +48,7 @@ class CustomButton extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor:
               buttonEnabled
-                  ? (backgroundColor ?? CustomColors.darkGray)
+                  ? (backgroundColor ?? CustomColors.darkCharcoal)
                   : (disabledBackgroundColor ?? Colors.grey[900]),
           foregroundColor:
               buttonEnabled

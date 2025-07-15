@@ -13,7 +13,7 @@
 <!-- Nearby devices permission (Android 13+) -->
 <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
     <application
-        android:label="with_force"
+        android:label="Wicore"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

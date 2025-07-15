@@ -1,8 +1,7 @@
+import 'package:Wicore/providers/auth_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:with_force/providers/auth_provider.dart';
-
 
 class UserDetailsScreen extends StatefulWidget {
   const UserDetailsScreen({Key? key}) : super(key: key);
@@ -23,19 +22,17 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
 
   Future<void> _loadUserProfile() async {
     setState(() => _isLoading = true);
-   
-    
+
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
-       final prefs = await SharedPreferences.getInstance();
+      final prefs = await SharedPreferences.getInstance();
       final id = prefs.getString('id');
-      
+
       final result = await authService.makeAuthenticatedRequest(
         endpoint: 'user/$id',
         method: 'GET',
-        
       );
-      
+
       if (result['success'] && result['data'] != null) {
         setState(() {
           _userProfile = result['data'];
@@ -47,11 +44,12 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
       setState(() => _isLoading = false);
     }
   }
+
   Future<void> _updateUserProfile(Map<String, dynamic> updatedData) async {
     setState(() => _isLoading = true);
-    
+
     try {
-        final prefs = await SharedPreferences.getInstance();
+      final prefs = await SharedPreferences.getInstance();
       final id = prefs.getString('id');
       final authService = Provider.of<AuthService>(context, listen: false);
       final result = await authService.makeAuthenticatedRequest(
@@ -59,7 +57,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
         method: 'PATCH',
         body: updatedData,
       );
-      
+
       if (result['success']) {
         _showMessage('Profile updated successfully', isSuccess: true);
         _loadUserProfile();
@@ -72,19 +70,20 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
       setState(() => _isLoading = false);
     }
   }
+
   Future<void> _deleteUserProfile() async {
     setState(() => _isLoading = true);
-    
+
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
       final prefs = await SharedPreferences.getInstance();
       final id = prefs.getString('id');
-      
+
       final result = await authService.makeAuthenticatedRequest(
         endpoint: 'user/$id',
         method: 'DELETE',
       );
-      
+
       if (result['success']) {
         _showMessage('Profile deleted successfully', isSuccess: true);
         Navigator.pop(context); // Go back to the previous screen
@@ -101,26 +100,17 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('User Details'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: _editProfile,
-          ),
+          IconButton(icon: const Icon(Icons.edit), onPressed: _editProfile),
           SizedBox(width: 10),
-          IconButton(
-            icon: const Icon(Icons.delete),
-            onPressed: _deleteProfile,
-          ),
+          IconButton(icon: const Icon(Icons.delete), onPressed: _deleteProfile),
         ],
-        
       ),
       body: RefreshIndicator(
         onRefresh: _loadUserProfile,
@@ -133,11 +123,11 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
               // Profile Header
               _buildProfileHeader(),
               const SizedBox(height: 20),
-              
+
               // Personal Information
               _buildPersonalInfoCard(),
               const SizedBox(height: 20),
-              
+
               // Physical Information
               _buildPhysicalInfoCard(),
             ],
@@ -149,7 +139,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
 
   Widget _buildProfileHeader() {
     final fullName = '${_userProfile['id']}';
-    
+
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -172,46 +162,45 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
             const SizedBox(height: 16),
             Text(
               fullName.isNotEmpty ? fullName : 'User',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             Text(
               _userProfile['email'] ?? 'No email',
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 16,
-              ),
+              style: TextStyle(color: Colors.grey[600], fontSize: 16),
             ),
             const SizedBox(height: 16),
             Text(
               _userProfile['created'] ?? 'No data',
 
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
               _userProfile['updated'] ?? 'Unknown',
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 16,
-              ),
+              style: TextStyle(color: Colors.grey[600], fontSize: 16),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: _userProfile['onboarded'] == true 
-                    ? Colors.green.withOpacity(0.2) 
-                    : Colors.orange.withOpacity(0.2),
+                color:
+                    _userProfile['onboarded'] == true
+                        ? Colors.green.withOpacity(0.2)
+                        : Colors.orange.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
-                _userProfile['onboarded'] == true ? 'Onboarded' : 'Pending Onboarding',
+                _userProfile['onboarded'] == true
+                    ? 'Onboarded'
+                    : 'Pending Onboarding',
                 style: TextStyle(
-                  color: _userProfile['onboarded'] == true ? Colors.green : Colors.orange,
+                  color:
+                      _userProfile['onboarded'] == true
+                          ? Colors.green
+                          : Colors.orange,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -221,7 +210,10 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
               onPressed: _editProfile,
               child: const Text('Edit Profile'),
               style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 12,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
@@ -244,16 +236,36 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
           children: [
             Text(
               'Personal Information',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-            _buildInfoRow(Icons.person, 'First Name', _userProfile['firstName'] ?? 'Not set'),
-            _buildInfoRow(Icons.person_outline, 'Last Name', _userProfile['lastName'] ?? 'Not set'),
-            _buildInfoRow(Icons.email, 'Email', _userProfile['email'] ?? 'Not set'),
-            _buildInfoRow(Icons.cake, 'Birthdate', _formatDate(_userProfile['birthdate'])),
-            _buildInfoRow(Icons.wc, 'Gender', _formatGender(_userProfile['gender'])),
+            _buildInfoRow(
+              Icons.person,
+              'First Name',
+              _userProfile['firstName'] ?? 'Not set',
+            ),
+            _buildInfoRow(
+              Icons.person_outline,
+              'Last Name',
+              _userProfile['lastName'] ?? 'Not set',
+            ),
+            _buildInfoRow(
+              Icons.email,
+              'Email',
+              _userProfile['email'] ?? 'Not set',
+            ),
+            _buildInfoRow(
+              Icons.cake,
+              'Birthdate',
+              _formatDate(_userProfile['birthdate']),
+            ),
+            _buildInfoRow(
+              Icons.wc,
+              'Gender',
+              _formatGender(_userProfile['gender']),
+            ),
           ],
         ),
       ),
@@ -271,15 +283,25 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
           children: [
             Text(
               'Physical Information',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-            _buildInfoRow(Icons.monitor_weight, 'Weight', 
-                _userProfile['weight'] != null ? '${_userProfile['weight']} kg' : 'Not set'),
-            _buildInfoRow(Icons.height, 'Height', 
-                _userProfile['height'] != null ? '${_userProfile['height']} cm' : 'Not set'),
+            _buildInfoRow(
+              Icons.monitor_weight,
+              'Weight',
+              _userProfile['weight'] != null
+                  ? '${_userProfile['weight']} kg'
+                  : 'Not set',
+            ),
+            _buildInfoRow(
+              Icons.height,
+              'Height',
+              _userProfile['height'] != null
+                  ? '${_userProfile['height']} cm'
+                  : 'Not set',
+            ),
           ],
         ),
       ),
@@ -323,7 +345,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
   String _getInitials() {
     final firstName = _userProfile['firstName'] ?? '';
     final lastName = _userProfile['lastName'] ?? '';
-    
+
     if (firstName.isNotEmpty && lastName.isNotEmpty) {
       return '${firstName[0]}${lastName[0]}'.toUpperCase();
     } else if (firstName.isNotEmpty) {
@@ -336,7 +358,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
 
   String _formatDate(String? dateString) {
     if (dateString == null || dateString.isEmpty) return 'Not set';
-    
+
     try {
       final date = DateTime.parse(dateString);
       return '${date.day}/${date.month}/${date.year}';
@@ -347,7 +369,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
 
   String _formatGender(String? gender) {
     if (gender == null || gender.isEmpty) return 'Not set';
-    
+
     switch (gender.toLowerCase()) {
       case 'male':
         return 'Male';
@@ -361,8 +383,12 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
   }
 
   void _editProfile() {
-    final firstNameController = TextEditingController(text: _userProfile['firstName']);
-    final lastNameController = TextEditingController(text: _userProfile['lastName']);
+    final firstNameController = TextEditingController(
+      text: _userProfile['firstName'],
+    );
+    final lastNameController = TextEditingController(
+      text: _userProfile['lastName'],
+    );
     final ageController = TextEditingController(text: _userProfile['age']);
 
     showDialog(
@@ -412,15 +438,17 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
         );
       },
     );
-   
   }
+
   void _deleteProfile() {
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
           title: const Text('Delete Profile'),
-          content: const Text('Are you sure you want to delete your profile? This action cannot be undone.'),
+          content: const Text(
+            'Are you sure you want to delete your profile? This action cannot be undone.',
+          ),
           actions: [
             TextButton(
               onPressed: () {

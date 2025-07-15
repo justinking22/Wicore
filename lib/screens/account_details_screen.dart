@@ -1,7 +1,6 @@
+import 'package:Wicore/providers/auth_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:with_force/providers/auth_provider.dart';
-
 
 class AccountDetailsScreen extends StatefulWidget {
   const AccountDetailsScreen({Key? key}) : super(key: key);
@@ -17,7 +16,7 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
     final userData = authService.userData;
-    
+
     return RefreshIndicator(
       onRefresh: _refreshAccountData,
       child: SingleChildScrollView(
@@ -29,13 +28,12 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
             // Account Summary Card
             _buildAccountSummaryCard(userData),
             const SizedBox(height: 20),
-            
+
             // Authentication Details
             _buildAuthenticationCard(userData),
             const SizedBox(height: 20),
-            
+
             // Security Settings
-          
           ],
         ),
       ),
@@ -55,7 +53,9 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
               children: [
                 CircleAvatar(
                   radius: 30,
-                  backgroundColor: Theme.of(context).primaryColor.withOpacity(0.2),
+                  backgroundColor: Theme.of(
+                    context,
+                  ).primaryColor.withOpacity(0.2),
                   child: Text(
                     _getInitials(userData),
                     style: TextStyle(
@@ -78,14 +78,19 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        userData?['email'] ?? userData?['username'] ?? 'No email',
+                        userData?['email'] ??
+                            userData?['username'] ??
+                            'No email',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Colors.grey[600],
                         ),
                       ),
                       const SizedBox(height: 4),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.green.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
@@ -107,7 +112,11 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
             const SizedBox(height: 16),
             const Divider(),
             const SizedBox(height: 16),
-            _buildInfoRow(Icons.fingerprint, 'User ID', userData?['id'] ?? userData?['username'] ?? 'Not available'),
+            _buildInfoRow(
+              Icons.fingerprint,
+              'User ID',
+              userData?['id'] ?? userData?['username'] ?? 'Not available',
+            ),
             const SizedBox(height: 8),
             _buildInfoRow(Icons.access_time, 'Member Since', 'Recent'),
             const SizedBox(height: 8),
@@ -129,12 +138,16 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
           children: [
             Text(
               'Authentication Details',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-            _buildInfoRow(Icons.email, 'Login Email', userData?['username'] ?? 'Not available'),
+            _buildInfoRow(
+              Icons.email,
+              'Login Email',
+              userData?['username'] ?? 'Not available',
+            ),
             const SizedBox(height: 8),
             _buildInfoRow(Icons.security, 'Authentication Method', 'JWT Token'),
             const SizedBox(height: 8),
@@ -147,8 +160,6 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
       ),
     );
   }
-
- 
 
   Widget _buildInfoRow(IconData icon, String label, String value) {
     return Row(
@@ -181,7 +192,12 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
     );
   }
 
-  Widget _buildActionTile(IconData icon, String title, String subtitle, VoidCallback onTap) {
+  Widget _buildActionTile(
+    IconData icon,
+    String title,
+    String subtitle,
+    VoidCallback onTap,
+  ) {
     return ListTile(
       leading: Icon(icon, color: Theme.of(context).primaryColor),
       title: Text(title),
@@ -203,16 +219,16 @@ class _AccountDetailsScreenState extends State<AccountDetailsScreen> {
 
   Future<void> _refreshAccountData() async {
     setState(() => _isLoading = true);
-    
+
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
-      
+
       // Make an API call to refresh user data
       final result = await authService.makeAuthenticatedRequest(
         endpoint: 'user/profile',
         method: 'GET',
       );
-      
+
       if (result['success']) {
         _showMessage('Account data refreshed', isSuccess: true);
       } else {
