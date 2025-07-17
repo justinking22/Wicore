@@ -1,3 +1,4 @@
+import 'package:Wicore/styles/text_styles.dart';
 import 'package:flutter/material.dart';
 
 class KoreanCalendar extends StatefulWidget {
@@ -7,11 +8,15 @@ class KoreanCalendar extends StatefulWidget {
 
 class _KoreanCalendarState extends State<KoreanCalendar> {
   DateTime today = DateTime.now();
-  int currentYear = 2025;
-  int currentMonth = 6; // June
+  late int currentYear;
+  late int currentMonth;
 
   // Highlighted dates (green circles) - these would come from your data
-  final Set<int> highlightedDates = {3, 5, 9, 10, 11, 12, 13, 16, 17, 18, 19};
+  // For June: 3, 5, 9, 10, 11, 12, 13, 16, 17, 18, 19
+  final Map<int, Set<int>> highlightedDates = {
+    6: {3, 5, 9, 10, 11, 12, 13, 16, 17, 18, 19},
+    7: {}, // No highlighted dates for July in the example
+  };
 
   final List<String> koreanDayNames = ['일', '월', '화', '수', '목', '금', '토'];
   final List<String> koreanMonthNames = [
@@ -32,6 +37,21 @@ class _KoreanCalendarState extends State<KoreanCalendar> {
 
   // Custom green color RGB(204, 255, 56)
   final Color customGreen = Color.fromRGBO(204, 255, 56, 1.0);
+  // Lime color for today's date
+  final Color limeColor = Color.fromRGBO(204, 255, 56, 1.0);
+
+  @override
+  void initState() {
+    super.initState();
+    currentYear = today.year;
+    currentMonth = today.month;
+  }
+
+  void _changeYear(int delta) {
+    setState(() {
+      currentYear += delta;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,10 +60,14 @@ class _KoreanCalendarState extends State<KoreanCalendar> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.close, color: Colors.black),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        automaticallyImplyLeading: false,
+
+        actions: [
+          IconButton(
+            icon: Icon(Icons.close, color: Colors.black),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
         title: Text(
           '달력에서 보기',
           style: TextStyle(
@@ -62,29 +86,43 @@ class _KoreanCalendarState extends State<KoreanCalendar> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                IconButton(
-                  icon: Icon(Icons.chevron_left, color: Colors.grey),
-                  onPressed: () {
-                    setState(() {
-                      currentYear--;
-                    });
-                  },
-                ),
-                Text(
-                  '${currentYear}년',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black,
+                GestureDetector(
+                  onTap: () => _changeYear(-1),
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color.fromRGBO(194, 194, 194, 1),
+                    ),
+                    child: Icon(
+                      Icons.chevron_left,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
                 ),
-                IconButton(
-                  icon: Icon(Icons.chevron_right, color: Colors.grey),
-                  onPressed: () {
-                    setState(() {
-                      currentYear++;
-                    });
-                  },
+                const SizedBox(width: 24),
+                Text(
+                  '$currentYear년',
+                  style: TextStyles.kSemiBold.copyWith(fontSize: 20),
+                ),
+                const SizedBox(width: 24),
+                GestureDetector(
+                  onTap: () => _changeYear(1),
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color.fromRGBO(194, 194, 194, 1),
+                    ),
+                    child: Icon(
+                      Icons.chevron_right,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -94,11 +132,11 @@ class _KoreanCalendarState extends State<KoreanCalendar> {
             child: SingleChildScrollView(
               child: Column(
                 children: [
-                  // June calendar
-                  _buildMonthCalendar(6),
-                  SizedBox(height: 40),
-                  // July calendar
-                  _buildMonthCalendar(7),
+                  // Show all 12 months of the selected year
+                  for (int month = 1; month <= 12; month++) ...[
+                    _buildMonthCalendar(month),
+                    if (month < 12) SizedBox(height: 40),
+                  ],
                 ],
               ),
             ),
@@ -109,6 +147,9 @@ class _KoreanCalendarState extends State<KoreanCalendar> {
   }
 
   Widget _buildMonthCalendar(int month) {
+    // Always use the current selected year
+    int displayYear = currentYear;
+
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 20),
       child: Column(
@@ -153,36 +194,40 @@ class _KoreanCalendarState extends State<KoreanCalendar> {
           ),
 
           // Calendar grid
-          _buildCalendarGrid(month),
+          _buildCalendarGrid(month, displayYear),
         ],
       ),
     );
   }
 
-  Widget _buildCalendarGrid(int month) {
-    DateTime firstDay = DateTime(currentYear, month, 1);
-    int daysInMonth = DateTime(currentYear, month + 1, 0).day;
+  Widget _buildCalendarGrid(int month, int year) {
+    DateTime firstDay = DateTime(year, month, 1);
+    int daysInMonth = DateTime(year, month + 1, 0).day;
     int firstWeekday =
         firstDay.weekday % 7; // Adjust for Korean week start (Sunday = 0)
 
     // Get previous month's last days
-    DateTime prevMonth = DateTime(currentYear, month - 1, 1);
-    int prevMonthDays = DateTime(currentYear, month, 0).day;
-
-    // Get next month's first days
-    DateTime nextMonth = DateTime(currentYear, month + 1, 1);
+    int prevMonthDays = DateTime(year, month, 0).day;
 
     List<Widget> dayWidgets = [];
 
     // Add previous month's days (faded)
     for (int i = firstWeekday - 1; i >= 0; i--) {
       int day = prevMonthDays - i;
-      dayWidgets.add(_buildDayWidget(day, month - 1, isPrevMonth: true));
+      int prevMonth = month - 1;
+      int prevYear = year;
+      if (prevMonth == 0) {
+        prevMonth = 12;
+        prevYear = year - 1;
+      }
+      dayWidgets.add(
+        _buildDayWidget(day, prevMonth, prevYear, isPrevMonth: true),
+      );
     }
 
     // Add current month's days
     for (int day = 1; day <= daysInMonth; day++) {
-      dayWidgets.add(_buildDayWidget(day, month, isCurrentMonth: true));
+      dayWidgets.add(_buildDayWidget(day, month, year, isCurrentMonth: true));
     }
 
     // Add next month's days (faded) to complete the grid
@@ -194,7 +239,15 @@ class _KoreanCalendarState extends State<KoreanCalendar> {
     }
 
     for (int day = 1; day <= remainingCells; day++) {
-      dayWidgets.add(_buildDayWidget(day, month + 1, isNextMonth: true));
+      int nextMonth = month + 1;
+      int nextYear = year;
+      if (nextMonth == 13) {
+        nextMonth = 1;
+        nextYear = year + 1;
+      }
+      dayWidgets.add(
+        _buildDayWidget(day, nextMonth, nextYear, isNextMonth: true),
+      );
     }
 
     // Create rows of 7 days each
@@ -217,28 +270,27 @@ class _KoreanCalendarState extends State<KoreanCalendar> {
 
   Widget _buildDayWidget(
     int day,
-    int month, {
+    int month,
+    int year, {
     bool isCurrentMonth = false,
     bool isPrevMonth = false,
     bool isNextMonth = false,
   }) {
     // Calculate the actual date for this day
-    DateTime actualDate;
-    if (isPrevMonth) {
-      actualDate = DateTime(currentYear, month, day);
-    } else if (isNextMonth) {
-      actualDate = DateTime(currentYear, month, day);
-    } else {
-      actualDate = DateTime(currentYear, month, day);
-    }
+    DateTime actualDate = DateTime(year, month, day);
 
     bool isHighlighted =
-        isCurrentMonth && month == 6 && highlightedDates.contains(day);
-    bool isToday =
         isCurrentMonth &&
+        highlightedDates.containsKey(month) &&
+        highlightedDates[month]!.contains(day);
+
+    bool isToday =
         actualDate.year == today.year &&
         actualDate.month == today.month &&
         actualDate.day == today.day;
+
+    // Check if this date is in the future
+    bool isFutureDate = actualDate.isAfter(today);
 
     // Determine text color
     Color textColor = Colors.black;
@@ -247,8 +299,12 @@ class _KoreanCalendarState extends State<KoreanCalendar> {
     if (isPrevMonth || isNextMonth) {
       textColor = Colors.grey.shade400;
       opacity = 0.5;
+    } else if (isFutureDate) {
+      // Future dates should be faded out
+      textColor = Colors.grey.shade400;
+      opacity = 0.3;
     } else {
-      // Weekend colors for current month
+      // Weekend colors for current month (only for past/present dates)
       int weekday = actualDate.weekday;
       if (weekday == DateTime.sunday) {
         textColor = Colors.blue;
@@ -264,12 +320,10 @@ class _KoreanCalendarState extends State<KoreanCalendar> {
           width: 32,
           height: 32,
           decoration: BoxDecoration(
-            color: isHighlighted ? customGreen : null,
+            color: isToday ? limeColor : null,
             shape: BoxShape.circle,
             border:
-                isToday && !isHighlighted
-                    ? Border.all(color: Colors.blue, width: 2)
-                    : null,
+                isHighlighted ? Border.all(color: limeColor, width: 2) : null,
           ),
           child: Center(
             child: Opacity(
@@ -278,7 +332,10 @@ class _KoreanCalendarState extends State<KoreanCalendar> {
                 day.toString(),
                 style: TextStyle(
                   fontSize: 16,
-                  color: isHighlighted ? Colors.black : textColor,
+                  color:
+                      isToday
+                          ? Colors.black
+                          : (isHighlighted ? textColor : textColor),
                   fontWeight: isToday ? FontWeight.w600 : FontWeight.w400,
                 ),
               ),

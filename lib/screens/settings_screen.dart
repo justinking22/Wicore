@@ -78,15 +78,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       _buildMenuItem('기기 사용 기록', () {
                         context.push('/device-history-screen');
-                      }),
+                      }, Colors.black),
                       _buildDivider(),
                       _buildMenuItem('신체정보', () {
                         context.push('/personal-info-display-screen');
-                      }),
+                      }, Colors.black),
                       _buildDivider(),
                       _buildMenuItem('보호자 연락처', () {
                         context.push('/re-save-phone-number-screen');
-                      }),
+                      }, Colors.black),
                     ],
                   ),
                 ),
@@ -115,20 +115,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       _buildMenuItem('알림 설정', () {
                         context.push('/notificatios-settings');
-                      }),
+                      }, Colors.black),
                       _buildDivider(),
                       _buildMenuItem('서비스 이용약관', () {
                         context.push('/terms-of-use');
-                      }),
-                      _buildDivider(),
+                        context.go('/login');
+                      }, Colors.black),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 32),
+
+                // 서비스 section
+                Text(
+                  '계정',
+                  style: TextStyles.kSemiBold.copyWith(
+                    color: CustomColors.mediumGray,
+                  ),
+                ),
+
+                SizedBox(height: 12),
+
+                // Service section container
+                Container(
+                  padding: EdgeInsets.fromLTRB(0, 24, 0, 24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
                       _buildMenuItem('비밀번호 재설정', () {
                         context.push('/password-reset-confirmation-screen');
-                      }),
+                        context.go('/login');
+                      }, Colors.black),
                       _buildDivider(),
-                      _buildMenuItem('Log out', () {
+                      _buildMenuItem('로그아웃', () {
                         authService.signOut();
                         context.go('/login');
-                      }),
+                      }, Colors.black),
+                      _buildDivider(),
+                      _buildMenuItem('테이터 삭제', () {}, Colors.red),
+                      _buildDivider(),
+                      _buildMenuItem('회원 탈퇴', () {}, Colors.red),
                     ],
                   ),
                 ),
@@ -143,13 +173,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildMenuItem(String title, VoidCallback onPressed) {
+  Widget _buildMenuItem(
+    String title,
+    VoidCallback onPressed,
+    Color titleTextColor,
+  ) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title, style: TextStyles.kMedium.copyWith(color: Colors.black)),
+          Text(
+            title,
+            style: TextStyles.kMedium.copyWith(
+              color: titleTextColor ?? Colors.black,
+            ),
+          ),
           IconButton(
             onPressed: onPressed,
             icon: Icon(Icons.chevron_right, color: Colors.black, size: 30),

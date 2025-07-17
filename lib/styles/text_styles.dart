@@ -103,4 +103,10 @@ class TextStyles {
     fontWeight: FontWeight.w600,
     color: CustomColors.pureBlack,
   );
+  static const TextStyle kBold = TextStyle(
+    fontFamily: kFontFamily,
+    fontSize: 32,
+    fontWeight: FontWeight.bold,
+    color: CustomColors.darkCharcoal,
+  );
 }

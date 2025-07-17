@@ -123,12 +123,6 @@ flutter:
         - asset: assets/fonts/Montserrat-ExtraBold.ttf
 
 
-flutter_icons:
-  android: true
-  ios: true
-  image_path: "assets/icons/icon.png"  # Your source icon image (usually 1024x1024 px)
-
-
 
 flutter_native_splash:
 

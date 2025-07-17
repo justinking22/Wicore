@@ -208,7 +208,7 @@ class AppRouter {
         GoRoute(
           path: '/device-history-screen',
           name: 'device-history-screen',
-          builder: (context, state) => ChronologicalListScreen(),
+          builder: (context, state) => DeviceHistoryScreen(),
         ),
         GoRoute(
           path: '/personal-info-display-screen',

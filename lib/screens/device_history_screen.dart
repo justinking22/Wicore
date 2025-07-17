@@ -3,7 +3,7 @@ import 'package:Wicore/widgets/reusable_app_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-class ChronologicalListScreen extends StatelessWidget {
+class DeviceHistoryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -111,7 +111,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Chronological List',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: ChronologicalListScreen(),
+      home: DeviceHistoryScreen(),
       debugShowCheckedModeBanner: false,
     );
   }

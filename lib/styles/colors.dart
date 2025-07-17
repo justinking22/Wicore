@@ -17,6 +17,8 @@ class CustomColors {
   static const Color mediumGray = Color.fromRGBO(153, 153, 153, 1.0);
   static const Color beigeTone = Color.fromRGBO(207, 195, 160, 1);
   static const Color softGray = Color.fromRGBO(211, 211, 211, 1);
+  static const Color opaqueLightGray = Color.fromRGBO(234, 234, 234, 1.0);
 
   static const Color grayWithOpacity = Color.fromRGBO(211, 211, 211, 0.3);
+  static const Color neonYellow = Color.fromRGBO(204, 255, 0, 1.0);
 }
