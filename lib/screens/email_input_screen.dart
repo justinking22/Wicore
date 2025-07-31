@@ -1,20 +1,23 @@
 import 'package:Wicore/dialogs/confirmation_dialog.dart';
-import 'package:Wicore/providers/sign_up_provider.dart';
+import 'package:Wicore/models/auth_models.dart';
+import 'package:Wicore/providers/authentication_provider.dart';
+import 'package:Wicore/providers/sign_up_form_state.dart';
+import 'package:Wicore/services/api_service.dart';
 import 'package:Wicore/styles/text_styles.dart';
 import 'package:Wicore/widgets/reusable_app_bar.dart';
 import 'package:Wicore/widgets/reusable_button.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 
-class EmailInputScreen extends StatefulWidget {
+class EmailInputScreen extends ConsumerStatefulWidget {
   const EmailInputScreen({Key? key}) : super(key: key);
 
   @override
-  State<EmailInputScreen> createState() => _EmailInputScreenState();
+  ConsumerState<EmailInputScreen> createState() => _EmailInputScreenState();
 }
 
-class _EmailInputScreenState extends State<EmailInputScreen> {
+class _EmailInputScreenState extends ConsumerState<EmailInputScreen> {
   final TextEditingController _emailController = TextEditingController();
   bool _isButtonEnabled = false;
   bool _isCheckingEmail = false;
@@ -28,12 +31,9 @@ class _EmailInputScreenState extends State<EmailInputScreen> {
 
     // Load existing email if user goes back
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final signUpProvider = Provider.of<SignUpProvider>(
-        context,
-        listen: false,
-      );
-      if (signUpProvider.email.isNotEmpty) {
-        _emailController.text = signUpProvider.email;
+      final signUpForm = ref.read(signUpFormProvider);
+      if (signUpForm.email.isNotEmpty) {
+        _emailController.text = signUpForm.email;
         _validateEmail(_emailController.text);
       }
     });
@@ -87,46 +87,132 @@ class _EmailInputScreenState extends State<EmailInputScreen> {
     });
 
     try {
-      // Check if email exists by attempting signup check
-      final signUpProvider = Provider.of<SignUpProvider>(
-        context,
-        listen: false,
-      );
-      final authService =
-          signUpProvider.authService; // You'll need to expose this
+      // Use the new auth system to check if email exists
+      final authNotifier = ref.read(authNotifierProvider.notifier);
 
-      // Try a preliminary check - you might need to create a specific endpoint for this
-      // For now, we'll use a simple approach with your existing signup endpoint
-      final result = await authService.signUp(
+      // Attempt a signup with temporary data to check if email exists
+      final result = await authNotifier.signUp(
         email: email,
         password:
             'temp_password_for_check', // Temporary password just for checking
         name: 'temp_name', // Temporary name just for checking
       );
 
-      if (!result['success'] &&
-          result['message']?.contains('already exists') == true) {
-        // Email already exists
-        _showEmailExistsError();
-      } else {
-        // Email is available, save it and continue
-        signUpProvider.setEmail(email);
-        Navigator.pushNamed(context, '/password-input');
+      if (!result.success) {
+        // Check if the error is about email already existing
+        if (result.message?.contains('already exists') == true ||
+            result.message?.contains('이미 가입된') == true ||
+            result.code == 'EMAIL_ALREADY_EXISTS') {
+          // Adjust based on your API response
+          _showEmailExistsError();
+          return;
+        }
+
+        // If it's a different error, show it
+        if (result.message != null) {
+          setState(() {
+            _emailExistsError = result.message;
+          });
+          return;
+        }
+      }
+
+      // If we get here, either the signup succeeded (unlikely with temp data)
+      // or the error wasn't about email existing, so proceed
+      ref.read(signUpFormProvider.notifier).setEmail(email);
+
+      if (mounted) {
+        context.push('/password-input');
       }
     } catch (e) {
       print('Error checking email: $e');
-      // On error, just proceed (you might want to handle this differently)
-      final signUpProvider = Provider.of<SignUpProvider>(
-        context,
-        listen: false,
-      );
-      signUpProvider.setEmail(email);
-      context.push('/password-input');
+      // On error, save email and proceed (you might want to handle this differently)
+      ref.read(signUpFormProvider.notifier).setEmail(email);
+
+      if (mounted) {
+        context.push('/password-input');
+      }
+
       // Optionally show a generic error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('네트워크 오류가 발생했습니다. 다시 시도해주세요.'),
+          backgroundColor: Colors.red,
+        ),
+      );
     } finally {
-      setState(() {
-        _isCheckingEmail = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isCheckingEmail = false;
+        });
+      }
+    }
+  }
+
+  // Alternative approach: Create a dedicated email check endpoint
+  Future<void> _handleNextWithDedicatedEndpoint() async {
+    if (!_isButtonEnabled || _isCheckingEmail) return;
+
+    final email = _emailController.text.trim();
+    print('User entered email: $email');
+
+    setState(() {
+      _isCheckingEmail = true;
+      _emailExistsError = null;
+    });
+
+    try {
+      // Use the authenticated API service to check email
+      final apiService = ref.read(apiServiceProvider);
+
+      // Make a GET request to check if email exists
+      // You'll need to create this endpoint in your backend: GET /auth/check-email?email=...
+      final response = await apiService.get(
+        '/auth/check-email',
+        queryParameters: {'email': email},
+      );
+
+      if (response.statusCode == 200) {
+        final data = response.data;
+
+        if (data['exists'] == true) {
+          _showEmailExistsError();
+          return;
+        }
+
+        // Email is available, proceed
+        ref.read(signUpFormProvider.notifier).setEmail(email);
+
+        if (mounted) {
+          context.push('/password-input');
+        }
+      } else {
+        // Handle error response
+        setState(() {
+          _emailExistsError = '이메일 확인 중 오류가 발생했습니다.';
+        });
+      }
+    } catch (e) {
+      print('Error checking email: $e');
+      // On error, save email and proceed
+      ref.read(signUpFormProvider.notifier).setEmail(email);
+
+      if (mounted) {
+        context.push('/password-input');
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('네트워크 오류가 발생했습니다. 다시 시도해주세요.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCheckingEmail = false;
+        });
+      }
     }
   }
 
@@ -138,6 +224,20 @@ class _EmailInputScreenState extends State<EmailInputScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Watch auth state for any changes
+    final authState = ref.watch(authNotifierProvider);
+
+    // Handle auth state changes
+    ref.listen<AuthState>(authNotifierProvider, (previous, next) {
+      if (next.status == AuthStatus.needsConfirmation) {
+        // If signup requires confirmation, navigate to confirmation screen
+        context.push('/email-confirmation');
+      } else if (next.isAuthenticated) {
+        // If somehow authenticated, go to home
+        context.go('/home');
+      }
+    });
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: CustomAppBar(
@@ -202,7 +302,6 @@ class _EmailInputScreenState extends State<EmailInputScreen> {
               decoration: InputDecoration(
                 hintText: '예) withforce@naver.com',
                 hintStyle: TextStyles.kMedium,
-                // errorText: _errorText,
                 border: UnderlineInputBorder(
                   borderSide: BorderSide(color: Colors.grey[300]!, width: 1),
                 ),
@@ -212,9 +311,6 @@ class _EmailInputScreenState extends State<EmailInputScreen> {
                 focusedBorder: const UnderlineInputBorder(
                   borderSide: BorderSide(color: Colors.black, width: 2),
                 ),
-                // errorBorder: const UnderlineInputBorder(
-                //   borderSide: BorderSide(color: Colors.red, width: 1),
-                // ),
                 focusedErrorBorder: const UnderlineInputBorder(
                   borderSide: BorderSide(color: Colors.red, width: 2),
                 ),

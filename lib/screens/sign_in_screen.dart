@@ -1,19 +1,20 @@
-import 'package:Wicore/providers/auth_provider.dart';
+import 'package:Wicore/providers/authentication_provider.dart';
 import 'package:Wicore/styles/colors.dart';
 import 'package:Wicore/styles/text_styles.dart';
 import 'package:Wicore/widgets/reusable_button.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
+import '../models/auth_models.dart';
 
-class SignInScreen extends StatefulWidget {
+class SignInScreen extends ConsumerStatefulWidget {
   const SignInScreen({super.key});
 
   @override
-  State<SignInScreen> createState() => _SignInScreenState();
+  ConsumerState<SignInScreen> createState() => _SignInScreenState();
 }
 
-class _SignInScreenState extends State<SignInScreen> {
+class _SignInScreenState extends ConsumerState<SignInScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
@@ -78,20 +79,26 @@ class _SignInScreenState extends State<SignInScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final authService = Provider.of<AuthService>(context, listen: false);
+      final authNotifier = ref.read(authNotifierProvider.notifier);
 
-      final result = await authService.signIn(
+      final result = await authNotifier.signIn(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
 
       if (mounted) {
-        if (result['success']) {
+        if (result.success) {
+          // Save auto-login preference if enabled
+          if (_isAutoLogin) {
+            // You can implement auto-login storage here
+            print('Auto-login enabled for user');
+          }
+
           context.go('/navigation');
-        } else if (result['requiresConfirmation'] == true) {
+        } else if (result.requiresConfirmation == true) {
           _showConfirmationDialog();
         } else {
-          _showMessage(result['message'] ?? '로그인 실패');
+          _showMessage(result.message ?? '로그인 실패');
         }
       }
     } catch (e) {
@@ -127,9 +134,7 @@ class _SignInScreenState extends State<SignInScreen> {
                     child: GestureDetector(
                       onTap: () {
                         Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Google 로그인 처리 중...')),
-                        );
+                        _handleGoogleLogin();
                       },
                       child: Container(
                         height: 147,
@@ -164,9 +169,7 @@ class _SignInScreenState extends State<SignInScreen> {
                     child: GestureDetector(
                       onTap: () {
                         Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Apple 로그인 처리 중...')),
-                        );
+                        _handleAppleLogin();
                       },
                       child: Container(
                         height: 147,
@@ -191,9 +194,7 @@ class _SignInScreenState extends State<SignInScreen> {
               GestureDetector(
                 onTap: () {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(const SnackBar(content: Text('로그인 없이 계속하기')));
+                  _handleContinueWithoutLogin();
                 },
                 child: const Center(
                   child: Text(
@@ -210,8 +211,68 @@ class _SignInScreenState extends State<SignInScreen> {
     );
   }
 
+  Future<void> _handleGoogleLogin() async {
+    try {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Google 로그인 처리 중...')));
+
+      // TODO: Implement Google OAuth login
+      // final authNotifier = ref.read(authNotifierProvider.notifier);
+      // final result = await authNotifier.signInWithGoogle();
+      //
+      // if (result.success && mounted) {
+      //   context.go('/navigation');
+      // } else if (mounted) {
+      //   _showMessage(result.message ?? 'Google 로그인 실패');
+      // }
+    } catch (e) {
+      if (mounted) {
+        _showMessage('Google 로그인 오류: $e');
+      }
+    }
+  }
+
+  Future<void> _handleAppleLogin() async {
+    try {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Apple 로그인 처리 중...')));
+
+      // TODO: Implement Apple Sign In
+      // final authNotifier = ref.read(authNotifierProvider.notifier);
+      // final result = await authNotifier.signInWithApple();
+      //
+      // if (result.success && mounted) {
+      //   context.go('/navigation');
+      // } else if (mounted) {
+      //   _showMessage(result.message ?? 'Apple 로그인 실패');
+      // }
+    } catch (e) {
+      if (mounted) {
+        _showMessage('Apple 로그인 오류: $e');
+      }
+    }
+  }
+
+  void _handleContinueWithoutLogin() {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('로그인 없이 계속하기')));
+
+    // TODO: Navigate to guest mode or limited features
+    // context.go('/guest-mode');
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Watch auth state for automatic navigation
+    ref.listen<AuthState>(authNotifierProvider, (previous, next) {
+      if (next.isAuthenticated && mounted) {
+        context.go('/navigation');
+      }
+    });
+
     return Scaffold(
       backgroundColor: Colors.white,
       // Add this to prevent screen resize when keyboard appears

@@ -1,8 +1,8 @@
 import 'package:Wicore/app_router.dart';
-import 'package:Wicore/providers/auth_provider.dart';
-import 'package:Wicore/providers/sign_up_provider.dart';
+import 'package:Wicore/models/auth_models.dart';
+import 'package:Wicore/providers/authentication_provider.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
@@ -18,64 +18,90 @@ void main() {
   // Keep the native splash screen visible
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
-  runApp(const Wicore());
+  runApp(ProviderScope(child: const Wicore()));
 }
 
-class Wicore extends StatefulWidget {
-  const Wicore({Key? key}) : super(key: key);
+// App initialization state provider
+final appInitializationProvider =
+    StateNotifierProvider<AppInitializationNotifier, AppInitializationState>((
+      ref,
+    ) {
+      return AppInitializationNotifier(ref);
+    });
 
-  @override
-  State<Wicore> createState() => _WicoreState();
+class AppInitializationState {
+  final bool isInitialized;
+  final bool initializationSuccess;
+  final String? apiBaseUrl;
+  final String? errorMessage;
+
+  const AppInitializationState({
+    this.isInitialized = false,
+    this.initializationSuccess = false,
+    this.apiBaseUrl,
+    this.errorMessage,
+  });
+
+  AppInitializationState copyWith({
+    bool? isInitialized,
+    bool? initializationSuccess,
+    String? apiBaseUrl,
+    String? errorMessage,
+  }) {
+    return AppInitializationState(
+      isInitialized: isInitialized ?? this.isInitialized,
+      initializationSuccess:
+          initializationSuccess ?? this.initializationSuccess,
+      apiBaseUrl: apiBaseUrl ?? this.apiBaseUrl,
+      errorMessage: errorMessage,
+    );
+  }
 }
 
-class _WicoreState extends State<Wicore> {
-  bool _isInitialized = false;
-  bool _initializationSuccess = false;
-  String? _apiBaseUrl;
+class AppInitializationNotifier extends StateNotifier<AppInitializationState> {
+  final Ref ref;
   final _configService = ConfigService();
-  AuthService? _authService;
-  String? _errorMessage;
 
-  @override
-  void initState() {
-    super.initState();
+  AppInitializationNotifier(this.ref) : super(const AppInitializationState()) {
     _initializeApp();
   }
 
   Future<void> _initializeApp() async {
     try {
+      debugPrint('🔄 Starting app initialization...');
+
       // First load the configuration
       await _configService.loadConfig();
 
       // Get the API base URL from the configuration
-      _apiBaseUrl = _configService.getPrimaryApiEndpoint();
+      final apiBaseUrl = _configService.getPrimaryApiEndpoint();
 
-      if (_apiBaseUrl == null) {
+      if (apiBaseUrl == null) {
         throw Exception('No API endpoint found in configuration');
       }
+
+      debugPrint('✅ Configuration loaded, API URL: $apiBaseUrl');
 
       // Now configure Amplify
       await _configureAmplify();
 
-      // Initialize AuthService
-      _authService = AuthService(baseUrl: _apiBaseUrl!);
+      // Initialize auth state by checking stored tokens
+      await _initializeAuthState();
 
-      // Initialize the auth service (check current auth state)
-      debugPrint('🔄 Initializing AuthService...');
-      await _authService!.init();
-      debugPrint('✅ AuthService initialized successfully');
+      debugPrint('✅ App initialization completed successfully');
 
-      setState(() {
-        _isInitialized = true;
-        _initializationSuccess = true;
-      });
+      state = state.copyWith(
+        isInitialized: true,
+        initializationSuccess: true,
+        apiBaseUrl: apiBaseUrl,
+      );
     } catch (e) {
       debugPrint('❌ Error initializing app: $e');
-      setState(() {
-        _isInitialized = true;
-        _initializationSuccess = false;
-        _errorMessage = e.toString();
-      });
+      state = state.copyWith(
+        isInitialized: true,
+        initializationSuccess: false,
+        errorMessage: e.toString(),
+      );
     } finally {
       // Remove the native splash screen once initialization is complete
       FlutterNativeSplash.remove();
@@ -105,17 +131,100 @@ class _WicoreState extends State<Wicore> {
     }
   }
 
+  Future<void> _initializeAuthState() async {
+    try {
+      debugPrint('🔄 Initializing auth state...');
+      final tokenStorage = ref.read(tokenStorageProvider);
+      final authNotifier = ref.read(authNotifierProvider.notifier);
+
+      // Check for stored tokens
+      final storedAuthData = await tokenStorage.getStoredTokens();
+
+      if (storedAuthData != null) {
+        debugPrint('📱 Found stored tokens');
+
+        // Always attempt token refresh for security
+        try {
+          final refreshResult =
+              await ref.read(authRepositoryProvider).refreshToken();
+
+          if (refreshResult.success && refreshResult.data != null) {
+            debugPrint('✅ Token refreshed successfully');
+            authNotifier.state = AuthState(
+              status: AuthStatus.authenticated,
+              userData: refreshResult.data,
+              token: refreshResult.data!.accessToken,
+            );
+          } else {
+            debugPrint('❌ Token refresh failed, using stored tokens if valid');
+            // Check if stored token is still valid
+            final isExpired = await tokenStorage.isTokenExpired();
+
+            if (!isExpired) {
+              debugPrint('✅ Using valid stored tokens');
+              authNotifier.state = AuthState(
+                status: AuthStatus.authenticated,
+                userData: storedAuthData,
+                token: storedAuthData.accessToken,
+              );
+            } else {
+              debugPrint('❌ Stored tokens expired, requiring login');
+              await tokenStorage.clearTokens();
+              authNotifier.setUnauthenticated();
+            }
+          }
+        } catch (e) {
+          debugPrint('❌ Token refresh error: $e');
+          // Fall back to stored tokens if valid
+          final isExpired = await tokenStorage.isTokenExpired();
+          if (!isExpired) {
+            debugPrint('✅ Using valid stored tokens after refresh error');
+            authNotifier.state = AuthState(
+              status: AuthStatus.authenticated,
+              userData: storedAuthData,
+              token: storedAuthData.accessToken,
+            );
+          } else {
+            debugPrint('❌ Stored tokens expired after refresh error');
+            await tokenStorage.clearTokens();
+            authNotifier.setUnauthenticated();
+          }
+        }
+      } else {
+        debugPrint('ℹ️ No stored tokens found');
+        authNotifier.setUnauthenticated();
+      }
+
+      debugPrint('✅ Auth state initialization completed');
+    } catch (e, st) {
+      debugPrint('❌ Error initializing auth state: $e\n$st');
+      // Clear tokens and set to unauthenticated on error
+      await ref.read(tokenStorageProvider).clearTokens();
+      ref.read(authNotifierProvider.notifier).setUnauthenticated();
+    }
+  }
+
+  void retry() {
+    state = const AppInitializationState();
+    FlutterNativeSplash.preserve(widgetsBinding: WidgetsBinding.instance);
+    _initializeApp();
+  }
+}
+
+class Wicore extends ConsumerWidget {
+  const Wicore({Key? key}) : super(key: key);
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final initState = ref.watch(appInitializationProvider);
+
     // Show nothing while initializing (native splash screen is visible)
-    if (!_isInitialized) {
+    if (!initState.isInitialized) {
       return const SizedBox.shrink();
     }
 
     // Show error screen if initialization failed
-    if (!_initializationSuccess ||
-        _apiBaseUrl == null ||
-        _authService == null) {
+    if (!initState.initializationSuccess || initState.apiBaseUrl == null) {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         home: Scaffold(
@@ -134,23 +243,14 @@ class _WicoreState extends State<Wicore> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _errorMessage ?? 'Unknown error occurred',
+                    initState.errorMessage ?? 'Unknown error occurred',
                     style: const TextStyle(color: Colors.grey),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton(
                     onPressed: () {
-                      setState(() {
-                        _isInitialized = false;
-                        _initializationSuccess = false;
-                        _errorMessage = null;
-                      });
-                      // Show splash screen again
-                      FlutterNativeSplash.preserve(
-                        widgetsBinding: WidgetsBinding.instance,
-                      );
-                      _initializeApp();
+                      ref.read(appInitializationProvider.notifier).retry();
                     },
                     child: const Text('Retry'),
                   ),
@@ -162,31 +262,42 @@ class _WicoreState extends State<Wicore> {
       );
     }
 
-    // Main app with GoRouter and multiple providers
-    return MultiProvider(
-      providers: [
-        // Provide the AuthService
-        ChangeNotifierProvider.value(value: _authService!),
-        // Provide the SignUpProvider that depends on AuthService
-        ChangeNotifierProxyProvider<AuthService, SignUpProvider>(
-          create: (context) => SignUpProvider(_authService!),
-          update:
-              (context, authService, previous) =>
-                  previous ?? SignUpProvider(authService),
-        ),
-      ],
-      child: Consumer<AuthService>(
-        builder: (context, authService, _) {
-          final router = AppRouter.createRouter(authService);
+    // Main app with Riverpod router
+    return WicoreApp();
+  }
+}
 
-          return MaterialApp.router(
-            debugShowCheckedModeBanner: false,
-            title: 'Wicore',
-            theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: true),
-            routerConfig: router,
-          );
-        },
-      ),
+class WicoreApp extends ConsumerWidget {
+  const WicoreApp({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final router = ref.watch(routerProvider);
+
+    return MaterialApp.router(
+      debugShowCheckedModeBanner: false,
+      title: 'Wicore',
+      theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: true),
+      routerConfig: router,
+    );
+  }
+}
+
+extension AuthNotifierExtension on AuthNotifier {
+  void setAuthenticatedWithStoredData(Map<String, dynamic> storedTokens) {
+    // Convert stored tokens to AuthData
+    final authData = AuthData(
+      accessToken: storedTokens['accessToken']!,
+      refreshToken: storedTokens['refreshToken'],
+      expiresIn: storedTokens['expiresIn'] ?? 3600,
+      username: storedTokens['username'],
+      id: storedTokens['id'],
+    );
+
+    state = AuthState(
+      status: AuthStatus.authenticated,
+      userData: authData,
+      token: authData.accessToken,
     );
   }
 }

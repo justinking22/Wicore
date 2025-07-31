@@ -1,20 +1,20 @@
 import 'package:Wicore/dialogs/confirmation_dialog.dart';
-import 'package:Wicore/providers/sign_up_provider.dart';
+import 'package:Wicore/providers/sign_up_form_state.dart';
 import 'package:Wicore/styles/text_styles.dart';
 import 'package:Wicore/widgets/reusable_app_bar.dart';
 import 'package:Wicore/widgets/reusable_button.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart'; // Import your signUpFormProvider
 
-class NameInputScreen extends StatefulWidget {
+class NameInputScreen extends ConsumerStatefulWidget {
   const NameInputScreen({Key? key}) : super(key: key);
 
   @override
-  State<NameInputScreen> createState() => _NameInputScreenState();
+  ConsumerState<NameInputScreen> createState() => _NameInputScreenState();
 }
 
-class _NameInputScreenState extends State<NameInputScreen> {
+class _NameInputScreenState extends ConsumerState<NameInputScreen> {
   final TextEditingController _nameController = TextEditingController();
   bool _isButtonEnabled = false;
 
@@ -25,12 +25,9 @@ class _NameInputScreenState extends State<NameInputScreen> {
 
     // Load existing name if user goes back
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final signUpProvider = Provider.of<SignUpProvider>(
-        context,
-        listen: false,
-      );
-      if (signUpProvider.name.isNotEmpty) {
-        _nameController.text = signUpProvider.name;
+      final signUpForm = ref.read(signUpFormProvider);
+      if (signUpForm.name.isNotEmpty) {
+        _nameController.text = signUpForm.name;
         _isButtonEnabled = true;
       }
     });
@@ -55,7 +52,7 @@ class _NameInputScreenState extends State<NameInputScreen> {
       final name = _nameController.text.trim();
       print('User entered name: $name');
 
-      Provider.of<SignUpProvider>(context, listen: false).setName(name);
+      ref.read(signUpFormProvider.notifier).setName(name);
 
       context.push('/email-input');
     }
