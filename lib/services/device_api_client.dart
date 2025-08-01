@@ -1,0 +1,20 @@
+import 'package:Wicore/models/device_list_response_model.dart';
+import 'package:dio/dio.dart';
+import 'package:retrofit/retrofit.dart';
+import 'package:Wicore/models/device_request_model.dart';
+import 'package:Wicore/models/device_response_model.dart';
+
+part 'device_api_client.g.dart';
+
+@RestApi()
+abstract class DeviceApiClient {
+  factory DeviceApiClient(Dio dio) =
+      _DeviceApiClient; // Remove baseUrl parameter
+
+  @POST('/device/pair')
+  Future<DeviceResponse> registerDevice(@Body() DeviceRequest request);
+  @GET('/device/active')
+  Future<DeviceListResponse> getActiveDevices({
+    @Query('uId') required String userId,
+  });
+}
