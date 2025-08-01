@@ -90,7 +90,7 @@ class _PasswordConfirmationScreenState
           backgroundColor: Colors.red,
         ),
       );
-      context.go('/welcome');
+      context.push('/welcome');
       return;
     }
 

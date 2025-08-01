@@ -105,7 +105,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
           break;
         case AuthStatus.needsConfirmation:
           print('Navigating to confirmation - user needs confirmation');
-          context.go('/email-verification');
+          context.push('/email-verification');
           break;
         case AuthStatus.unknown:
         default:

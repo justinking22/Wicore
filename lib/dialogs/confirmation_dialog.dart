@@ -30,7 +30,7 @@ class ExitConfirmationDialog {
             CupertinoDialogAction(
               onPressed: () {
                 Navigator.of(context).pop(); // Close dialog
-                context.go('/welcome'); // Exit to welcome screen
+                context.push('/welcome'); // Exit to welcome screen
               },
               child: const Text(
                 '네',
@@ -101,10 +101,10 @@ class ExitConfirmationDialogWithOptions {
                 if (onConfirmExit != null) {
                   onConfirmExit();
                 } else if (exitRoute != null) {
-                  context.go(exitRoute);
+                  context.push(exitRoute);
                 } else {
                   // Default: go to welcome screen
-                  context.go('/welcome');
+                  context.push('/welcome');
                 }
               },
               child: const Text(

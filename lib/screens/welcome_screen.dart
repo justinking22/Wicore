@@ -11,9 +11,12 @@ class WelcomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: const CustomAppBar(
+      appBar: CustomAppBar(
         title: '회원가입',
-        showBackButton: true, // No back button on welcome screen
+        showBackButton: true,
+        onBackPressed: () {
+          context.go('/login');
+        }, // No back button on welcome screen
       ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
