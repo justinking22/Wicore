@@ -1,14 +1,14 @@
 import 'package:Wicore/models/device_response_model.dart'
     show DeviceResponseData;
+import 'package:Wicore/states/device_state.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:ui';
 import 'package:Wicore/styles/colors.dart';
 import 'package:Wicore/styles/text_styles.dart';
 import 'package:Wicore/models/device_request_model.dart';
-import 'package:Wicore/providers/device_provider.dart'; // Add this import
+import 'package:Wicore/providers/device_provider.dart';
 
 class QRScannerWidget extends ConsumerStatefulWidget {
   final Function(String)? onQRScanned;
@@ -63,6 +63,13 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget> {
     }
   }
 
+  void _handleSuccess(DeviceResponseData device) {
+    // Call the callback when API call succeeds
+    if (widget.onQRScanned != null) {
+      widget.onQRScanned!(device.deviceId);
+    }
+  }
+
   @override
   void dispose() {
     controller.dispose();
@@ -73,11 +80,33 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget> {
   Widget build(BuildContext context) {
     final deviceState = ref.watch(deviceNotifierProvider);
 
+    // Listen for successful pairing and call callback
+    ref.listen<DeviceState>(deviceNotifierProvider, (previous, next) {
+      if (next.pairedDevice != null && previous?.pairedDevice == null) {
+        // Device was just paired successfully
+        _handleSuccess(next.pairedDevice!);
+      }
+    });
+
     return Container(
       child: Stack(
         children: [
           // Mobile Scanner View (blurred background)
-          MobileScanner(controller: controller, onDetect: _handleQRResult),
+          Positioned(
+            child: Center(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  width: 400,
+                  height: 400,
+                  child: MobileScanner(
+                    controller: controller,
+                    onDetect: _handleQRResult,
+                  ),
+                ),
+              ),
+            ),
+          ),
 
           // Blurred overlay everywhere except the scanning area
           BackdropFilter(
@@ -86,34 +115,44 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget> {
               width: double.infinity,
               height: double.infinity,
               child: CustomPaint(
-                painter: QROverlayPainter(cutOutSize: 280, borderRadius: 20),
+                painter: QROverlayPainter(cutOutSize: 240, borderRadius: 20),
               ),
             ),
           ),
 
           // Clear scanning area (no blur)
-          Center(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: Container(
-                width: 400,
-                height: 400,
-                child: MobileScanner(
-                  controller: controller,
-                  onDetect: _handleQRResult,
+          Positioned(
+            top: MediaQuery.of(context).size.height * 0.3,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  width: 400,
+                  height: 400,
+                  child: MobileScanner(
+                    controller: controller,
+                    onDetect: _handleQRResult,
+                  ),
                 ),
               ),
             ),
           ),
 
           // Center QR Scanner Frame with rounded corners
-          Center(
-            child: Container(
-              width: 400,
-              height: 400,
-              decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFFB8FF00), width: 4),
-                borderRadius: BorderRadius.circular(20),
+          Positioned(
+            top: MediaQuery.of(context).size.height * 0.3,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                width: 400,
+                height: 400,
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFFB8FF00), width: 4),
+                  borderRadius: BorderRadius.circular(20),
+                ),
               ),
             ),
           ),
@@ -138,10 +177,22 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const SizedBox(width: 32),
-                      // Info button
-                      GestureDetector(
-                        onTap: () => context.go('/pairing-info'),
-                        child: Container(
+                      // Back button (if callback provided)
+                      if (widget.onBackPressed != null)
+                        GestureDetector(
+                          onTap: widget.onBackPressed,
+                          child: Container(
+                            width: 32,
+                            height: 40,
+                            child: Icon(
+                              Icons.close,
+                              color: Colors.black.withOpacity(0.9),
+                              size: 30,
+                            ),
+                          ),
+                        )
+                      else
+                        Container(
                           width: 32,
                           height: 40,
                           child: Icon(
@@ -150,7 +201,6 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget> {
                             size: 30,
                           ),
                         ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 20),
@@ -166,8 +216,6 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget> {
               ),
             ),
           ),
-
-          // Flash toggle button
 
           // Bottom section with instruction text
           Positioned(
@@ -207,8 +255,6 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget> {
           // Handle device pairing states
           if (deviceState.isLoading) _buildLoadingOverlay(),
           if (deviceState.error != null) _buildErrorOverlay(deviceState.error!),
-          if (deviceState.pairedDevice != null)
-            _buildSuccessOverlay(deviceState.pairedDevice!),
         ],
       ),
     );
@@ -226,46 +272,6 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget> {
             Text(
               '기기 연결 중...',
               style: TextStyle(color: Colors.white, fontSize: 18),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSuccessOverlay(DeviceResponseData device) {
-    return Container(
-      color: Colors.black54,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.check_circle, color: Colors.green, size: 64),
-            const SizedBox(height: 16),
-            Text(
-              '기기 연결 성공!',
-              style: TextStyle(fontSize: 20, color: Colors.white),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '기기 ID: ${device.deviceId}',
-              style: TextStyle(color: Colors.white70),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: CustomColors.splashLimeColor,
-                foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-              ),
-              onPressed: () {
-                context.push('/device-details?deviceId=${device.deviceId}');
-                ref.read(deviceNotifierProvider.notifier).clearState();
-              },
-              child: const Text('기기 상세 정보 보기'),
             ),
           ],
         ),

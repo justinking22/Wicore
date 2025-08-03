@@ -1,3 +1,4 @@
+import 'package:Wicore/providers/user_provider.dart';
 import 'package:Wicore/styles/colors.dart';
 import 'package:Wicore/styles/text_styles.dart';
 import 'package:Wicore/widgets/reusable_app_bar.dart';
@@ -5,16 +6,18 @@ import 'package:Wicore/widgets/reusable_button.dart';
 import 'package:Wicore/widgets/reusable_info_field.dart';
 import 'package:Wicore/widgets/reusable_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:Wicore/models/user_request_model.dart';
 
-// Main Screen
-class PersonalInfoDisplayScreen extends StatefulWidget {
+class PersonalInfoDisplayScreen extends ConsumerStatefulWidget {
   @override
   _PersonalInfoDisplayScreenState createState() =>
       _PersonalInfoDisplayScreenState();
 }
 
-class _PersonalInfoDisplayScreenState extends State<PersonalInfoDisplayScreen> {
+class _PersonalInfoDisplayScreenState
+    extends ConsumerState<PersonalInfoDisplayScreen> {
   String? selectedGender = '여성'; // Set with data
   String? selectedMainHeight = '172'; // Set with data
   String? selectedDecimalHeight = '3'; // Set with data
@@ -42,14 +45,188 @@ class _PersonalInfoDisplayScreenState extends State<PersonalInfoDisplayScreen> {
     (index) => index.toString(),
   );
 
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Load user data when screen initializes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadUserData();
+    });
+  }
+
+  // Load user data from API
+  void _loadUserData() async {
+    setState(() => _isLoading = true);
+
+    try {
+      await ref.read(userProvider.notifier).getCurrentUserProfile();
+      final userState = ref.read(userProvider);
+
+      userState.whenOrNull(
+        data: (response) {
+          if (response?.data != null) {
+            final userData = response!.data;
+            setState(() {
+              // Convert API gender to Korean
+              selectedGender = _convertGenderToKorean(userData.gender);
+
+              // Parse height (e.g., "172" -> "172" and "0")
+              final heightParts = userData.height.toString().split('.');
+              selectedMainHeight = heightParts[0];
+              selectedDecimalHeight =
+                  heightParts.length > 1 ? heightParts[1] : '0';
+
+              // Parse weight (e.g., "69" -> "69" and "0")
+              final weightParts = userData.weight.toString().split('.');
+              selectedMainWeight = weightParts[0];
+              selectedDecimalWeight =
+                  weightParts.length > 1 ? weightParts[1] : '0';
+            });
+          }
+        },
+      );
+    } catch (e) {
+      print('Error loading user data: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // Save user data to API
+  void _saveUserData() async {
+    if (selectedGender == null ||
+        selectedMainHeight == null ||
+        selectedDecimalHeight == null ||
+        selectedMainWeight == null ||
+        selectedDecimalWeight == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('모든 정보를 입력해주세요')));
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      // Get current user data to preserve other fields
+      final currentUserData = ref.read(currentUserDataProvider);
+
+      if (currentUserData == null) {
+        throw Exception('사용자 정보를 찾을 수 없습니다');
+      }
+
+      // Create updated user data
+      final userRequest = UserRequest(
+        item: UserItem(
+          id: currentUserData.id,
+          firstName: currentUserData.firstName,
+          lastName: currentUserData.lastName,
+          email: currentUserData.email,
+          birthdate: currentUserData.birthdate,
+          weight: int.parse(
+            '$selectedMainWeight$selectedDecimalWeight',
+          ), // Convert back to API format
+          height: int.parse(
+            '$selectedMainHeight$selectedDecimalHeight',
+          ), // Convert back to API format
+          gender: _convertGenderToEnglish(selectedGender!),
+          onboarded:
+              true, // Mark as onboarded since they completed personal info
+        ),
+      );
+
+      await ref
+          .read(userProvider.notifier)
+          .updateCurrentUserProfile(userRequest);
+
+      final userState = ref.read(userProvider);
+      userState.whenOrNull(
+        data: (response) {
+          if (response != null) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('신체정보가 저장되었습니다')));
+          }
+        },
+        error: (error, stack) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('저장 중 오류가 발생했습니다: $error')));
+        },
+      );
+    } catch (e) {
+      print('Error saving user data: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('저장 중 오류가 발생했습니다')));
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // Helper methods to convert between Korean and English gender values
+  String _convertGenderToKorean(String englishGender) {
+    switch (englishGender.toLowerCase()) {
+      case 'male':
+        return '남성';
+      case 'female':
+        return '여성';
+      default:
+        return '여성'; // Default fallback
+    }
+  }
+
+  String _convertGenderToEnglish(String koreanGender) {
+    switch (koreanGender) {
+      case '남성':
+        return 'male';
+      case '여성':
+        return 'female';
+      default:
+        return 'female'; // Default fallback
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Watch for loading state from user provider
+    final userState = ref.watch(userProvider);
+    final isApiLoading = userState.maybeWhen(
+      loading: () => true,
+      orElse: () => false,
+    );
+
     return Scaffold(
       appBar: CustomAppBar(
         title: '신체정보',
         showBackButton: true,
         onBackPressed: context.pop,
         backgroundColor: CustomColors.lighterGray,
+        // Add save action
+        // actions: [
+        //   if (_isLoading || isApiLoading)
+        //     Padding(
+        //       padding: const EdgeInsets.all(16.0),
+        //       child: SizedBox(
+        //         width: 20,
+        //         height: 20,
+        //         child: CircularProgressIndicator(strokeWidth: 2),
+        //       ),
+        //     )
+        //   else
+        //     TextButton(
+        //       onPressed: _saveUserData,
+        //       child: Text(
+        //         '저장',
+        //         style: TextStyle(
+        //           color: CustomColors.primary,
+        //           fontWeight: FontWeight.bold,
+        //         ),
+        //       ),
+        //     ),
+        //],
       ),
       body: Container(
         color: CustomColors.lighterGray,
@@ -121,6 +298,30 @@ class _PersonalInfoDisplayScreenState extends State<PersonalInfoDisplayScreen> {
                     ],
                   ),
                 ),
+                // Optional: Add a save button at the bottom
+                // SizedBox(height: 20),
+                // if (!_isLoading && !isApiLoading)
+                //   SizedBox(
+                //     width: double.infinity,
+                //     child: ElevatedButton(
+                //       onPressed: _saveUserData,
+                //       style: ElevatedButton.styleFrom(
+                //         backgroundColor: CustomColors.primary,
+                //         padding: EdgeInsets.symmetric(vertical: 16),
+                //         shape: RoundedRectangleBorder(
+                //           borderRadius: BorderRadius.circular(12),
+                //         ),
+                //       ),
+                //       child: Text(
+                //         '신체정보 저장',
+                //         style: TextStyle(
+                //           color: Colors.white,
+                //           fontSize: 16,
+                //           fontWeight: FontWeight.bold,
+                //         ),
+                //       ),
+                //     ),
+                //   ),
               ],
             ),
           ),

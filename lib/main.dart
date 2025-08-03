@@ -1,6 +1,7 @@
 import 'package:Wicore/app_router.dart';
 import 'package:Wicore/providers/authentication_provider.dart';
 import 'package:Wicore/states/auth_status.dart';
+import 'package:Wicore/utilities/app_initialization_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -13,10 +14,14 @@ import 'services/config_service.dart';
 // ✅ Added missing imports
 import 'models/user_model.dart';
 
-void main() {
+void main() async {
   // Ensure Flutter is initialized
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
 
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
   // Keep the native splash screen visible
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
@@ -30,35 +35,6 @@ final appInitializationProvider =
     ) {
       return AppInitializationNotifier(ref);
     });
-
-class AppInitializationState {
-  final bool isInitialized;
-  final bool initializationSuccess;
-  final String? apiBaseUrl;
-  final String? errorMessage;
-
-  const AppInitializationState({
-    this.isInitialized = false,
-    this.initializationSuccess = false,
-    this.apiBaseUrl,
-    this.errorMessage,
-  });
-
-  AppInitializationState copyWith({
-    bool? isInitialized,
-    bool? initializationSuccess,
-    String? apiBaseUrl,
-    String? errorMessage,
-  }) {
-    return AppInitializationState(
-      isInitialized: isInitialized ?? this.isInitialized,
-      initializationSuccess:
-          initializationSuccess ?? this.initializationSuccess,
-      apiBaseUrl: apiBaseUrl ?? this.apiBaseUrl,
-      errorMessage: errorMessage,
-    );
-  }
-}
 
 class AppInitializationNotifier extends StateNotifier<AppInitializationState> {
   final Ref ref;

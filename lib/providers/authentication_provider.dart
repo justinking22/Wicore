@@ -5,7 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/auth_api_client.dart';
-import '../services/token_storage_service.dart'; // The new file with AuthState and AuthStatus
+import '../services/token_storage_service.dart';
 import '../models/user_model.dart';
 import '../models/sign_up_response_model.dart';
 import '../models/sign_in_response_model.dart';
@@ -25,27 +25,27 @@ final dioProvider = Provider<Dio>((ref) {
   return dio;
 });
 
-// Authenticated Dio provider with interceptors
+// Authenticated Dio provider with improved interceptors
 final authenticatedDioProvider = Provider<Dio>((ref) {
   final dio = Dio();
   final tokenStorage = ref.watch(tokenStorageProvider);
-  final baseUrl = ref.watch(baseUrlProvider); // Get base URL
+  final baseUrl = ref.watch(baseUrlProvider);
 
-  // Set base URL - CRITICAL FIX
+  // Set base URL
   dio.options.baseUrl = baseUrl;
 
   if (kDebugMode) {
     dio.interceptors.add(LogInterceptor(requestBody: true, responseBody: true));
   }
 
-  // Add auth interceptor
+  // Add auth interceptor with improved refresh token logic
   dio.interceptors.add(
     InterceptorsWrapper(
       onRequest: (options, handler) async {
         // Only add token for non-auth endpoints
         if (!options.path.contains('/auth/')) {
-          final token = await tokenStorage.getAccessToken();
-          if (token != null && !(await tokenStorage.isTokenExpired())) {
+          final token = await _getValidAccessToken(tokenStorage);
+          if (token != null) {
             options.headers['Authorization'] = 'Bearer $token';
           }
         }
@@ -54,52 +54,33 @@ final authenticatedDioProvider = Provider<Dio>((ref) {
       onError: (error, handler) async {
         if (error.response?.statusCode == 401 &&
             !error.requestOptions.path.contains('/auth/')) {
-          // Try to refresh token
-          final refreshToken = await tokenStorage.getRefreshToken();
-          if (refreshToken != null) {
+          // Try to get a valid access token (this will handle refresh if needed)
+          final token = await _getValidAccessToken(
+            tokenStorage,
+            forceRefresh: true,
+          );
+
+          if (token != null) {
+            // Retry original request with new token
+            error.requestOptions.headers['Authorization'] = 'Bearer $token';
             try {
-              // Create a separate dio instance for refresh to avoid circular calls
-              final refreshDio = Dio();
-              final baseUrl = ref.read(baseUrlProvider);
-
-              final response = await refreshDio.post(
-                '$baseUrl/auth/refreshtoken',
-                data: {'refreshToken': refreshToken},
-                options: Options(headers: {'Content-Type': 'application/json'}),
+              final cloneReq = await dio.request(
+                error.requestOptions.path,
+                options: Options(
+                  method: error.requestOptions.method,
+                  headers: error.requestOptions.headers,
+                ),
+                data: error.requestOptions.data,
+                queryParameters: error.requestOptions.queryParameters,
               );
-
-              if (response.statusCode == 200 &&
-                  response.data['data']?['accessToken'] != null) {
-                final data = response.data['data'];
-                await tokenStorage.saveTokens(
-                  accessToken: data['accessToken'],
-                  refreshToken: data['refreshToken'] ?? refreshToken,
-                  expiryDate: data['expiryDate'] ?? '',
-                  username: data['username'],
-                  id: data['id'],
-                );
-
-                // Retry original request with new token
-                error.requestOptions.headers['Authorization'] =
-                    'Bearer ${data['accessToken']}';
-                final cloneReq = await dio.request(
-                  error.requestOptions.path,
-                  options: Options(
-                    method: error.requestOptions.method,
-                    headers: error.requestOptions.headers,
-                  ),
-                  data: error.requestOptions.data,
-                  queryParameters: error.requestOptions.queryParameters,
-                );
-                handler.resolve(cloneReq);
-                return;
-              }
+              handler.resolve(cloneReq);
+              return;
             } catch (e) {
-              if (kDebugMode) print('Token refresh failed: $e');
+              if (kDebugMode) print('Retry request failed: $e');
             }
           }
 
-          // If refresh failed, clear tokens
+          // If all refresh attempts failed, clear tokens
           await tokenStorage.clearTokens();
         }
 
@@ -111,6 +92,109 @@ final authenticatedDioProvider = Provider<Dio>((ref) {
   return dio;
 });
 
+// Helper function to get valid access token with refresh logic
+Future<String?> _getValidAccessToken(
+  TokenStorageService tokenStorage, {
+  bool forceRefresh = false,
+}) async {
+  try {
+    final currentToken = await tokenStorage.getAccessToken();
+    final refreshToken = await tokenStorage.getRefreshToken();
+
+    if (currentToken == null || refreshToken == null) {
+      return null;
+    }
+
+    // Check if access token is expired or force refresh is requested
+    final isAccessTokenExpired = await tokenStorage.isTokenExpired();
+
+    if (!isAccessTokenExpired && !forceRefresh) {
+      return currentToken;
+    }
+
+    // Check if refresh token is expired
+    final isRefreshTokenExpired = await tokenStorage.isRefreshTokenExpired();
+
+    if (isRefreshTokenExpired) {
+      if (kDebugMode)
+        print('🔄 Refresh token expired, need to re-authenticate');
+      await tokenStorage.clearTokens();
+      return null;
+    }
+
+    // Attempt to refresh the access token
+    return await _refreshAccessToken(tokenStorage, refreshToken);
+  } catch (e) {
+    if (kDebugMode) print('Error getting valid access token: $e');
+    return null;
+  }
+}
+
+// Helper function to refresh access token
+Future<String?> _refreshAccessToken(
+  TokenStorageService tokenStorage,
+  String refreshToken,
+) async {
+  try {
+    // Create a separate dio instance for refresh to avoid circular calls
+    final refreshDio = Dio();
+    final baseUrl = ConfigService().getPrimaryApiEndpoint();
+
+    if (kDebugMode) print('🔄 Attempting to refresh access token');
+
+    final response = await refreshDio.post(
+      '$baseUrl/auth/refreshtoken',
+      data: {'refreshToken': refreshToken},
+      options: Options(
+        headers: {'Content-Type': 'application/json'},
+        receiveTimeout: const Duration(seconds: 10),
+        sendTimeout: const Duration(seconds: 10),
+      ),
+    );
+
+    if (response.statusCode == 200 &&
+        response.data['data']?['accessToken'] != null) {
+      final data = response.data['data'];
+
+      // Get existing stored data to preserve user info
+      final existingData = await tokenStorage.getStoredAuthData();
+
+      // Check if the response includes refresh token expiry
+      final refreshTokenExpiry = data['refreshTokenExpiry'];
+
+      if (refreshTokenExpiry != null) {
+        // Use the new method that supports refresh token expiry
+        await tokenStorage.saveTokensWithRefreshExpiry(
+          accessToken: data['accessToken'],
+          refreshToken: data['refreshToken'] ?? refreshToken,
+          expiryDate: data['expiryDate'] ?? '',
+          username: data['username'] ?? existingData?.username ?? '',
+          id: data['id'] ?? existingData?.id ?? '',
+          refreshTokenExpiry: refreshTokenExpiry,
+        );
+      } else {
+        // Use the regular method
+        await tokenStorage.saveTokens(
+          accessToken: data['accessToken'],
+          refreshToken: data['refreshToken'] ?? refreshToken,
+          expiryDate: data['expiryDate'] ?? '',
+          username: data['username'] ?? existingData?.username ?? '',
+          id: data['id'] ?? existingData?.id ?? '',
+        );
+      }
+
+      if (kDebugMode) print('🔄 ✅ Token refresh successful');
+      return data['accessToken'];
+    } else {
+      if (kDebugMode) print('🔄 ❌ Token refresh failed - invalid response');
+      return null;
+    }
+  } catch (e) {
+    if (kDebugMode) print('🔄 ❌ Token refresh failed: $e');
+    return null;
+  }
+}
+
 // Base URL provider
 final baseUrlProvider = Provider<String>((ref) {
   return '${ConfigService().getPrimaryApiEndpoint()}';
@@ -121,11 +205,6 @@ final authApiClientProvider = Provider<AuthApiClient>((ref) {
   final dio = ref.watch(dioProvider);
   final baseUrl = ref.watch(baseUrlProvider);
   return AuthApiClient(dio, baseUrl: baseUrl);
-});
-
-// Authenticated API client provider (for other endpoints that need auth)
-final authenticatedApiClientProvider = Provider<Dio>((ref) {
-  return ref.watch(authenticatedDioProvider);
 });
 
 // Token storage provider
@@ -140,11 +219,12 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(apiClient, tokenStorage);
 });
 
-// Auth state notifier
+// Enhanced Auth state notifier with better refresh token handling
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthRepository _repository;
+  final TokenStorageService _tokenStorage;
 
-  AuthNotifier(this._repository)
+  AuthNotifier(this._repository, this._tokenStorage)
     : super(const AuthState(status: AuthStatus.unknown)) {
     _init();
   }
@@ -154,20 +234,30 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final storedData = await _repository.getStoredAuthData();
 
       if (storedData?.accessToken != null) {
-        final isExpired = await _repository.isTokenExpired();
+        // Check if refresh token is expired first
+        final isRefreshTokenExpired =
+            await _tokenStorage.isRefreshTokenExpired();
 
-        if (isExpired) {
+        if (isRefreshTokenExpired) {
+          if (kDebugMode) print('🔐 Refresh token expired during init');
+          state = const AuthState(status: AuthStatus.unauthenticated);
+          return;
+        }
+
+        // Check if access token is expired
+        final isAccessTokenExpired = await _repository.isTokenExpired();
+
+        if (isAccessTokenExpired) {
           final refreshResult = await _repository.refreshToken();
 
           if (refreshResult.isSuccess &&
               refreshResult.data?.accessToken != null) {
-            // Convert RefreshTokenData to UserData
             final userData = UserData(
               accessToken: refreshResult.data!.accessToken,
               refreshToken: refreshResult.data!.refreshToken,
               expiryDate: refreshResult.data!.expiryDate,
               username: refreshResult.data!.username,
-              id: storedData?.id, // Preserve existing ID
+              id: storedData?.id,
             );
 
             state = AuthState(
@@ -214,16 +304,31 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String email,
     required String password,
   }) async {
+    if (kDebugMode) print('🔐 Sign in attempt for email: $email');
+
     final response = await _repository.signIn(email: email, password: password);
 
+    if (kDebugMode) {
+      print('🔐 Sign in response: ${response.isSuccess}');
+      print('🔐 Sign in response data: ${response.data}');
+    }
+
     if (response.isSuccess && response.data?.accessToken != null) {
-      // Convert SignInData to UserData
       final userData = UserData(
         accessToken: response.data!.accessToken,
         refreshToken: response.data!.refreshToken,
         expiryDate: response.data!.expiryDate,
         username: response.data!.username,
+        email: email,
       );
+
+      if (kDebugMode) {
+        print('🔐 ✅ Sign in successful');
+        print('🔐 ✅ Username (user ID): ${userData.username}');
+        print(
+          '🔐 ✅ Access token: ${userData.accessToken?.substring(0, 20)}...',
+        );
+      }
 
       state = AuthState(
         status: AuthStatus.authenticated,
@@ -231,6 +336,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         token: response.data!.accessToken,
       );
     } else if (response.data?.accessToken == null) {
+      if (kDebugMode) print('🔐 ❌ Sign in requires confirmation');
       state = state.copyWith(
         status: AuthStatus.needsConfirmation,
         confirmationEmail: email,
@@ -299,27 +405,28 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<String?> getValidToken() async {
-    if (state.token == null) return null;
-
-    if (await _repository.isTokenExpired()) {
-      final refreshed = await tryRefreshToken();
-      return refreshed ? state.token : null;
-    }
-
-    return state.token;
+    return await _getValidAccessToken(_tokenStorage);
   }
 
   Future<bool> tryRefreshToken() async {
+    // Check if refresh token is expired first
+    final isRefreshTokenExpired = await _tokenStorage.isRefreshTokenExpired();
+
+    if (isRefreshTokenExpired) {
+      if (kDebugMode) print('🔄 Cannot refresh - refresh token expired');
+      await signOut();
+      return false;
+    }
+
     final response = await _repository.refreshToken();
 
     if (response.isSuccess && response.data?.accessToken != null) {
-      // Convert RefreshTokenData to UserData
       final userData = UserData(
         accessToken: response.data!.accessToken,
         refreshToken: response.data!.refreshToken,
         expiryDate: response.data!.expiryDate,
         username: response.data!.username,
-        id: state.userData?.id, // Preserve existing ID
+        id: state.userData?.id,
       );
 
       state = state.copyWith(
@@ -328,19 +435,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
       return true;
     } else {
-      // If refresh fails, sign out
       await signOut();
       return false;
     }
   }
 }
 
-// Auth state provider
+// Updated auth state provider
 final authNotifierProvider = StateNotifierProvider<AuthNotifier, AuthState>((
   ref,
 ) {
   final repository = ref.watch(authRepositoryProvider);
-  return AuthNotifier(repository);
+  final tokenStorage = ref.watch(tokenStorageProvider);
+  return AuthNotifier(repository, tokenStorage);
 });
 
 // Convenience providers

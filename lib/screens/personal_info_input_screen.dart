@@ -1,3 +1,4 @@
+import 'package:Wicore/providers/user_provider.dart';
 import 'package:Wicore/styles/colors.dart';
 import 'package:Wicore/styles/text_styles.dart';
 import 'package:Wicore/widgets/reusable_app_bar.dart';
@@ -5,16 +6,18 @@ import 'package:Wicore/widgets/reusable_button.dart';
 import 'package:Wicore/widgets/reusable_info_field.dart';
 import 'package:Wicore/widgets/reusable_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:Wicore/models/user_request_model.dart';
 
-// Main Screen
-class PersonalInfoInputScreen extends StatefulWidget {
+class PersonalInfoInputScreen extends ConsumerStatefulWidget {
   @override
   _PersonalInfoInputScreenState createState() =>
       _PersonalInfoInputScreenState();
 }
 
-class _PersonalInfoInputScreenState extends State<PersonalInfoInputScreen> {
+class _PersonalInfoInputScreenState
+    extends ConsumerState<PersonalInfoInputScreen> {
   String? selectedGender; // Changed: nullable, starts null
   String? selectedMainHeight; // Changed: nullable, starts null
   String? selectedDecimalHeight; // Changed: nullable, starts null
@@ -42,8 +45,188 @@ class _PersonalInfoInputScreenState extends State<PersonalInfoInputScreen> {
     (index) => index.toString(),
   );
 
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Load existing user data if available
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadExistingUserData();
+    });
+  }
+
+  // Load existing user data to pre-populate fields
+  void _loadExistingUserData() async {
+    try {
+      await ref.read(userProvider.notifier).getCurrentUserProfile();
+      final userState = ref.read(userProvider);
+
+      userState.whenOrNull(
+        data: (response) {
+          if (response?.data != null) {
+            final userData = response!.data;
+            setState(() {
+              // Convert API gender to Korean
+              selectedGender = _convertGenderToKorean(userData.gender);
+
+              // Parse height (e.g., 1720 -> "172" and "0")
+              final heightStr = userData.height.toString();
+              if (heightStr.length >= 3) {
+                selectedMainHeight = heightStr.substring(
+                  0,
+                  heightStr.length - 1,
+                );
+                selectedDecimalHeight = heightStr.substring(
+                  heightStr.length - 1,
+                );
+              }
+
+              // Parse weight (e.g., 690 -> "69" and "0")
+              final weightStr = userData.weight.toString();
+              if (weightStr.length >= 2) {
+                selectedMainWeight = weightStr.substring(
+                  0,
+                  weightStr.length - 1,
+                );
+                selectedDecimalWeight = weightStr.substring(
+                  weightStr.length - 1,
+                );
+              }
+            });
+          }
+        },
+      );
+    } catch (e) {
+      print('Error loading existing user data: $e');
+      // Continue with empty form - this is fine for input screen
+    }
+  }
+
+  // Save personal info and proceed to next step
+  void _saveAndContinue() async {
+    if (selectedGender == null ||
+        selectedMainHeight == null ||
+        selectedDecimalHeight == null ||
+        selectedMainWeight == null ||
+        selectedDecimalWeight == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('모든 정보를 입력해주세요')));
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      // Get current user data to preserve other fields
+      final currentUserData = ref.read(currentUserDataProvider);
+
+      if (currentUserData == null) {
+        throw Exception('사용자 정보를 찾을 수 없습니다');
+      }
+
+      // Convert UI values to API format
+      final heightValue = int.parse(
+        '$selectedMainHeight$selectedDecimalHeight',
+      );
+      final weightValue = int.parse(
+        '$selectedMainWeight$selectedDecimalWeight',
+      );
+
+      // Create updated user data
+      final userRequest = UserRequest(
+        item: UserItem(
+          id: currentUserData.id,
+          firstName: currentUserData.firstName,
+          lastName: currentUserData.lastName,
+          email: currentUserData.email,
+          birthdate: currentUserData.birthdate,
+          weight: weightValue,
+          height: heightValue,
+          gender: _convertGenderToEnglish(selectedGender!),
+          onboarded:
+              true, // Mark as onboarded since they completed personal info
+        ),
+      );
+
+      await ref
+          .read(userProvider.notifier)
+          .updateCurrentUserProfile(userRequest);
+
+      final userState = ref.read(userProvider);
+      await userState.when(
+        data: (response) async {
+          if (response != null) {
+            // Success - navigate to next screen
+            context.push('/phone-input');
+          }
+        },
+        loading: () async {
+          // Wait a bit more for loading to complete
+          await Future.delayed(Duration(milliseconds: 500));
+        },
+        error: (error, stack) async {
+          throw error;
+        },
+      );
+    } catch (e) {
+      print('Error saving personal info: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('저장 중 오류가 발생했습니다')));
+    } finally {
+      setState(() => _isSaving = false);
+    }
+  }
+
+  // Skip personal info and proceed to next step
+  void _skipAndContinue() async {
+    // Just proceed to next screen without saving
+    context.push('/phone-input');
+  }
+
+  // Helper methods to convert between Korean and English gender values
+  String _convertGenderToKorean(String englishGender) {
+    switch (englishGender.toLowerCase()) {
+      case 'male':
+        return '남성';
+      case 'female':
+        return '여성';
+      default:
+        return '여성'; // Default fallback
+    }
+  }
+
+  String _convertGenderToEnglish(String koreanGender) {
+    switch (koreanGender) {
+      case '남성':
+        return 'male';
+      case '여성':
+        return 'female';
+      default:
+        return 'female'; // Default fallback
+    }
+  }
+
+  // Check if form is complete
+  bool get _isFormComplete {
+    return selectedGender != null &&
+        selectedMainHeight != null &&
+        selectedDecimalHeight != null &&
+        selectedMainWeight != null &&
+        selectedDecimalWeight != null;
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Watch for loading state from user provider
+    final userState = ref.watch(userProvider);
+    final isApiLoading = userState.maybeWhen(
+      loading: () => true,
+      orElse: () => false,
+    );
+
     return Scaffold(
       body: Container(
         color: Colors.white,
@@ -55,9 +238,7 @@ class _PersonalInfoInputScreenState extends State<PersonalInfoInputScreen> {
               showTrailingButton: true,
               trailingButtonText: '건너뛰기',
               showBackButton: false,
-              onTrailingPressed: () {
-                context.push('/phone-input');
-              },
+              onTrailingPressed: _skipAndContinue,
             ),
             SizedBox(height: 20),
 
@@ -178,12 +359,19 @@ class _PersonalInfoInputScreenState extends State<PersonalInfoInputScreen> {
 
                       Spacer(),
 
-                      CustomButton(
-                        text: '다음',
-                        isEnabled: true,
-                        onPressed: () {},
-                        disabledBackgroundColor: Colors.grey,
-                      ),
+                      // Show loading indicator or button based on state
+                      if (_isSaving || isApiLoading)
+                        Container(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: CircularProgressIndicator(),
+                        )
+                      else
+                        CustomButton(
+                          text: '다음',
+                          isEnabled: _isFormComplete,
+                          onPressed: _isFormComplete ? _saveAndContinue : null,
+                          disabledBackgroundColor: Colors.grey,
+                        ),
                     ],
                   ),
                 ),

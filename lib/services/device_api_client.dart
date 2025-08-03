@@ -17,4 +17,8 @@ abstract class DeviceApiClient {
   Future<DeviceListResponse> getActiveDevices({
     @Query('uId') required String userId,
   });
+  @GET('/device/all')
+  Future<DeviceListResponse> getAllDevices({
+    @Query('uId') required String userId,
+  });
 }

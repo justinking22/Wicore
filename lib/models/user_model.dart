@@ -5,6 +5,7 @@ class UserData {
   final String? refreshToken;
   final String? expiryDate;
   final bool? confirmed;
+  final String? email;
 
   UserData({
     this.id,
@@ -13,6 +14,7 @@ class UserData {
     this.refreshToken,
     this.expiryDate,
     this.confirmed,
+    this.email,
   });
 
   UserData copyWith({
@@ -22,6 +24,7 @@ class UserData {
     String? refreshToken,
     String? expiryDate,
     bool? confirmed,
+    String? email,
   }) {
     return UserData(
       id: id ?? this.id,
@@ -30,6 +33,7 @@ class UserData {
       refreshToken: refreshToken ?? this.refreshToken,
       expiryDate: expiryDate ?? this.expiryDate,
       confirmed: confirmed ?? this.confirmed,
+      email: email ?? this.email,
     );
   }
 }

@@ -7,7 +7,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 class MainNavigation extends StatefulWidget {
-  const MainNavigation({Key? key}) : super(key: key);
+  final Widget? child; // Add this parameter for ShellRoute support
+
+  const MainNavigation({Key? key, this.child}) : super(key: key);
 
   @override
   State<MainNavigation> createState() => _MainNavigationState();
@@ -25,10 +27,15 @@ class _MainNavigationState extends State<MainNavigation> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: [HomeScreen(), RecordsScreen(), SettingsScreen()],
-      ),
+      body:
+          widget.child != null
+              ? widget
+                  .child! // Show the child from ShellRoute (e.g., DeviceDetailsWidget)
+              : IndexedStack(
+                // Show normal tab content
+                index: _currentIndex,
+                children: [HomeScreen(), RecordsScreen(), SettingsScreen()],
+              ),
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -79,7 +86,28 @@ class _MainNavigationState extends State<MainNavigation> {
     final isSelected = _currentIndex == index;
 
     return GestureDetector(
-      onTap: () => _onTabTapped(index),
+      onTap: () {
+        if (widget.child != null) {
+          // If we're showing a ShellRoute child (like device details),
+          // navigate back to the main navigation with the selected tab
+          switch (index) {
+            case 0:
+              context.go('/navigation'); // This will show home tab
+              break;
+            case 1:
+              // Navigate to records tab if you have a route for it
+              context.go('/navigation'); // Or create /navigation/records
+              break;
+            case 2:
+              // Navigate to settings tab if you have a route for it
+              context.go('/navigation'); // Or create /navigation/settings
+              break;
+          }
+        } else {
+          // Normal tab switching
+          _onTabTapped(index);
+        }
+      },
       behavior: HitTestBehavior.opaque,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

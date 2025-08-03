@@ -1,6 +1,6 @@
 import 'package:Wicore/dialogs/confirmation_dialog.dart'
     show ExitConfirmationDialogWithOptions;
-import 'package:Wicore/providers/sign_up_form_state.dart';
+import 'package:Wicore/utilities/sign_up_form_state.dart';
 import 'package:Wicore/styles/colors.dart';
 import 'package:Wicore/styles/text_styles.dart';
 import 'package:Wicore/widgets/reusable_app_bar.dart';

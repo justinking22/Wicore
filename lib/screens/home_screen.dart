@@ -1,10 +1,9 @@
 import 'package:Wicore/screens/qr_acanner_screen.dart';
-import 'package:Wicore/widgets/device_details_widget.dart'; // Add this import
+import 'package:Wicore/widgets/device_details_widget.dart';
 import 'package:Wicore/styles/colors.dart';
 import 'package:Wicore/styles/text_styles.dart';
 import 'package:Wicore/widgets/reusable_app_bar.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
@@ -22,23 +21,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String _deviceName = "";
   String _scannedDeviceId = "";
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkForQRResult();
-    });
-  }
-
-  void _checkForQRResult() {
-    final GoRouterState state = GoRouterState.of(context);
-    final String? qrResult = state.uri.queryParameters['qrResult'];
-
-    if (qrResult != null) {
-      _handleQRScanned(qrResult);
-      context.go('/home');
-    }
-  }
+  // Removed initState and _checkForQRResult since we're using pure callbacks
 
   void _handleQRScanned(String qrData) {
     setState(() {
@@ -57,7 +40,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Add this method to navigate to device details
   void _navigateToDeviceDetails() {
     if (_isDeviceConnected && _scannedDeviceId.isNotEmpty) {
       setState(() {
@@ -66,7 +48,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // Add method to go back from device details
   void _backFromDeviceDetails() {
     setState(() {
       _showDeviceDetails = false;
@@ -403,7 +384,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildQRScannerContent() {
     return QRScannerWidget(
-      onQRScanned: _handleQRScanned,
+      onQRScanned: _handleQRScanned, // Pure callback - no navigation
       onBackPressed: _onBackFromQRScanner,
     );
   }
@@ -417,9 +398,9 @@ class _HomeScreenState extends State<HomeScreen> {
           onTrailingPressed: _disconnectDevice,
           showTrailingButton: true,
           trailingButtonColor: Colors.red,
-          showBackButton: false,
+          showBackButton: true, // Add back button for better UX
+          onBackPressed: _backFromDeviceDetails, // Go back to home view
         ),
-        // Device details widget
         Expanded(
           child: DeviceDetailsWidget(
             deviceId: _scannedDeviceId,

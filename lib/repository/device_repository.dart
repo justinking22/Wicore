@@ -49,6 +49,19 @@ class DeviceRepository {
     }
   }
 
+  // NEW METHOD: Get all user devices from /device/all endpoint
+  Future<DeviceListResponse> getAllUserDevices(String userId) async {
+    try {
+      final response = await _apiClient.getAllDevices(userId: userId);
+      return response;
+    } on DioException catch (e) {
+      return _handleDeviceListDioError(e);
+    } catch (e) {
+      if (kDebugMode) print('Error fetching all user devices: $e');
+      return DeviceListResponse(code: -1, error: e.toString());
+    }
+  }
+
   DeviceListResponse _handleDeviceListDioError(DioException e) {
     if (e.response != null) {
       final data = e.response!.data;
@@ -65,5 +78,79 @@ class DeviceRepository {
       code: e.response?.statusCode ?? -1,
       error: e.message,
     );
+  }
+
+  // UTILITY METHODS for working with device data
+
+  /// Get devices filtered by status from all devices
+  Future<List<DeviceListItem>> getDevicesByStatus(
+    String userId,
+    String status,
+  ) async {
+    try {
+      final response = await getAllUserDevices(userId);
+      if (response.isSuccess && response.devices != null) {
+        return response.devices!
+            .where((device) => device.status == status)
+            .toList();
+      }
+      return [];
+    } catch (e) {
+      if (kDebugMode) print('Error getting devices by status: $e');
+      return [];
+    }
+  }
+
+  /// Get device counts grouped by status
+  Future<Map<String, int>> getDeviceStatusCounts(String userId) async {
+    try {
+      final response = await getAllUserDevices(userId);
+      if (response.isSuccess && response.devices != null) {
+        final statusCount = <String, int>{};
+        for (final device in response.devices!) {
+          statusCount[device.status] = (statusCount[device.status] ?? 0) + 1;
+        }
+        return statusCount;
+      }
+      return {};
+    } catch (e) {
+      if (kDebugMode) print('Error getting device status counts: $e');
+      return {};
+    }
+  }
+
+  /// Get only active devices from all devices
+  Future<List<DeviceListItem>> getActiveDevicesList(String userId) async {
+    return getDevicesByStatus(userId, 'active');
+  }
+
+  /// Get only expired devices from all devices
+  Future<List<DeviceListItem>> getExpiredDevicesList(String userId) async {
+    return getDevicesByStatus(userId, 'expired');
+  }
+
+  /// Check if user has any active devices
+  Future<bool> hasActiveDevices(String userId) async {
+    try {
+      final activeDevices = await getActiveDevicesList(userId);
+      return activeDevices.isNotEmpty;
+    } catch (e) {
+      if (kDebugMode) print('Error checking active devices: $e');
+      return false;
+    }
+  }
+
+  /// Get total device count for user
+  Future<int> getTotalDeviceCount(String userId) async {
+    try {
+      final response = await getAllUserDevices(userId);
+      if (response.isSuccess && response.devices != null) {
+        return response.devices!.length;
+      }
+      return 0;
+    } catch (e) {
+      if (kDebugMode) print('Error getting total device count: $e');
+      return 0;
+    }
   }
 }

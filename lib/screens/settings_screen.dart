@@ -302,8 +302,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     // Get user email from auth state
     String displayEmail = 'user@email.com'; // fallback
-    if (authState.userData?.username != null) {
-      displayEmail = authState.userData!.username!;
+    if (authState.userData?.email != null) {
+      displayEmail = authState.userData!.email!;
     }
 
     return Scaffold(

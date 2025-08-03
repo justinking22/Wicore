@@ -1,6 +1,6 @@
 import 'package:Wicore/dialogs/confirmation_dialog.dart';
 import 'package:Wicore/providers/authentication_provider.dart';
-import 'package:Wicore/providers/sign_up_form_state.dart';
+import 'package:Wicore/utilities/sign_up_form_state.dart';
 import 'package:Wicore/services/api_service.dart';
 import 'package:Wicore/styles/colors.dart';
 import 'package:Wicore/styles/text_styles.dart';
