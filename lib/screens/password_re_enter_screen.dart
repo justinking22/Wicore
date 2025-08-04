@@ -178,200 +178,233 @@ class _PasswordConfirmationScreenState
       }
     });
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: CustomAppBar(
-        title: '회원가입',
-        onBackPressed: () => Navigator.pop(context),
-        showTrailingButton: true,
-        onTrailingPressed: () {
-          ExitConfirmationDialogWithOptions.show(
-            context,
-            exitRoute: '/welcome',
-          );
-        },
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 40),
-            // Title text
-            Text('비밀번호를', style: TextStyles.kBody),
-            const SizedBox(height: 8),
-            Text('다시 한 번 입력해주세요', style: TextStyles.kBody),
-            // Conditional content: Either error message OR subtitle text
-            if (_passwordMismatchError != null) ...[
-              const SizedBox(height: 24),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                decoration: BoxDecoration(
-                  color: CustomColors.translucentRedOrange,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(_passwordMismatchError!, style: TextStyles.kError),
-              ),
-              const SizedBox(height: 60),
-            ] else ...[
-              const SizedBox(height: 24),
-              // Subtitle text
-              Text('입력한 비밀번호가 맞는지 확인할게요.', style: TextStyles.kThirdBody),
-              const SizedBox(height: 60),
-            ],
-
-            // Input field label
-            Text('비밀번호 확인', style: TextStyles.kHeader),
-            const SizedBox(height: 8),
-            // Password confirmation input field
-            TextField(
-              controller: _confirmPasswordController,
-              enabled: !_isSigningUp, // ✅ Disable during signup
-              obscureText: _obscureText,
-              obscuringCharacter: '\u2B24',
-              decoration: InputDecoration(
-                hintText: '비밀번호를 다시 입력해주세요',
-                hintStyle: TextStyles.kMedium,
-                errorText: _errorText,
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscureText ? Icons.visibility : Icons.visibility_off,
-                    color: Colors.grey,
-                  ),
-                  onPressed:
-                      _isSigningUp
-                          ? null
-                          : () {
-                            setState(() {
-                              _obscureText = !_obscureText;
-                            });
-                          },
-                ),
-                border: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.grey[300]!, width: 1),
-                ),
-                enabledBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.grey[300]!, width: 1),
-                ),
-                focusedBorder: const UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.black, width: 2),
-                ),
-                disabledBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.grey[400]!, width: 1),
-                ),
-                errorBorder: const UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.red, width: 1),
-                ),
-                focusedErrorBorder: const UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.red, width: 2),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  vertical: 12,
-                  horizontal: 0,
-                ),
-              ),
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w400,
-                color: _isSigningUp ? Colors.grey : Colors.black,
-                letterSpacing: 1.5,
-              ),
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) {
-                if (_isButtonEnabled && !_isSigningUp) {
-                  _handleNext();
-                }
-              },
-            ),
-
-            // ✅ Show signup progress info
-            if (_isSigningUp) ...[
-              const SizedBox(height: 24),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: Colors.blue.withOpacity(0.3),
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+    return GestureDetector(
+      onTap: () {
+        // Dismiss keyboard when tapping outside
+        FocusScope.of(context).unfocus();
+      },
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        resizeToAvoidBottomInset: false,
+        appBar: CustomAppBar(
+          title: '회원가입',
+          onBackPressed: () => Navigator.pop(context),
+          showTrailingButton: true,
+          onTrailingPressed: () {
+            ExitConfirmationDialogWithOptions.show(
+              context,
+              exitRoute: '/welcome',
+            );
+          },
+        ),
+        body: SingleChildScrollView(
+          child: SizedBox(
+            height:
+                MediaQuery.of(context).size.height -
+                MediaQuery.of(context).padding.top -
+                kToolbarHeight,
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 40),
+                  // Title text
+                  Text('비밀번호를', style: TextStyles.kBody),
+                  const SizedBox(height: 8),
+                  Text('다시 한 번 입력해주세요', style: TextStyles.kBody),
+                  // Conditional content: Either error message OR subtitle text
+                  if (_passwordMismatchError != null) ...[
+                    const SizedBox(height: 24),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                      decoration: BoxDecoration(
+                        color: CustomColors.translucentRedOrange,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        _passwordMismatchError!,
+                        style: TextStyles.kError,
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Text(
-                      '계정을 생성하고 있습니다...',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.blue[700],
+                    const SizedBox(height: 60),
+                  ] else ...[
+                    const SizedBox(height: 24),
+                    // Subtitle text
+                    Text('입력한 비밀번호가 맞는지 확인할게요.', style: TextStyles.kThirdBody),
+                    const SizedBox(height: 60),
+                  ],
+
+                  // Input field label
+                  Text('비밀번호 확인', style: TextStyles.kHeader),
+                  const SizedBox(height: 8),
+                  // Password confirmation input field
+                  TextField(
+                    controller: _confirmPasswordController,
+                    enabled: !_isSigningUp, // ✅ Disable during signup
+                    obscureText: _obscureText,
+                    obscuringCharacter: '\u2B24',
+                    decoration: InputDecoration(
+                      hintText: '비밀번호를 다시 입력해주세요',
+                      hintStyle: TextStyles.kMedium,
+                      errorText: _errorText,
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscureText
+                              ? Icons.visibility
+                              : Icons.visibility_off,
+                          color: Colors.grey,
+                        ),
+                        onPressed:
+                            _isSigningUp
+                                ? null
+                                : () {
+                                  setState(() {
+                                    _obscureText = !_obscureText;
+                                  });
+                                },
+                      ),
+                      border: UnderlineInputBorder(
+                        borderSide: BorderSide(
+                          color: Colors.grey[300]!,
+                          width: 1,
+                        ),
+                      ),
+                      enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(
+                          color: Colors.grey[300]!,
+                          width: 1,
+                        ),
+                      ),
+                      focusedBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.black, width: 2),
+                      ),
+                      disabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(
+                          color: Colors.grey[400]!,
+                          width: 1,
+                        ),
+                      ),
+                      errorBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.red, width: 1),
+                      ),
+                      focusedErrorBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.red, width: 2),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 0,
+                      ),
+                    ),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w400,
+                      color: _isSigningUp ? Colors.grey : Colors.black,
+                      letterSpacing: 1.5,
+                    ),
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) {
+                      if (_isButtonEnabled && !_isSigningUp) {
+                        _handleNext();
+                      }
+                    },
+                  ),
+
+                  // ✅ Show signup progress info
+                  if (_isSigningUp) ...[
+                    const SizedBox(height: 24),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.blue.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.blue,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            '계정을 생성하고 있습니다...',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.blue[700],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
-                ),
-              ),
-            ],
 
-            // ✅ Show collected data for debugging (remove in production)
-            if (!_isSigningUp) ...[
-              const SizedBox(height: 24),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '수집된 정보:',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.green[700],
+                  // ✅ Show collected data for debugging (remove in production)
+                  if (!_isSigningUp) ...[
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '수집된 정보:',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.green[700],
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '이름: ${signUpForm.name}',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          Text(
+                            '이메일: ${signUpForm.email}',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          Text(
+                            '비밀번호: ${signUpForm.password.isNotEmpty ? '입력됨' : '입력 안됨'}',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '이름: ${signUpForm.name}',
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    Text(
-                      '이메일: ${signUpForm.email}',
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    Text(
-                      '비밀번호: ${signUpForm.password.isNotEmpty ? '입력됨' : '입력 안됨'}',
-                      style: const TextStyle(fontSize: 12),
-                    ),
                   ],
-                ),
-              ),
-            ],
 
-            const Spacer(),
-            // Next/Signup button
-            CustomButton(
-              text: _isSigningUp ? '회원가입 중...' : '회원가입',
-              isEnabled: _isButtonEnabled && !_isSigningUp,
-              onPressed:
-                  (_isButtonEnabled && !_isSigningUp) ? _handleNext : null,
-              disabledBackgroundColor: Colors.grey,
+                  const Spacer(),
+                  // Next/Signup button
+                  CustomButton(
+                    text: _isSigningUp ? '회원가입 중...' : '회원가입',
+                    isEnabled: _isButtonEnabled && !_isSigningUp,
+                    onPressed:
+                        (_isButtonEnabled && !_isSigningUp)
+                            ? _handleNext
+                            : null,
+                    disabledBackgroundColor: Colors.grey,
+                  ),
+                  const SizedBox(height: 32),
+                ],
+              ),
             ),
-            const SizedBox(height: 32),
-          ],
+          ),
         ),
       ),
     );

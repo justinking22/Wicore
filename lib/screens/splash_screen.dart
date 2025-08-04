@@ -225,30 +225,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                       },
                     ),
                   ),
-
-                  // Optional: Loading indicator at the bottom
-                  Positioned(
-                    bottom: 80,
-                    child: AnimatedBuilder(
-                      animation: _colorController,
-                      builder: (context, child) {
-                        return AnimatedOpacity(
-                          opacity: _colorController.value * 0.7,
-                          duration: const Duration(milliseconds: 300),
-                          child: const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.black38,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
                 ],
               ),
             ),

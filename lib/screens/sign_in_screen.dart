@@ -289,266 +289,275 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       }
     });
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      // Add this to prevent screen resize when keyboard appears
-      resizeToAvoidBottomInset: false,
-      appBar: AppBar(
+    return GestureDetector(
+      onTap: () {
+        // Dismiss keyboard when tapping outside
+        FocusScope.of(context).unfocus();
+      },
+      child: Scaffold(
         backgroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            child: ElevatedButton(
-              onPressed: () {
-                context.push('/welcome');
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: CustomColors.limeGreen,
-                foregroundColor: Colors.black,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
+        // Add this to prevent screen resize when keyboard appears
+        resizeToAvoidBottomInset: false,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          actions: [
+            Container(
+              margin: const EdgeInsets.only(right: 16),
+              child: ElevatedButton(
+                onPressed: () {
+                  context.push('/welcome');
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: CustomColors.limeGreen,
+                  foregroundColor: Colors.black,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                 ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('회원가입', style: TextStyles.kRegular),
+                    SizedBox(width: 4),
+                    Icon(Icons.arrow_forward, size: 20),
+                  ],
                 ),
               ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('회원가입', style: TextStyles.kRegular),
-                  SizedBox(width: 4),
-                  Icon(Icons.arrow_forward, size: 20),
-                ],
+            ),
+          ],
+        ),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            // Add scroll behavior
+            physics: const ClampingScrollPhysics(),
+            child: Container(
+              // Use container with minimum height
+              constraints: BoxConstraints(
+                minHeight:
+                    MediaQuery.of(context).size.height -
+                    MediaQuery.of(context).viewInsets.bottom -
+                    AppBar().preferredSize.height -
+                    MediaQuery.of(context).padding.top,
               ),
-            ),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          // Add scroll behavior
-          physics: const ClampingScrollPhysics(),
-          child: Container(
-            // Use container with minimum height
-            constraints: BoxConstraints(
-              minHeight:
-                  MediaQuery.of(context).size.height -
-                  MediaQuery.of(context).viewInsets.bottom -
-                  AppBar().preferredSize.height -
-                  MediaQuery.of(context).padding.top,
-            ),
-            padding: const EdgeInsets.all(24.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('반갑습니다\n로그인을 해주세요', style: TextStyles.kBody),
-                  const SizedBox(height: 8),
-                  if (_hasEmailError)
-                    Container(
-                      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFEBEE),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        _emailErrorMessage,
-                        style: const TextStyle(
-                          color: Color(0xFFD32F2F),
-                          fontSize: 14,
+              padding: const EdgeInsets.all(24.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('반갑습니다\n로그인을 해주세요', style: TextStyles.kBody),
+                    const SizedBox(height: 8),
+                    if (_hasEmailError)
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFEBEE),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          _emailErrorMessage,
+                          style: const TextStyle(
+                            color: Color(0xFFD32F2F),
+                            fontSize: 14,
+                          ),
                         ),
                       ),
-                    ),
-                  SizedBox(height: _hasEmailError ? 24 : 80), // Adjust spacing
-                  // Email Field
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('이메일', style: TextStyles.kSemiBold),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _emailController,
-                        enabled: !_isLoading, // ✅ Disable during loading
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: InputDecoration(
-                          hintText: '이메일주소를 입력해주세요',
-                          hintStyle: TextStyles.kMedium,
-                          border: const UnderlineInputBorder(
-                            borderSide: BorderSide(color: Color(0xFFE0E0E0)),
-                          ),
-                          focusedBorder: const UnderlineInputBorder(
-                            borderSide: BorderSide(
-                              color: CustomColors.darkCharcoal,
-                              width: 2,
+                    SizedBox(
+                      height: _hasEmailError ? 24 : 80,
+                    ), // Adjust spacing
+                    // Email Field
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('이메일', style: TextStyles.kSemiBold),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _emailController,
+                          enabled: !_isLoading, // ✅ Disable during loading
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: InputDecoration(
+                            hintText: '이메일주소를 입력해주세요',
+                            hintStyle: TextStyles.kMedium,
+                            border: const UnderlineInputBorder(
+                              borderSide: BorderSide(color: Color(0xFFE0E0E0)),
                             ),
-                          ),
-                          errorBorder: const UnderlineInputBorder(
-                            borderSide: BorderSide(color: Color(0xFFD32F2F)),
-                          ),
-                          enabledBorder: const UnderlineInputBorder(
-                            borderSide: BorderSide(color: Color(0xFFE0E0E0)),
-                          ),
-                          disabledBorder: const UnderlineInputBorder(
-                            borderSide: BorderSide(color: Color(0xFFBDBDBD)),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 16,
-                          ),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return '이메일을 입력해주세요';
-                          }
-                          if (!RegExp(
-                            r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                          ).hasMatch(value)) {
-                            return '유효한 이메일 주소를 입력해주세요';
-                          }
-                          return null;
-                        },
-                        onChanged: (value) {
-                          if (!_isLoading) {
-                            _validateEmail(value);
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-                  // Password Field
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('비밀번호', style: TextStyles.kSemiBold),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _passwordController,
-                        enabled: !_isLoading, // ✅ Disable during loading
-                        obscureText: _isObscurePassword,
-                        decoration: InputDecoration(
-                          hintText: '비밀번호를 입력해주세요',
-                          hintStyle: TextStyles.kMedium,
-                          border: const UnderlineInputBorder(
-                            borderSide: BorderSide(color: Color(0xFFE0E0E0)),
-                          ),
-                          focusedBorder: const UnderlineInputBorder(
-                            borderSide: BorderSide(
-                              color: CustomColors.darkCharcoal,
-                              width: 2,
-                            ),
-                          ),
-                          enabledBorder: const UnderlineInputBorder(
-                            borderSide: BorderSide(color: Color(0xFFE0E0E0)),
-                          ),
-                          disabledBorder: const UnderlineInputBorder(
-                            borderSide: BorderSide(color: Color(0xFFBDBDBD)),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 16,
-                          ),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _isObscurePassword
-                                  ? Icons.visibility_off
-                                  : Icons.visibility,
-                              color: const Color(0xFFBDBDBD),
-                            ),
-                            onPressed:
-                                _isLoading
-                                    ? null
-                                    : () {
-                                      setState(() {
-                                        _isObscurePassword =
-                                            !_isObscurePassword;
-                                      });
-                                    },
-                          ),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return '비밀번호를 입력해주세요';
-                          }
-                          return null;
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  // Auto Login and Password Reset
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          SizedBox(
-                            height: 32,
-                            width: 32,
-                            child: Checkbox(
-                              value: _isAutoLogin,
-                              onChanged:
-                                  _isLoading
-                                      ? null
-                                      : (value) {
-                                        setState(() {
-                                          _isAutoLogin = value ?? false;
-                                        });
-                                      },
-                              activeColor: CustomColors.darkCharcoal,
-                              checkColor: CustomColors.limeGreen,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(4.0),
+                            focusedBorder: const UnderlineInputBorder(
+                              borderSide: BorderSide(
+                                color: CustomColors.darkCharcoal,
+                                width: 2,
                               ),
                             ),
+                            errorBorder: const UnderlineInputBorder(
+                              borderSide: BorderSide(color: Color(0xFFD32F2F)),
+                            ),
+                            enabledBorder: const UnderlineInputBorder(
+                              borderSide: BorderSide(color: Color(0xFFE0E0E0)),
+                            ),
+                            disabledBorder: const UnderlineInputBorder(
+                              borderSide: BorderSide(color: Color(0xFFBDBDBD)),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 16,
+                            ),
                           ),
-                          const Text('자동로그인', style: TextStyles.kRegular),
-                        ],
-                      ),
-                      TextButton(
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return '이메일을 입력해주세요';
+                            }
+                            if (!RegExp(
+                              r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                            ).hasMatch(value)) {
+                              return '유효한 이메일 주소를 입력해주세요';
+                            }
+                            return null;
+                          },
+                          onChanged: (value) {
+                            if (!_isLoading) {
+                              _validateEmail(value);
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 32),
+                    // Password Field
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('비밀번호', style: TextStyles.kSemiBold),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _passwordController,
+                          enabled: !_isLoading, // ✅ Disable during loading
+                          obscureText: _isObscurePassword,
+                          decoration: InputDecoration(
+                            hintText: '비밀번호를 입력해주세요',
+                            hintStyle: TextStyles.kMedium,
+                            border: const UnderlineInputBorder(
+                              borderSide: BorderSide(color: Color(0xFFE0E0E0)),
+                            ),
+                            focusedBorder: const UnderlineInputBorder(
+                              borderSide: BorderSide(
+                                color: CustomColors.darkCharcoal,
+                                width: 2,
+                              ),
+                            ),
+                            enabledBorder: const UnderlineInputBorder(
+                              borderSide: BorderSide(color: Color(0xFFE0E0E0)),
+                            ),
+                            disabledBorder: const UnderlineInputBorder(
+                              borderSide: BorderSide(color: Color(0xFFBDBDBD)),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 16,
+                            ),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _isObscurePassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                                color: const Color(0xFFBDBDBD),
+                              ),
+                              onPressed:
+                                  _isLoading
+                                      ? null
+                                      : () {
+                                        setState(() {
+                                          _isObscurePassword =
+                                              !_isObscurePassword;
+                                        });
+                                      },
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return '비밀번호를 입력해주세요';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    // Auto Login and Password Reset
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            SizedBox(
+                              height: 32,
+                              width: 32,
+                              child: Checkbox(
+                                value: _isAutoLogin,
+                                onChanged:
+                                    _isLoading
+                                        ? null
+                                        : (value) {
+                                          setState(() {
+                                            _isAutoLogin = value ?? false;
+                                          });
+                                        },
+                                activeColor: CustomColors.darkCharcoal,
+                                checkColor: CustomColors.limeGreen,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(4.0),
+                                ),
+                              ),
+                            ),
+                            const Text('자동로그인', style: TextStyles.kRegular),
+                          ],
+                        ),
+                        TextButton(
+                          onPressed:
+                              _isLoading
+                                  ? null
+                                  : () {
+                                    context.push('/password-reset');
+                                  },
+                          child: const Text(
+                            '비밀번호 재설정',
+                            style:
+                                TextStyles.kTrailingBottomButtonWithUnderline,
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Use flexible spacing instead of Spacer
+                    SizedBox(height: MediaQuery.of(context).size.height * 0.05),
+                    // Social Login Link
+                    Center(
+                      child: TextButton(
                         onPressed:
-                            _isLoading
-                                ? null
-                                : () {
-                                  context.push('/password-reset');
-                                },
+                            _isLoading ? null : _showSocialLoginBottomSheet,
                         child: const Text(
-                          '비밀번호 재설정',
+                          '구글 또는 애플아이디로 로그인하기',
                           style: TextStyles.kTrailingBottomButtonWithUnderline,
                         ),
                       ),
-                    ],
-                  ),
-                  // Use flexible spacing instead of Spacer
-                  SizedBox(height: MediaQuery.of(context).size.height * 0.05),
-                  // Social Login Link
-                  Center(
-                    child: TextButton(
-                      onPressed:
-                          _isLoading ? null : _showSocialLoginBottomSheet,
-                      child: const Text(
-                        '구글 또는 애플아이디로 로그인하기',
-                        style: TextStyles.kTrailingBottomButtonWithUnderline,
-                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Login Button
-                  CustomButton(
-                    text: _isLoading ? '로그인 중...' : '로그인',
-                    onPressed: _isLoading ? null : _handleLogin,
-                    isEnabled:
-                        _emailController.text.isNotEmpty &&
-                        _passwordController.text.isNotEmpty &&
-                        !_isLoading,
-                    backgroundColor: Colors.black,
-                    disabledBackgroundColor: const Color(0xFFBDBDBD),
-                    disabledTextColor: Colors.white,
-                  ),
-                  const SizedBox(height: 32),
-                ],
+                    const SizedBox(height: 16),
+                    // Login Button
+                    CustomButton(
+                      text: _isLoading ? '로그인 중...' : '로그인',
+                      onPressed: _isLoading ? null : _handleLogin,
+                      isEnabled:
+                          _emailController.text.isNotEmpty &&
+                          _passwordController.text.isNotEmpty &&
+                          !_isLoading,
+                      backgroundColor: Colors.black,
+                      disabledBackgroundColor: const Color(0xFFBDBDBD),
+                      disabledTextColor: Colors.white,
+                    ),
+                    const SizedBox(height: 32),
+                  ],
+                ),
               ),
             ),
           ),

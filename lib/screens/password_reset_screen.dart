@@ -136,156 +136,184 @@ class _PasswordResetScreenState extends ConsumerState<PasswordResetScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: CustomAppBar(
-        title: '비밀번호 재설정',
-        onBackPressed: () => Navigator.pop(context),
-        showTrailingButton: false,
-        showExitDialog: true,
-        exitRoute: '/login',
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 40),
-            // Title text
-            Text('회원가입시 사용한', style: TextStyles.kBody),
-            const SizedBox(height: 8),
-            Text('이메일을 입력해주세요', style: TextStyles.kBody),
+    return GestureDetector(
+      onTap: () {
+        // Dismiss keyboard when tapping outside
+        FocusScope.of(context).unfocus();
+      },
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        appBar: CustomAppBar(
+          title: '비밀번호 재설정',
+          onBackPressed: () => Navigator.pop(context),
+          showTrailingButton: false,
+          showExitDialog: true,
+          exitRoute: '/login',
+        ),
+        body: SingleChildScrollView(
+          child: SizedBox(
+            height:
+                MediaQuery.of(context).size.height -
+                MediaQuery.of(context).padding.top -
+                kToolbarHeight,
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 40),
+                  // Title text
+                  Text('회원가입시 사용한', style: TextStyles.kBody),
+                  const SizedBox(height: 8),
+                  Text('이메일을 입력해주세요', style: TextStyles.kBody),
 
-            // Conditional content: Either error message OR subtitle text
-            if (_emailNotFoundError != null) ...[
-              const SizedBox(height: 24),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF2F2), // Light pink background
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: const Color(0xFFFFCDD2), // Pink border
-                    width: 1,
-                  ),
-                ),
-                child: Text(
-                  _emailNotFoundError!,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                    color: Color(0xFFD32F2F), // Red text
-                  ),
-                ),
-              ),
-              const SizedBox(height: 60),
-            ] else ...[
-              const SizedBox(height: 24),
-              // Subtitle text explaining what will happen
-              Text('비밀번호 재설정 링크를 이메일로 보내드릴게요.', style: TextStyles.kThirdBody),
-              const SizedBox(height: 60),
-            ],
-
-            // Input field label
-            Text('이메일', style: TextStyles.kHeader),
-            const SizedBox(height: 8),
-            // Email input field
-            TextField(
-              controller: _emailController,
-              enabled: !_isSendingReset, // ✅ Disable during sending
-              decoration: InputDecoration(
-                hintText: '예) withforce@naver.com',
-                hintStyle: TextStyles.kMedium,
-                errorText: _errorText,
-                border: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.grey[300]!, width: 1),
-                ),
-                enabledBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.grey[300]!, width: 1),
-                ),
-                focusedBorder: const UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.black, width: 2),
-                ),
-                disabledBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.grey[400]!, width: 1),
-                ),
-                errorBorder: const UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.red, width: 1),
-                ),
-                focusedErrorBorder: const UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.red, width: 2),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  vertical: 12,
-                  horizontal: 0,
-                ),
-              ),
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w400,
-                color: _isSendingReset ? Colors.grey : Colors.black,
-              ),
-              keyboardType: TextInputType.emailAddress,
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) {
-                if (_isButtonEnabled && !_isSendingReset) {
-                  _handlePasswordReset();
-                }
-              },
-            ),
-
-            // ✅ Show sending progress
-            if (_isSendingReset) ...[
-              const SizedBox(height: 24),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: Colors.blue.withOpacity(0.3),
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                  // Conditional content: Either error message OR subtitle text
+                  if (_emailNotFoundError != null) ...[
+                    const SizedBox(height: 24),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF2F2), // Light pink background
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: const Color(0xFFFFCDD2), // Pink border
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        _emailNotFoundError!,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                          color: Color(0xFFD32F2F), // Red text
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(height: 60),
+                  ] else ...[
+                    const SizedBox(height: 24),
+                    // Subtitle text explaining what will happen
                     Text(
-                      '비밀번호 재설정 이메일을 발송하고 있습니다...',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.blue[700],
+                      '비밀번호 재설정 링크를 이메일로 보내드릴게요.',
+                      style: TextStyles.kThirdBody,
+                    ),
+                    const SizedBox(height: 60),
+                  ],
+
+                  // Input field label
+                  Text('이메일', style: TextStyles.kHeader),
+                  const SizedBox(height: 8),
+                  // Email input field
+                  TextField(
+                    controller: _emailController,
+                    enabled: !_isSendingReset, // ✅ Disable during sending
+                    decoration: InputDecoration(
+                      hintText: '예) withforce@naver.com',
+                      hintStyle: TextStyles.kMedium,
+                      errorText: _errorText,
+                      border: UnderlineInputBorder(
+                        borderSide: BorderSide(
+                          color: Colors.grey[300]!,
+                          width: 1,
+                        ),
+                      ),
+                      enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(
+                          color: Colors.grey[300]!,
+                          width: 1,
+                        ),
+                      ),
+                      focusedBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.black, width: 2),
+                      ),
+                      disabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(
+                          color: Colors.grey[400]!,
+                          width: 1,
+                        ),
+                      ),
+                      errorBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.red, width: 1),
+                      ),
+                      focusedErrorBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.red, width: 2),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 0,
+                      ),
+                    ),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w400,
+                      color: _isSendingReset ? Colors.grey : Colors.black,
+                    ),
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) {
+                      if (_isButtonEnabled && !_isSendingReset) {
+                        _handlePasswordReset();
+                      }
+                    },
+                  ),
+
+                  // ✅ Show sending progress
+                  if (_isSendingReset) ...[
+                    const SizedBox(height: 24),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.blue.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.blue,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            '비밀번호 재설정 이메일을 발송하고 있습니다...',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.blue[700],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
-                ),
-              ),
-            ],
 
-            const Spacer(),
-            // Reset button
-            CustomButton(
-              text: _isSendingReset ? '발송 중...' : '재설정 이메일 발송',
-              isEnabled: _isButtonEnabled && !_isSendingReset,
-              onPressed:
-                  (_isButtonEnabled && !_isSendingReset)
-                      ? _handlePasswordReset
-                      : null,
-              disabledBackgroundColor: Colors.grey,
+                  const Spacer(),
+                  // Reset button
+                  CustomButton(
+                    text: _isSendingReset ? '발송 중...' : '재설정 이메일 발송',
+                    isEnabled: _isButtonEnabled && !_isSendingReset,
+                    onPressed:
+                        (_isButtonEnabled && !_isSendingReset)
+                            ? _handlePasswordReset
+                            : null,
+                    disabledBackgroundColor: Colors.grey,
+                  ),
+                  const SizedBox(height: 32),
+                ],
+              ),
             ),
-            const SizedBox(height: 32),
-          ],
+          ),
         ),
       ),
     );

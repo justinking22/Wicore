@@ -1,6 +1,7 @@
 import 'package:Wicore/providers/user_provider.dart';
 import 'package:Wicore/styles/colors.dart';
 import 'package:Wicore/styles/text_styles.dart';
+import 'package:Wicore/widgets/dual_picker.dart';
 import 'package:Wicore/widgets/reusable_app_bar.dart';
 import 'package:Wicore/widgets/reusable_button.dart';
 import 'package:Wicore/widgets/reusable_info_field.dart';

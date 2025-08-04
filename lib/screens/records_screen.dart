@@ -43,29 +43,25 @@ class _RecordsScreenState extends State<RecordsScreen> {
     return Scaffold(
       backgroundColor:
           hasData == true ? CustomColors.opaqueLightGray : Colors.white,
+      appBar: CustomAppBar(
+        title: '나의 작업 기록',
+        leadingAssetPath: 'assets/icons/calendar_icon.png',
+        leadingIconSize: 24,
+        onLeadingPressed: () {
+          context.push('/calendar-screen');
+        },
+        trailingButtonIcon: Icons.info_outline,
+        showTrailingButton: true,
+        onTrailingPressed: () {},
+        trailingButtonIconSize: 30,
+        backgroundColor: hasData == true ? Colors.white : Colors.white,
+      ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.fromLTRB(24.0, 12.0, 24.0, 12.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CustomAppBar(
-                title: '나의 작업 기록',
-                leadingAssetPath: 'assets/icons/calendar_icon.png',
-                leadingIconSize: 24,
-                onLeadingPressed: () {
-                  context.push('/calendar-screen');
-                },
-                trailingButtonIcon: Icons.info_outline,
-                showTrailingButton: true,
-                onTrailingPressed: () {},
-                trailingButtonIconSize: 30,
-                backgroundColor:
-                    hasData == true
-                        ? CustomColors.opaqueLightGray
-                        : Colors.white,
-              ),
-              const SizedBox(height: 32),
               // Date navigation section
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -75,14 +71,17 @@ class _RecordsScreenState extends State<RecordsScreen> {
                     child: Container(
                       width: 18,
                       height: 18,
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         shape: BoxShape.circle,
                         color: Color.fromRGBO(194, 194, 194, 1),
                       ),
-                      child: Icon(
-                        Icons.chevron_left,
-                        color: Colors.white,
-                        size: 20,
+                      child: const Center(
+                        // Add Center widget
+                        child: Icon(
+                          Icons.chevron_left,
+                          color: Colors.white,
+                          size: 14, // Reduce size to fit container better
+                        ),
                       ),
                     ),
                   ),
@@ -92,25 +91,29 @@ class _RecordsScreenState extends State<RecordsScreen> {
                     style: TextStyles.kSemiBold.copyWith(fontSize: 20),
                   ),
                   const SizedBox(width: 24),
+                  // For the right arrow
                   GestureDetector(
                     onTap: _navigateToNextDay,
                     child: Container(
                       width: 18,
                       height: 18,
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         shape: BoxShape.circle,
                         color: Color.fromRGBO(194, 194, 194, 1),
                       ),
-                      child: Icon(
-                        Icons.chevron_right,
-                        color: Colors.white,
-                        size: 20,
+                      child: const Center(
+                        // Add Center widget
+                        child: Icon(
+                          Icons.chevron_right,
+                          color: Colors.white,
+                          size: 14, // Reduce size to fit container better
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 20),
               // Content based on whether there's data
               Expanded(
                 child: hasData ? _buildDataContent() : _buildEmptyContent(),

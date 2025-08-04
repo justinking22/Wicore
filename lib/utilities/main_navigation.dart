@@ -40,7 +40,7 @@ class _MainNavigationState extends State<MainNavigation> {
         mainAxisSize: MainAxisSize.min,
         children: [
           // Dividing line
-          Container(height: 1, color: CustomColors.lightGray),
+          Container(height: 1, color: CustomColors.lighterGray),
           Container(
             color: Colors.white,
             child: SafeArea(

@@ -434,43 +434,58 @@ class _EmailVerificationScreenState
       }
     });
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: CustomAppBar(
-        title: '회원가입',
-        onBackPressed: () {
-          if (_showVerificationCode) {
-            // If showing verification code, go back to email sent view
-            setState(() {
-              _showVerificationCode = false;
-            });
-            _animationController.reverse();
-          } else {
-            Navigator.pop(context);
-          }
-        },
-        showTrailingButton: true,
-        onTrailingPressed: () {
-          ExitConfirmationDialogWithOptions.show(
-            context,
-            exitRoute: '/welcome',
-          );
-        },
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Stack(
-          children: [
-            // Email sent view (always present)
-            if (!_showVerificationCode) _buildEmailSentView(),
+    return GestureDetector(
+      onTap: () {
+        // Dismiss keyboard when tapping outside
+        FocusScope.of(context).unfocus();
+      },
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        resizeToAvoidBottomInset: false,
+        appBar: CustomAppBar(
+          title: '회원가입',
+          onBackPressed: () {
+            if (_showVerificationCode) {
+              // If showing verification code, go back to email sent view
+              setState(() {
+                _showVerificationCode = false;
+              });
+              _animationController.reverse();
+            } else {
+              Navigator.pop(context);
+            }
+          },
+          showTrailingButton: true,
+          onTrailingPressed: () {
+            ExitConfirmationDialogWithOptions.show(
+              context,
+              exitRoute: '/welcome',
+            );
+          },
+        ),
+        body: SingleChildScrollView(
+          child: SizedBox(
+            height:
+                MediaQuery.of(context).size.height -
+                MediaQuery.of(context).padding.top -
+                kToolbarHeight,
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Stack(
+                children: [
+                  // Email sent view (always present)
+                  if (!_showVerificationCode) _buildEmailSentView(),
 
-            // Verification code view (slides in from right)
-            if (_showVerificationCode)
-              SlideTransition(
-                position: _slideAnimation,
-                child: _buildVerificationCodeView(),
+                  // Verification code view (slides in from right)
+                  if (_showVerificationCode)
+                    SlideTransition(
+                      position: _slideAnimation,
+                      child: _buildVerificationCodeView(),
+                    ),
+                ],
               ),
-          ],
+            ),
+          ),
         ),
       ),
     );

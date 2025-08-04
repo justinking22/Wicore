@@ -89,122 +89,147 @@ class _PasswordInputScreenState extends ConsumerState<PasswordInputScreen> {
   Widget build(BuildContext context) {
     final signUpForm = ref.watch(signUpFormProvider);
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: CustomAppBar(
-        title: '회원가입',
-        onBackPressed: () => Navigator.pop(context),
-        showTrailingButton: true,
-        onTrailingPressed: () {
-          ExitConfirmationDialogWithOptions.show(
-            context,
-            exitRoute: '/welcome',
-          );
-        },
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 40),
-            // Title text
-            Text('안전한 비밀번호를', style: TextStyles.kBody),
-            const SizedBox(height: 8),
-            Text('만들어주세요', style: TextStyles.kBody),
-            // Conditional content: Either error message OR subtitle text
-            if (_passwordError != null) ...[
-              const SizedBox(height: 24),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color:
-                      CustomColors
-                          .translucentRedOrange, // Light pink background
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(_passwordError!, style: TextStyles.kError),
-              ),
-              const SizedBox(height: 60),
-            ] else ...[
-              const SizedBox(height: 24),
-              // Subtitle text
-              Text(
-                '비밀번호는 7자 이상,',
-                style: TextStyles.kThirdBody, // Use kSecondBody for subtitle
-              ),
-              const SizedBox(height: 4),
-              Text('영문과 숫자를 포함해 만들어주세요.', style: TextStyles.kThirdBody),
-              const SizedBox(height: 60),
-            ],
+    return GestureDetector(
+      onTap: () {
+        // Dismiss keyboard when tapping outside
+        FocusScope.of(context).unfocus();
+      },
+      child: Scaffold(
+        resizeToAvoidBottomInset: false,
+        backgroundColor: Colors.white,
+        appBar: CustomAppBar(
+          title: '회원가입',
+          onBackPressed: () => Navigator.pop(context),
+          showTrailingButton: true,
+          onTrailingPressed: () {
+            ExitConfirmationDialogWithOptions.show(
+              context,
+              exitRoute: '/welcome',
+            );
+          },
+        ),
+        body: SingleChildScrollView(
+          child: SizedBox(
+            height:
+                MediaQuery.of(context).size.height -
+                MediaQuery.of(context).padding.top -
+                kToolbarHeight,
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 40),
+                  // Title text
+                  Text('안전한 비밀번호를', style: TextStyles.kBody),
+                  const SizedBox(height: 8),
+                  Text('만들어주세요', style: TextStyles.kBody),
+                  // Conditional content: Either error message OR subtitle text
+                  if (_passwordError != null) ...[
+                    const SizedBox(height: 24),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color:
+                            CustomColors
+                                .translucentRedOrange, // Light pink background
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(_passwordError!, style: TextStyles.kError),
+                    ),
+                    const SizedBox(height: 60),
+                  ] else ...[
+                    const SizedBox(height: 24),
+                    // Subtitle text
+                    Text(
+                      '비밀번호는 7자 이상,',
+                      style:
+                          TextStyles.kThirdBody, // Use kSecondBody for subtitle
+                    ),
+                    const SizedBox(height: 4),
+                    Text('영문과 숫자를 포함해 만들어주세요.', style: TextStyles.kThirdBody),
+                    const SizedBox(height: 60),
+                  ],
 
-            // Input field label
-            Text('비밀번호', style: TextStyles.kHeader),
-            const SizedBox(height: 8),
-            // Password input field
-            TextField(
-              controller: _passwordController,
-              obscureText: _obscureText,
-              obscuringCharacter: '●', // Medium circle (smaller than ⚫)
-              decoration: InputDecoration(
-                hintText: '비밀번호를 입력해주세요',
-                hintStyle: TextStyles.kMedium,
-                errorText: _errorText,
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscureText ? Icons.visibility : Icons.visibility_off,
-                    color: Colors.grey,
+                  // Input field label
+                  Text('비밀번호', style: TextStyles.kHeader),
+                  const SizedBox(height: 8),
+                  // Password input field
+                  TextField(
+                    controller: _passwordController,
+                    obscureText: _obscureText,
+                    obscuringCharacter: '●', // Medium circle (smaller than ⚫)
+                    decoration: InputDecoration(
+                      hintText: '비밀번호를 입력해주세요',
+                      hintStyle: TextStyles.kMedium,
+                      errorText: _errorText,
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscureText
+                              ? Icons.visibility
+                              : Icons.visibility_off,
+                          color: Colors.grey,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _obscureText = !_obscureText;
+                          });
+                        },
+                      ),
+                      border: UnderlineInputBorder(
+                        borderSide: BorderSide(
+                          color: Colors.grey[300]!,
+                          width: 1,
+                        ),
+                      ),
+                      enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(
+                          color: Colors.grey[300]!,
+                          width: 1,
+                        ),
+                      ),
+                      focusedBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.black, width: 2),
+                      ),
+                      errorBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.red, width: 1),
+                      ),
+                      focusedErrorBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.red, width: 2),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 0,
+                      ),
+                    ),
+                    style: const TextStyle(
+                      fontSize:
+                          16, // Slightly smaller than 16px for smaller dots
+                      fontWeight: FontWeight.w400,
+                      color: Colors.black,
+                      letterSpacing: 1.5, // Adjust spacing between dots
+                    ),
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) {
+                      if (_isButtonEnabled) {
+                        _handleNext();
+                      }
+                    },
                   ),
-                  onPressed: () {
-                    setState(() {
-                      _obscureText = !_obscureText;
-                    });
-                  },
-                ),
-                border: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.grey[300]!, width: 1),
-                ),
-                enabledBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.grey[300]!, width: 1),
-                ),
-                focusedBorder: const UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.black, width: 2),
-                ),
-                errorBorder: const UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.red, width: 1),
-                ),
-                focusedErrorBorder: const UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.red, width: 2),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  vertical: 12,
-                  horizontal: 0,
-                ),
+                  const Spacer(),
+                  // Next button
+                  CustomButton(
+                    text: '다음',
+                    isEnabled: _isButtonEnabled,
+                    onPressed: _isButtonEnabled ? _handleNext : null,
+                    disabledBackgroundColor: Colors.grey,
+                  ),
+                  const SizedBox(height: 32),
+                ],
               ),
-              style: const TextStyle(
-                fontSize: 16, // Slightly smaller than 16px for smaller dots
-                fontWeight: FontWeight.w400,
-                color: Colors.black,
-                letterSpacing: 1.5, // Adjust spacing between dots
-              ),
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) {
-                if (_isButtonEnabled) {
-                  _handleNext();
-                }
-              },
             ),
-            const Spacer(),
-            // Next button
-            CustomButton(
-              text: '다음',
-              isEnabled: _isButtonEnabled,
-              onPressed: _isButtonEnabled ? _handleNext : null,
-              disabledBackgroundColor: Colors.grey,
-            ),
-            const SizedBox(height: 32),
-          ],
+          ),
         ),
       ),
     );

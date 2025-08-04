@@ -309,156 +309,172 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return Scaffold(
       backgroundColor: CustomColors.lighterGray,
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CustomAppBar(
-                  backgroundColor: CustomColors.lighterGray,
-                  title: '설정',
-                  trailingButtonIcon: Icons.info_outline,
-                  showTrailingButton: true,
-                  onTrailingPressed: () {
-                    // Handle info button press
-                    context.push('/app-info');
-                  },
-                  showBackButton: false,
-                ),
-
-                // Email header
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(10, 16, 10, 16),
-                  decoration: BoxDecoration(
-                    color: CustomColors.grayWithOpacity,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    displayEmail,
-                    textAlign: TextAlign.center,
-                    style: TextStyles.kMedium.copyWith(
-                      color: CustomColors.lightGray,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // 사용자 section
-                Text(
-                  '사용자',
-                  style: TextStyles.kSemiBold.copyWith(
-                    color: CustomColors.mediumGray,
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                // User section container
-                Container(
-                  padding: const EdgeInsets.fromLTRB(0, 24, 0, 24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildMenuItem('기기 사용 기록', () {
-                        context.push('/device-history-screen');
-                      }, Colors.black),
-                      _buildDivider(),
-                      _buildMenuItem('신체정보', () {
-                        context.push('/personal-info-display-screen');
-                      }, Colors.black),
-                      _buildDivider(),
-                      _buildMenuItem('보호자 연락처', () {
-                        context.push('/re-save-phone-number-screen');
-                      }, Colors.black),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 32),
-
-                // 서비스 section
-                Text(
-                  '서비스',
-                  style: TextStyles.kSemiBold.copyWith(
-                    color: CustomColors.mediumGray,
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                // Service section container
-                Container(
-                  padding: const EdgeInsets.fromLTRB(0, 24, 0, 24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildMenuItem('알림 설정', () {
-                        context.push('/notifications-settings');
-                      }, Colors.black),
-                      _buildDivider(),
-                      _buildMenuItem('서비스 이용약관', () {
-                        context.push('/terms-of-use');
-                      }, Colors.black),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 32),
-
-                // 계정 section
-                Text(
-                  '계정',
-                  style: TextStyles.kSemiBold.copyWith(
-                    color: CustomColors.mediumGray,
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                // Account section container
-                Container(
-                  padding: const EdgeInsets.fromLTRB(0, 24, 0, 24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildMenuItem('비밀번호 재설정', () {
-                        context.push('/password-reset');
-                      }, Colors.black),
-                      _buildDivider(),
-                      _buildMenuItem(
-                        _isLoggingOut ? '로그아웃 중...' : '로그아웃',
-                        _isLoggingOut ? () {} : _handleLogout,
-                        Colors.black,
-                        isLoading: _isLoggingOut,
-                      ),
-                      _buildDivider(),
-                      _buildMenuItem('데이터 삭제', _handleDeleteData, Colors.red),
-                      _buildDivider(),
-                      _buildMenuItem('회원 탈퇴', _handleDeleteAccount, Colors.red),
-                    ],
-                  ),
-                ),
-
-                // Add some bottom padding
-                const SizedBox(height: 20),
-              ],
+        child: Column(
+          children: [
+            CustomAppBar(
+              backgroundColor: CustomColors.lighterGray,
+              title: '설정',
+              trailingButtonIcon: Icons.info_outline,
+              showTrailingButton: true,
+              onTrailingPressed: () {
+                // Handle info button press
+                context.push('/app-info');
+              },
+              showBackButton: false,
             ),
-          ),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Email header
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.fromLTRB(10, 16, 10, 16),
+                        decoration: BoxDecoration(
+                          color: CustomColors.grayWithOpacity,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          displayEmail,
+                          textAlign: TextAlign.center,
+                          style: TextStyles.kMedium.copyWith(
+                            color: CustomColors.lightGray,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // 사용자 section
+                      Text(
+                        '사용자',
+                        style: TextStyles.kSemiBold.copyWith(
+                          color: CustomColors.mediumGray,
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // User section container
+                      Container(
+                        padding: EdgeInsets.zero,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildMenuItem('기기 사용 기록', () {
+                              context.push('/device-history-screen');
+                            }, Colors.black),
+                            _buildDivider(),
+                            _buildMenuItem('신체정보', () {
+                              context.push('/personal-info-display-screen');
+                            }, Colors.black),
+                            _buildDivider(),
+                            _buildMenuItem('보호자 연락처', () {
+                              context.push('/re-save-phone-number-screen');
+                            }, Colors.black),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 32),
+
+                      // 서비스 section
+                      Text(
+                        '서비스',
+                        style: TextStyles.kSemiBold.copyWith(
+                          color: CustomColors.mediumGray,
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // Service section container
+                      Container(
+                        padding: EdgeInsets.zero,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildMenuItem('알림 설정', () {
+                              context.push('/notifications-settings');
+                            }, Colors.black),
+                            _buildDivider(),
+                            _buildMenuItem('서비스 이용약관', () {
+                              context.push('/terms-of-use');
+                            }, Colors.black),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 32),
+
+                      // 계정 section
+                      Text(
+                        '계정',
+                        style: TextStyles.kSemiBold.copyWith(
+                          color: CustomColors.mediumGray,
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // Account section container
+                      Container(
+                        padding: EdgeInsets.zero,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildMenuItem('비밀번호 재설정', () {
+                              context.push('/password-reset');
+                            }, Colors.black),
+                            _buildDivider(),
+                            _buildMenuItem(
+                              _isLoggingOut ? '로그아웃 중...' : '로그아웃',
+                              _isLoggingOut ? () {} : _handleLogout,
+                              Colors.black,
+                              isLoading: _isLoggingOut,
+                              showArrow: false,
+                            ),
+                            _buildDivider(),
+                            _buildMenuItem(
+                              '데이터 삭제',
+                              _handleDeleteData,
+                              Colors.red,
+                              showArrow: false,
+                            ),
+                            _buildDivider(),
+                            _buildMenuItem(
+                              '회원 탈퇴',
+                              _handleDeleteAccount,
+                              Colors.red,
+                              showArrow: false,
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Add some bottom padding
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -469,37 +485,34 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     VoidCallback onPressed,
     Color titleTextColor, {
     bool isLoading = false,
+    bool showArrow = true,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            title,
-            style: TextStyles.kMedium.copyWith(color: titleTextColor),
-          ),
-          if (isLoading)
-            const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          else
-            IconButton(
-              onPressed: onPressed,
-              icon: const Icon(
-                Icons.chevron_right,
-                color: Colors.black,
-                size: 30,
+    return InkWell(
+      onTap: onPressed,
+      child: SizedBox(
+        height: 80,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                // Added to handle long text properly
+                child: Text(
+                  title,
+                  style: TextStyles.kMedium.copyWith(color: titleTextColor),
+                ),
               ),
-            ),
-        ],
+              if (showArrow)
+                const Icon(Icons.chevron_right, color: Colors.black, size: 30),
+            ],
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildDivider() {
-    return Container(height: 1, color: CustomColors.lightGray);
+    return Container(height: 1, color: CustomColors.lighterGray);
   }
 }

@@ -61,6 +61,8 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       backgroundColor: backgroundColor ?? Colors.white,
       elevation: 0,
+      scrolledUnderElevation: 0, // Add this line
+      surfaceTintColor: Colors.transparent, // Add this line too
       leading: _buildLeadingWidget(context),
       title: Text(title, style: TextStyles.kTitle),
       centerTitle: true,
