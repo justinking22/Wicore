@@ -1,3 +1,4 @@
+import 'package:Wicore/models/active_device_response_model.dart';
 import 'package:Wicore/providers/authentication_provider.dart';
 import 'package:Wicore/services/device_api_client.dart';
 import 'package:Wicore/states/device_state.dart';
@@ -188,54 +189,6 @@ final deviceStatusCountProvider = FutureProvider.autoDispose<Map<String, int>>((
 });
 
 // Enhanced provider for active devices using existing /device/active endpoint
-final activeDevicesProvider = FutureProvider.autoDispose<DeviceListResponse>((
-  ref,
-) async {
-  final apiClient = ref.watch(deviceApiClientProvider);
-  final authState = ref.watch(authNotifierProvider);
-
-  print(
-    '🔧 Active devices - Auth check - isAuthenticated: ${authState.isAuthenticated}',
-  );
-
-  // Enhanced authentication check
-  if (!authState.isAuthenticated) {
-    print('🔧 ❌ Active devices authentication failed');
-    throw Exception('User not authenticated');
-  }
-
-  // Get user ID - prefer id over username, but fall back to username
-  final userId = authState.userData?.id ?? authState.userData?.username;
-
-  if (userId == null) {
-    print('🔧 ❌ No user ID available for active devices');
-    throw Exception('No user ID available');
-  }
-
-  print('🔧 ✅ Fetching active devices for userId: $userId');
-
-  try {
-    // Ensure we have a valid token before making the request
-    final authNotifier = ref.read(authNotifierProvider.notifier);
-    final token = await authNotifier.getValidToken();
-
-    if (token == null) {
-      throw Exception('No valid authentication token available');
-    }
-
-    return await apiClient.getActiveDevices(userId: userId);
-  } catch (e) {
-    print('🔧 ❌ Error fetching active devices: $e');
-
-    // If it's an auth error, trigger sign out
-    if (e.toString().contains('Authentication failed') ||
-        e.toString().contains('401')) {
-      ref.read(authNotifierProvider.notifier).setUnauthenticated();
-    }
-
-    rethrow;
-  }
-});
 
 // Helper provider to clear device data when user signs out
 final deviceAuthStateListener = Provider<void>((ref) {
@@ -252,3 +205,91 @@ final deviceAuthStateListener = Provider<void>((ref) {
 
   return;
 });
+final activeDevicesProvider = FutureProvider.autoDispose<
+  ActiveDeviceListResponse
+>((ref) async {
+  final apiClient = ref.watch(deviceApiClientProvider);
+  final authState = ref.watch(authNotifierProvider);
+
+  print(
+    '🔧 Active devices - Auth check - isAuthenticated: ${authState.isAuthenticated}',
+  );
+
+  if (!authState.isAuthenticated) {
+    print('🔧 ❌ Active devices authentication failed');
+    throw Exception('User not authenticated');
+  }
+
+  final userId = authState.userData?.id ?? authState.userData?.username;
+
+  if (userId == null) {
+    print('🔧 ❌ No user ID available for active devices');
+    throw Exception('No user ID available');
+  }
+
+  print('🔧 ✅ Fetching active devices for userId: $userId');
+
+  try {
+    final authNotifier = ref.read(authNotifierProvider.notifier);
+    final token = await authNotifier.getValidToken();
+
+    if (token == null) {
+      throw Exception('No valid authentication token available');
+    }
+
+    return await apiClient.getActiveDevices(userId: userId);
+  } catch (e) {
+    print('🔧 ❌ Error fetching active devices: $e');
+
+    if (e.toString().contains('Authentication failed') ||
+        e.toString().contains('401')) {
+      ref.read(authNotifierProvider.notifier).setUnauthenticated();
+    }
+
+    rethrow;
+  }
+});
+
+// Provider for just the active device list data with battery info
+final activeDeviceListProvider = FutureProvider.autoDispose<
+  List<ActiveDeviceListItem>
+>((ref) async {
+  print('🔧 activeDeviceListProvider called');
+
+  try {
+    final response = await ref.watch(activeDevicesProvider.future);
+
+    if (response.isSuccess && response.devices != null) {
+      print(
+        '🔧 ✅ activeDeviceListProvider - ${response.devices!.length} active devices found',
+      );
+      return response.devices!;
+    }
+
+    print('🔧 ❌ activeDeviceListProvider - Failed: ${response.error}');
+    throw Exception(response.error ?? 'Failed to fetch active devices');
+  } catch (e) {
+    print('🔧 ❌ activeDeviceListProvider error: $e');
+    rethrow;
+  }
+});
+
+// Provider for battery levels of active devices
+final deviceBatteryLevelsProvider =
+    FutureProvider.autoDispose<Map<String, int>>((ref) async {
+      final activeDevices = await ref.watch(activeDeviceListProvider.future);
+      final batteryLevels = <String, int>{};
+
+      for (final device in activeDevices) {
+        batteryLevels[device.deviceId] = device.battery;
+      }
+
+      return batteryLevels;
+    });
+
+// Provider for low battery devices (battery < 20%)
+final lowBatteryDevicesProvider =
+    FutureProvider.autoDispose<List<ActiveDeviceListItem>>((ref) async {
+      final activeDevices = await ref.watch(activeDeviceListProvider.future);
+      return activeDevices.where((device) => device.battery < 20).toList();
+    });

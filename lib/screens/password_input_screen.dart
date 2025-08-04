@@ -8,7 +8,6 @@ import 'package:Wicore/widgets/reusable_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-// Import your signUpFormProvider
 
 class PasswordInputScreen extends ConsumerStatefulWidget {
   const PasswordInputScreen({Key? key}) : super(key: key);
@@ -23,7 +22,7 @@ class _PasswordInputScreenState extends ConsumerState<PasswordInputScreen> {
   bool _isButtonEnabled = false;
   bool _obscureText = true;
   String? _errorText;
-  String? _passwordError;
+  bool _showPasswordCriteria = false;
 
   @override
   void initState() {
@@ -49,12 +48,15 @@ class _PasswordInputScreenState extends ConsumerState<PasswordInputScreen> {
 
   void _onPasswordChanged() {
     _validatePassword(_passwordController.text);
-    // Clear password error when user types
-    if (_passwordError != null) {
-      setState(() {
-        _passwordError = null;
-      });
-    }
+  }
+
+  bool _isPasswordValid(String password) {
+    // Check if password contains both letters and numbers and is at least 7 characters
+    bool hasLetter = password.contains(RegExp(r'[a-zA-Z]'));
+    bool hasNumber = password.contains(RegExp(r'[0-9]'));
+    bool isLongEnough = password.length >= 7;
+
+    return hasLetter && hasNumber && isLongEnough;
   }
 
   void _validatePassword(String password) {
@@ -62,12 +64,14 @@ class _PasswordInputScreenState extends ConsumerState<PasswordInputScreen> {
       if (password.isEmpty) {
         _isButtonEnabled = false;
         _errorText = null;
-      } else if (password.length < 8) {
-        _isButtonEnabled = false;
-        _errorText = '비밀번호는 7자 이상, 영문과 숫자를 포함해 만들어야 합니다.';
+        _showPasswordCriteria = false;
       } else {
+        // Enable button after typing at least one character
         _isButtonEnabled = true;
         _errorText = null;
+
+        // Show criteria error if password doesn't meet requirements
+        _showPasswordCriteria = !_isPasswordValid(password);
       }
     });
   }
@@ -76,7 +80,17 @@ class _PasswordInputScreenState extends ConsumerState<PasswordInputScreen> {
     if (!_isButtonEnabled) return;
 
     final password = _passwordController.text.trim();
-    print('User entered password: $password');
+
+    // Check if password meets criteria before proceeding
+    if (!_isPasswordValid(password)) {
+      // Don't navigate, just ensure the error is shown
+      setState(() {
+        _showPasswordCriteria = true;
+      });
+      return;
+    }
+
+    print('User entered valid password: $password');
 
     // Save password to provider
     ref.read(signUpFormProvider.notifier).setPassword(password);
@@ -124,29 +138,27 @@ class _PasswordInputScreenState extends ConsumerState<PasswordInputScreen> {
                   Text('안전한 비밀번호를', style: TextStyles.kBody),
                   const SizedBox(height: 8),
                   Text('만들어주세요', style: TextStyles.kBody),
-                  // Conditional content: Either error message OR subtitle text
-                  if (_passwordError != null) ...[
+
+                  // Show password criteria error or normal subtitle
+                  if (_showPasswordCriteria) ...[
                     const SizedBox(height: 24),
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                       decoration: BoxDecoration(
-                        color:
-                            CustomColors
-                                .translucentRedOrange, // Light pink background
+                        color: CustomColors.translucentRedOrange,
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: Text(_passwordError!, style: TextStyles.kError),
+                      child: Text(
+                        '영문과 숫자를 포함하여 7자 이상 인지 다시 확인해주세요.',
+                        style: TextStyles.kError,
+                      ),
                     ),
                     const SizedBox(height: 60),
                   ] else ...[
                     const SizedBox(height: 24),
-                    // Subtitle text
-                    Text(
-                      '비밀번호는 7자 이상,',
-                      style:
-                          TextStyles.kThirdBody, // Use kSecondBody for subtitle
-                    ),
+                    // Subtitle text (only shown when no errors)
+                    Text('비밀번호는 7자 이상,', style: TextStyles.kThirdBody),
                     const SizedBox(height: 4),
                     Text('영문과 숫자를 포함해 만들어주세요.', style: TextStyles.kThirdBody),
                     const SizedBox(height: 60),
@@ -159,7 +171,7 @@ class _PasswordInputScreenState extends ConsumerState<PasswordInputScreen> {
                   TextField(
                     controller: _passwordController,
                     obscureText: _obscureText,
-                    obscuringCharacter: '●', // Medium circle (smaller than ⚫)
+                    obscuringCharacter: '●',
                     decoration: InputDecoration(
                       hintText: '비밀번호를 입력해주세요',
                       hintStyle: TextStyles.kMedium,
@@ -204,11 +216,10 @@ class _PasswordInputScreenState extends ConsumerState<PasswordInputScreen> {
                       ),
                     ),
                     style: const TextStyle(
-                      fontSize:
-                          16, // Slightly smaller than 16px for smaller dots
+                      fontSize: 16,
                       fontWeight: FontWeight.w400,
                       color: Colors.black,
-                      letterSpacing: 1.5, // Adjust spacing between dots
+                      letterSpacing: 1.5,
                     ),
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) {

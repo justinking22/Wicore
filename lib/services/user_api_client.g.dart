@@ -91,7 +91,7 @@ class _UserApiClient implements UserApiClient {
   @override
   Future<UserResponse> updateUser(
     String userId,
-    UserRequest request,
+    UserUpdateRequest request,
   ) async {
     final _extra = <String, dynamic>{};
     final queryParameters = <String, dynamic>{};

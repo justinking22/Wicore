@@ -26,12 +26,38 @@
 		<string>$(FLUTTER_BUILD_NUMBER)</string>
 		<key>LSRequiresIPhoneOS</key>
 		<true/>
-		<key>NSBluetoothAlwaysUsageDescription</key>
-		<string>근처 기기와 연결하기 위해 블루투스 접근을 허용해주세요.</string>
+		
+		<!-- Camera Permission -->
 		<key>NSCameraUsageDescription</key>
 		<string>기기의 QR 촬영을 위해 카메라 접근을 허용해주세요.</string>
+		
+		<!-- Location Permissions -->
 		<key>NSLocationWhenInUseUsageDescription</key>
 		<string>근처 기기를 찾기 위해 위치 접근을 허용해주세요.</string>
+		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+		<string>근처 기기를 찾기 위해 위치 접근을 허용해주세요.</string>
+		
+		<!-- Bluetooth Permissions (Legacy and Modern) -->
+		<key>NSBluetoothAlwaysUsageDescription</key>
+		<string>근처 기기와 연결하기 위해 블루투스 접근을 허용해주세요.</string>
+		<key>NSBluetoothPeripheralUsageDescription</key>
+		<string>근처 기기와 연결하기 위해 블루투스 접근을 허용해주세요.</string>
+		
+		<!-- iOS 13+ Bluetooth Permissions -->
+		<key>NSBluetoothConnectUsageDescription</key>
+		<string>근처 기기와 연결하기 위해 블루투스 접근을 허용해주세요.</string>
+		<key>NSBluetoothScanUsageDescription</key>
+		<string>근처 기기를 찾기 위해 블루투스 스캔 접근을 허용해주세요.</string>
+		<key>NSBluetoothAdvertiseUsageDescription</key>
+		<string>다른 기기가 이 기기를 찾을 수 있도록 블루투스 광고 접근을 허용해주세요.</string>
+		
+		<!-- Required for Bluetooth functionality -->
+		<key>UIBackgroundModes</key>
+		<array>
+			<string>bluetooth-central</string>
+			<string>bluetooth-peripheral</string>
+		</array>
+		
 		<key>UIApplicationSupportsIndirectInputEvents</key>
 		<true/>
 		<key>UILaunchStoryboardName</key>

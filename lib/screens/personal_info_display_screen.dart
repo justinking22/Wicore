@@ -138,9 +138,7 @@ class _PersonalInfoDisplayScreenState
         ),
       );
 
-      await ref
-          .read(userProvider.notifier)
-          .updateCurrentUserProfile(userRequest);
+      await ref.read(userProvider.notifier).createUser(userRequest);
 
       final userState = ref.read(userProvider);
       userState.whenOrNull(

@@ -1,22 +1,19 @@
 import 'package:Wicore/styles/text_styles.dart';
+import 'package:Wicore/models/device_list_response_model.dart';
+import 'package:Wicore/providers/device_provider.dart';
+import 'package:Wicore/providers/authentication_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class KoreanCalendar extends StatefulWidget {
+class KoreanCalendar extends ConsumerStatefulWidget {
   @override
   _KoreanCalendarState createState() => _KoreanCalendarState();
 }
 
-class _KoreanCalendarState extends State<KoreanCalendar> {
+class _KoreanCalendarState extends ConsumerState<KoreanCalendar> {
   DateTime today = DateTime.now();
   late int currentYear;
   late int currentMonth;
-
-  // Highlighted dates (green circles) - these would come from your data
-  // For June: 3, 5, 9, 10, 11, 12, 13, 16, 17, 18, 19
-  final Map<int, Set<int>> highlightedDates = {
-    6: {3, 5, 9, 10, 11, 12, 13, 16, 17, 18, 19},
-    7: {}, // No highlighted dates for July in the example
-  };
 
   final List<String> koreanDayNames = ['일', '월', '화', '수', '목', '금', '토'];
   final List<String> koreanMonthNames = [
@@ -37,7 +34,7 @@ class _KoreanCalendarState extends State<KoreanCalendar> {
 
   // Custom green color RGB(204, 255, 56)
   final Color customGreen = Color.fromRGBO(204, 255, 56, 1.0);
-  // Lime color for today's date
+  // Lime color for device usage dates
   final Color limeColor = Color.fromRGBO(204, 255, 56, 1.0);
 
   @override
@@ -53,15 +50,83 @@ class _KoreanCalendarState extends State<KoreanCalendar> {
     });
   }
 
+  // Parse device list to create device usage dates map
+  Map<int, Map<int, String>> _parseDeviceUsageDates(
+    List<DeviceListItem> devices,
+  ) {
+    final Map<int, Map<int, String>> deviceUsageDates = {};
+
+    for (final device in devices) {
+      final createdDate = DateTime.parse(device.created);
+
+      // Only include dates for the current selected year
+      if (createdDate.year == currentYear) {
+        final month = createdDate.month;
+        final day = createdDate.day;
+
+        deviceUsageDates.putIfAbsent(month, () => {});
+        deviceUsageDates[month]![day] = device.status;
+      }
+    }
+
+    return deviceUsageDates;
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Check authentication state
+    final authState = ref.watch(authNotifierProvider);
+
+    if (!authState.isAuthenticated || authState.userData?.username == null) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          automaticallyImplyLeading: false,
+          actions: [
+            IconButton(
+              icon: Icon(Icons.close, color: Colors.black),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ],
+          title: Text(
+            '달력에서 보기',
+            style: TextStyle(
+              color: Colors.black,
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          centerTitle: true,
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+              SizedBox(height: 16),
+              Text(
+                '로그인이 필요합니다',
+                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Watch device list from API
+    final devicesAsync = ref.watch(userDeviceListProvider);
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        scrolledUnderElevation: 0, // Add this line
+        surfaceTintColor: Colors.transparent, // Add this line too
         automaticallyImplyLeading: false,
-
         actions: [
           IconButton(
             icon: Icon(Icons.close, color: Colors.black),
@@ -78,75 +143,117 @@ class _KoreanCalendarState extends State<KoreanCalendar> {
         ),
         centerTitle: true,
       ),
-      body: Column(
-        children: [
-          // Year navigation
-          Container(
-            padding: EdgeInsets.symmetric(vertical: 20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                GestureDetector(
-                  onTap: () => _changeYear(-1),
-                  child: Container(
-                    width: 18,
-                    height: 18,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Color.fromRGBO(194, 194, 194, 1),
-                    ),
+      body: devicesAsync.when(
+        data: (devices) => _buildCalendarContent(devices),
+        loading: () => Center(child: CircularProgressIndicator()),
+        error:
+            (error, stackTrace) => Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+                  SizedBox(height: 16),
+                  Text(
+                    '기기 정보를 불러올 수 없습니다',
+                    style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                  ),
+                  SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      ref.invalidate(userDeviceListProvider);
+                    },
+                    child: Text('다시 시도'),
+                  ),
+                ],
+              ),
+            ),
+      ),
+    );
+  }
+
+  Widget _buildCalendarContent(List<DeviceListItem> devices) {
+    final deviceUsageDates = _parseDeviceUsageDates(devices);
+
+    return Column(
+      children: [
+        // Year navigation
+        Container(
+          padding: EdgeInsets.symmetric(vertical: 20),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              GestureDetector(
+                onTap: () => _changeYear(-1),
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color.fromRGBO(194, 194, 194, 1),
+                  ),
+                  child: Center(
                     child: Icon(
                       Icons.chevron_left,
                       color: Colors.white,
-                      size: 20,
+                      size: 12,
                     ),
                   ),
                 ),
-                const SizedBox(width: 24),
-                Text(
-                  '$currentYear년',
-                  style: TextStyles.kSemiBold.copyWith(fontSize: 20),
-                ),
-                const SizedBox(width: 24),
-                GestureDetector(
-                  onTap: () => _changeYear(1),
-                  child: Container(
-                    width: 18,
-                    height: 18,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Color.fromRGBO(194, 194, 194, 1),
-                    ),
+              ),
+              const SizedBox(width: 24),
+              Text(
+                '$currentYear년',
+                style: TextStyles.kSemiBold.copyWith(fontSize: 20),
+              ),
+              const SizedBox(width: 24),
+              GestureDetector(
+                onTap: () => _changeYear(1),
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color.fromRGBO(194, 194, 194, 1),
+                  ),
+                  child: Center(
                     child: Icon(
                       Icons.chevron_right,
                       color: Colors.white,
-                      size: 20,
+                      size: 12,
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-
-          Expanded(
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(userDeviceListProvider);
+            },
             child: SingleChildScrollView(
+              physics: AlwaysScrollableScrollPhysics(),
               child: Column(
                 children: [
                   // Show all 12 months of the selected year
                   for (int month = 1; month <= 12; month++) ...[
-                    _buildMonthCalendar(month),
+                    _buildMonthCalendar(month, deviceUsageDates),
                     if (month < 12) SizedBox(height: 40),
                   ],
                 ],
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  Widget _buildMonthCalendar(int month) {
+  Widget _buildMonthCalendar(
+    int month,
+    Map<int, Map<int, String>> deviceUsageDates,
+  ) {
     // Always use the current selected year
     int displayYear = currentYear;
 
@@ -194,75 +301,69 @@ class _KoreanCalendarState extends State<KoreanCalendar> {
           ),
 
           // Calendar grid
-          _buildCalendarGrid(month, displayYear),
+          _buildCalendarGrid(month, displayYear, deviceUsageDates),
         ],
       ),
     );
   }
 
-  Widget _buildCalendarGrid(int month, int year) {
+  Widget _buildCalendarGrid(
+    int month,
+    int year,
+    Map<int, Map<int, String>> deviceUsageDates,
+  ) {
     DateTime firstDay = DateTime(year, month, 1);
     int daysInMonth = DateTime(year, month + 1, 0).day;
-    int firstWeekday =
-        firstDay.weekday % 7; // Adjust for Korean week start (Sunday = 0)
-
-    // Get previous month's last days
-    int prevMonthDays = DateTime(year, month, 0).day;
+    int firstWeekday = firstDay.weekday % 7; // Sunday = 0
 
     List<Widget> dayWidgets = [];
 
-    // Add previous month's days (faded)
-    for (int i = firstWeekday - 1; i >= 0; i--) {
-      int day = prevMonthDays - i;
-      int prevMonth = month - 1;
-      int prevYear = year;
-      if (prevMonth == 0) {
-        prevMonth = 12;
-        prevYear = year - 1;
-      }
-      dayWidgets.add(
-        _buildDayWidget(day, prevMonth, prevYear, isPrevMonth: true),
-      );
-    }
-
-    // Add current month's days
+    // Only add current month's days
     for (int day = 1; day <= daysInMonth; day++) {
-      dayWidgets.add(_buildDayWidget(day, month, year, isCurrentMonth: true));
-    }
-
-    // Add next month's days (faded) to complete the grid
-    int totalCells = dayWidgets.length;
-    int remainingCells = (7 - (totalCells % 7)) % 7;
-    if (remainingCells > 0 && totalCells < 42) {
-      // Add more cells to make it look complete
-      remainingCells = 42 - totalCells;
-    }
-
-    for (int day = 1; day <= remainingCells; day++) {
-      int nextMonth = month + 1;
-      int nextYear = year;
-      if (nextMonth == 13) {
-        nextMonth = 1;
-        nextYear = year + 1;
-      }
       dayWidgets.add(
-        _buildDayWidget(day, nextMonth, nextYear, isNextMonth: true),
+        _buildDayWidget(
+          day,
+          month,
+          year,
+          deviceUsageDates,
+          isCurrentMonth: true,
+        ),
       );
     }
+
+    // Calculate how many empty cells we need at the beginning
+    List<Widget> emptyStartCells = [];
+    for (int i = 0; i < firstWeekday; i++) {
+      emptyStartCells.add(Container(height: 44));
+    }
+
+    // Calculate how many empty cells we need at the end to complete the last week
+    int totalCells = emptyStartCells.length + dayWidgets.length;
+    int remainingInLastWeek = (7 - (totalCells % 7)) % 7;
+
+    List<Widget> emptyEndCells = [];
+    for (int i = 0; i < remainingInLastWeek; i++) {
+      emptyEndCells.add(Container(height: 44));
+    }
+
+    // Combine all cells
+    List<Widget> allCells = [
+      ...emptyStartCells,
+      ...dayWidgets,
+      ...emptyEndCells,
+    ];
 
     // Create rows of 7 days each
     List<Widget> rows = [];
-    for (int i = 0; i < dayWidgets.length; i += 7) {
-      rows.add(
-        Row(
-          children:
-              dayWidgets
-                  .skip(i)
-                  .take(7)
-                  .map((widget) => Expanded(child: widget))
-                  .toList(),
-        ),
-      );
+    for (int i = 0; i < allCells.length; i += 7) {
+      List<Widget> weekDays =
+          allCells
+              .skip(i)
+              .take(7)
+              .map((widget) => Expanded(child: widget))
+              .toList();
+
+      rows.add(Row(children: weekDays));
     }
 
     return Column(children: rows);
@@ -271,7 +372,8 @@ class _KoreanCalendarState extends State<KoreanCalendar> {
   Widget _buildDayWidget(
     int day,
     int month,
-    int year, {
+    int year,
+    Map<int, Map<int, String>> deviceUsageDates, {
     bool isCurrentMonth = false,
     bool isPrevMonth = false,
     bool isNextMonth = false,
@@ -279,38 +381,35 @@ class _KoreanCalendarState extends State<KoreanCalendar> {
     // Calculate the actual date for this day
     DateTime actualDate = DateTime(year, month, day);
 
-    bool isHighlighted =
-        isCurrentMonth &&
-        highlightedDates.containsKey(month) &&
-        highlightedDates[month]!.contains(day);
+    // Check device usage status for this date
+    String? deviceStatus;
+    bool hasDeviceUsage = false;
 
-    bool isToday =
-        actualDate.year == today.year &&
-        actualDate.month == today.month &&
-        actualDate.day == today.day;
+    if (isCurrentMonth && deviceUsageDates.containsKey(month)) {
+      deviceStatus = deviceUsageDates[month]![day];
+      hasDeviceUsage = deviceStatus != null;
+    }
+
+    bool isActiveDevice = hasDeviceUsage && deviceStatus == 'active';
+    bool isExpiredDevice = hasDeviceUsage && deviceStatus == 'expired';
 
     // Check if this date is in the future
     bool isFutureDate = actualDate.isAfter(today);
 
-    // Determine text color
+    // Determine text color - consistent across all months
     Color textColor = Colors.black;
-    double opacity = 1.0;
 
-    if (isPrevMonth || isNextMonth) {
+    // Weekend colors always apply (regardless of past/future)
+    int weekday = actualDate.weekday;
+    if (weekday == DateTime.sunday || weekday == DateTime.saturday) {
+      textColor = Colors.blue;
+    }
+
+    // Future dates should be faded out but keep weekend colors
+    if (isFutureDate &&
+        weekday != DateTime.sunday &&
+        weekday != DateTime.saturday) {
       textColor = Colors.grey.shade400;
-      opacity = 0.5;
-    } else if (isFutureDate) {
-      // Future dates should be faded out
-      textColor = Colors.grey.shade400;
-      opacity = 0.3;
-    } else {
-      // Weekend colors for current month (only for past/present dates)
-      int weekday = actualDate.weekday;
-      if (weekday == DateTime.sunday) {
-        textColor = Colors.blue;
-      } else if (weekday == DateTime.saturday) {
-        textColor = Colors.blue;
-      }
     }
 
     return Container(
@@ -320,24 +419,19 @@ class _KoreanCalendarState extends State<KoreanCalendar> {
           width: 32,
           height: 32,
           decoration: BoxDecoration(
-            color: isToday ? limeColor : null,
+            color: isActiveDevice ? limeColor : null,
             shape: BoxShape.circle,
             border:
-                isHighlighted ? Border.all(color: limeColor, width: 2) : null,
+                isExpiredDevice ? Border.all(color: limeColor, width: 2) : null,
           ),
           child: Center(
-            child: Opacity(
-              opacity: opacity,
-              child: Text(
-                day.toString(),
-                style: TextStyle(
-                  fontSize: 16,
-                  color:
-                      isToday
-                          ? Colors.black
-                          : (isHighlighted ? textColor : textColor),
-                  fontWeight: isToday ? FontWeight.w600 : FontWeight.w400,
-                ),
+            child: Text(
+              day.toString(),
+              style: TextStyle(
+                fontSize: 20,
+                fontFamily: 'Pretendard',
+                color: isActiveDevice ? Colors.black : textColor,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),

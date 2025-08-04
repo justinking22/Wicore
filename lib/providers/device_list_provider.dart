@@ -1,4 +1,5 @@
 // lib/providers/device_list_provider.dart
+import 'package:Wicore/models/active_device_response_model.dart';
 import 'package:Wicore/providers/authentication_provider.dart';
 import 'package:Wicore/providers/device_provider.dart';
 import 'package:Wicore/states/device_list_state.dart';
@@ -51,6 +52,7 @@ class DeviceListNotifier extends StateNotifier<DeviceListState> {
       isLoading: !refresh,
       isRefreshing: refresh,
       error: null,
+      type: DeviceListType.active,
     );
 
     try {
@@ -75,7 +77,9 @@ class DeviceListNotifier extends StateNotifier<DeviceListState> {
           isLoading: false,
           isRefreshing: false,
           error: null,
+          type: DeviceListType.active,
         );
+        print('🔧 ✅ Loaded ${response.devices?.length ?? 0} active devices');
       } else {
         state = state.copyWith(
           isLoading: false,
@@ -140,6 +144,7 @@ class DeviceListNotifier extends StateNotifier<DeviceListState> {
       isLoading: !refresh,
       isRefreshing: refresh,
       error: null,
+      type: DeviceListType.all,
     );
 
     try {
@@ -164,7 +169,9 @@ class DeviceListNotifier extends StateNotifier<DeviceListState> {
           isLoading: false,
           isRefreshing: false,
           error: null,
+          type: DeviceListType.all,
         );
+        print('🔧 ✅ Loaded ${response.devices?.length ?? 0} all devices');
       } else {
         state = state.copyWith(
           isLoading: false,
@@ -201,6 +208,23 @@ class DeviceListNotifier extends StateNotifier<DeviceListState> {
   void clearState() {
     state = const DeviceListState();
   }
+
+  // Convenience methods to access specific device types
+  List<ActiveDeviceListItem> getActiveDevices() {
+    return state.activeDevices;
+  }
+
+  List<ActiveDeviceListItem> getLowBatteryDevices() {
+    return state.lowBatteryDevices;
+  }
+
+  Map<String, int> getBatteryLevels() {
+    return state.batteryLevels;
+  }
+
+  Map<String, int> getDeviceStatusCount() {
+    return state.deviceStatusCount;
+  }
 }
 
 // Provider for DeviceListNotifier
@@ -209,3 +233,27 @@ final deviceListNotifierProvider =
       final repository = ref.watch(deviceRepositoryProvider);
       return DeviceListNotifier(repository, ref);
     });
+
+// Convenience providers for specific data
+final activeDevicesFromNotifierProvider = Provider<List<ActiveDeviceListItem>>((
+  ref,
+) {
+  final state = ref.watch(deviceListNotifierProvider);
+  return state.activeDevices;
+});
+
+final lowBatteryDevicesFromNotifierProvider =
+    Provider<List<ActiveDeviceListItem>>((ref) {
+      final state = ref.watch(deviceListNotifierProvider);
+      return state.lowBatteryDevices;
+    });
+
+final batteryLevelsFromNotifierProvider = Provider<Map<String, int>>((ref) {
+  final state = ref.watch(deviceListNotifierProvider);
+  return state.batteryLevels;
+});
+
+final deviceStatusCountFromNotifierProvider = Provider<Map<String, int>>((ref) {
+  final state = ref.watch(deviceListNotifierProvider);
+  return state.deviceStatusCount;
+});

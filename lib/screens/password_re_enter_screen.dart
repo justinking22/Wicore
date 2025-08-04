@@ -25,7 +25,7 @@ class _PasswordConfirmationScreenState
       TextEditingController();
   bool _isButtonEnabled = false;
   bool _obscureText = true;
-  bool _isSigningUp = false; // ✅ Added signup loading state
+  bool _isSigningUp = false;
   String? _errorText;
   String? _passwordMismatchError;
 
@@ -64,7 +64,6 @@ class _PasswordConfirmationScreenState
     });
   }
 
-  // ✅ Updated to trigger signup API call
   Future<void> _handleNext() async {
     if (!_isButtonEnabled || _isSigningUp) return;
 
@@ -106,7 +105,6 @@ class _PasswordConfirmationScreenState
       print('Email: ${signUpForm.email}');
       print('Password: [HIDDEN]');
 
-      // ✅ Make the signup API call with all collected data
       final result = await authNotifier.signUp(
         email: signUpForm.email,
         password: signUpForm.password,
@@ -114,20 +112,17 @@ class _PasswordConfirmationScreenState
 
       if (result.isSuccess) {
         if (result.requiresConfirmation) {
-          // Account created but needs email verification
           if (mounted) {
             print('✅ Account created, email verification required');
             context.push('/email-verification');
           }
         } else {
-          // Account created and activated immediately
           if (mounted) {
             print('✅ Account created and activated');
             context.push('/sign-up-complete');
           }
         }
       } else {
-        // Handle signup error
         if (mounted) {
           print('❌ Signup failed: ${result.message}');
           ScaffoldMessenger.of(context).showSnackBar(
@@ -167,20 +162,16 @@ class _PasswordConfirmationScreenState
   Widget build(BuildContext context) {
     final signUpForm = ref.watch(signUpFormProvider);
 
-    // ✅ Listen to auth state changes
     ref.listen<AuthState>(authNotifierProvider, (previous, next) {
       if (next.status == AuthStatus.needsConfirmation) {
-        // User needs email confirmation
         context.push('/email-verification');
       } else if (next.isAuthenticated) {
-        // User is authenticated, go to main app
         context.go('/navigation');
       }
     });
 
     return GestureDetector(
       onTap: () {
-        // Dismiss keyboard when tapping outside
         FocusScope.of(context).unfocus();
       },
       child: Scaffold(
@@ -210,10 +201,11 @@ class _PasswordConfirmationScreenState
                 children: [
                   const SizedBox(height: 40),
                   // Title text
-                  Text('비밀번호를', style: TextStyles.kBody),
+                  Text('안전한 비밀번호를', style: TextStyles.kBody),
                   const SizedBox(height: 8),
-                  Text('다시 한 번 입력해주세요', style: TextStyles.kBody),
-                  // Conditional content: Either error message OR subtitle text
+                  Text('만들어주세요', style: TextStyles.kBody),
+
+                  // Show password criteria or error message
                   if (_passwordMismatchError != null) ...[
                     const SizedBox(height: 24),
                     Container(
@@ -231,22 +223,35 @@ class _PasswordConfirmationScreenState
                     const SizedBox(height: 60),
                   ] else ...[
                     const SizedBox(height: 24),
-                    // Subtitle text
-                    Text('입력한 비밀번호가 맞는지 확인할게요.', style: TextStyles.kThirdBody),
+                    // Password criteria container
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF4F4), // Light pink background
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '영문과 숫자를 포함하여 7자 이상 입지 다시 확인해주세요.',
+                        style:
+                            TextStyles
+                                .kError, // You might want to create a new style for this
+                      ),
+                    ),
                     const SizedBox(height: 60),
                   ],
 
                   // Input field label
-                  Text('비밀번호 확인', style: TextStyles.kHeader),
+                  Text('비밀번호', style: TextStyles.kHeader),
                   const SizedBox(height: 8),
                   // Password confirmation input field
                   TextField(
                     controller: _confirmPasswordController,
-                    enabled: !_isSigningUp, // ✅ Disable during signup
+                    enabled: !_isSigningUp,
                     obscureText: _obscureText,
                     obscuringCharacter: '\u2B24',
                     decoration: InputDecoration(
-                      hintText: '비밀번호를 다시 입력해주세요',
+                      hintText: '비밀번호를 입력해주세요',
                       hintStyle: TextStyles.kMedium,
                       errorText: _errorText,
                       suffixIcon: IconButton(
@@ -311,88 +316,10 @@ class _PasswordConfirmationScreenState
                     },
                   ),
 
-                  // ✅ Show signup progress info
-                  if (_isSigningUp) ...[
-                    const SizedBox(height: 24),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: Colors.blue.withOpacity(0.3),
-                          width: 1,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.blue,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            '계정을 생성하고 있습니다...',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.blue[700],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-
-                  // ✅ Show collected data for debugging (remove in production)
-                  if (!_isSigningUp) ...[
-                    const SizedBox(height: 24),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '수집된 정보:',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.green[700],
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '이름: ${signUpForm.name}',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                          Text(
-                            '이메일: ${signUpForm.email}',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                          Text(
-                            '비밀번호: ${signUpForm.password.isNotEmpty ? '입력됨' : '입력 안됨'}',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-
                   const Spacer(),
-                  // Next/Signup button
+                  // Next button
                   CustomButton(
-                    text: _isSigningUp ? '회원가입 중...' : '회원가입',
+                    text: _isSigningUp ? '회원가입 중...' : '다음',
                     isEnabled: _isButtonEnabled && !_isSigningUp,
                     onPressed:
                         (_isButtonEnabled && !_isSigningUp)

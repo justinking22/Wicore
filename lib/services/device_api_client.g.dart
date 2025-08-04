@@ -56,12 +56,13 @@ class _DeviceApiClient implements DeviceApiClient {
   }
 
   @override
-  Future<DeviceListResponse> getActiveDevices({required String userId}) async {
+  Future<ActiveDeviceListResponse> getActiveDevices(
+      {required String userId}) async {
     final _extra = <String, dynamic>{};
     final queryParameters = <String, dynamic>{r'uId': userId};
     final _headers = <String, dynamic>{};
     const Map<String, dynamic>? _data = null;
-    final _options = _setStreamType<DeviceListResponse>(Options(
+    final _options = _setStreamType<ActiveDeviceListResponse>(Options(
       method: 'GET',
       headers: _headers,
       extra: _extra,
@@ -78,9 +79,9 @@ class _DeviceApiClient implements DeviceApiClient {
           baseUrl,
         )));
     final _result = await _dio.fetch<Map<String, dynamic>>(_options);
-    late DeviceListResponse _value;
+    late ActiveDeviceListResponse _value;
     try {
-      _value = DeviceListResponse.fromJson(_result.data!);
+      _value = ActiveDeviceListResponse.fromJson(_result.data!);
     } on Object catch (e, s) {
       errorLogger?.logError(e, s, _options);
       rethrow;

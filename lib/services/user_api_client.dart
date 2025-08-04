@@ -1,7 +1,9 @@
+// lib/services/user_api_client.dart
 import 'package:Wicore/models/user_response_model.dart';
+import 'package:Wicore/models/user_request_model.dart';
+import 'package:Wicore/models/user_update_request_model.dart';
 import 'package:dio/dio.dart';
 import 'package:retrofit/retrofit.dart';
-import 'package:Wicore/models/user_request_model.dart';
 
 part 'user_api_client.g.dart';
 
@@ -18,7 +20,7 @@ abstract class UserApiClient {
   @PATCH('/user/{userId}')
   Future<UserResponse> updateUser(
     @Path('userId') String userId,
-    @Body() UserRequest request,
+    @Body() UserUpdateRequest request,
   );
 
   @DELETE('/user/{userId}')

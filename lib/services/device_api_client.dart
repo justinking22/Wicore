@@ -1,3 +1,4 @@
+import 'package:Wicore/models/active_device_response_model.dart';
 import 'package:Wicore/models/device_list_response_model.dart';
 import 'package:dio/dio.dart';
 import 'package:retrofit/retrofit.dart';
@@ -13,10 +14,12 @@ abstract class DeviceApiClient {
 
   @POST('/device/pair')
   Future<DeviceResponse> registerDevice(@Body() DeviceRequest request);
+
   @GET('/device/active')
-  Future<DeviceListResponse> getActiveDevices({
+  Future<ActiveDeviceListResponse> getActiveDevices({
     @Query('uId') required String userId,
   });
+
   @GET('/device/all')
   Future<DeviceListResponse> getAllDevices({
     @Query('uId') required String userId,

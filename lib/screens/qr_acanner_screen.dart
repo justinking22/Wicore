@@ -13,9 +13,14 @@ import 'package:Wicore/providers/device_provider.dart';
 class QRScannerWidget extends ConsumerStatefulWidget {
   final Function(String)? onQRScanned;
   final VoidCallback? onBackPressed;
+  final VoidCallback? onShowDeviceDetails;
 
-  const QRScannerWidget({Key? key, this.onQRScanned, this.onBackPressed})
-    : super(key: key);
+  const QRScannerWidget({
+    Key? key,
+    this.onQRScanned,
+    this.onBackPressed,
+    this.onShowDeviceDetails,
+  }) : super(key: key);
 
   @override
   ConsumerState<QRScannerWidget> createState() => _QRScannerWidgetState();
@@ -28,11 +33,37 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget> {
   void initState() {
     super.initState();
     controller = MobileScannerController();
+
+    // Check if device is already paired when scanner initializes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkExistingPairedDevice();
+    });
+  }
+
+  void _checkExistingPairedDevice() {
+    final deviceState = ref.read(deviceNotifierProvider);
+    if (deviceState.pairedDevice != null) {
+      // Device is already paired, go directly to device details
+      _navigateToDeviceDetails();
+    }
+  }
+
+  void _navigateToDeviceDetails() {
+    // Call the callback to navigate to device details
+    if (widget.onShowDeviceDetails != null) {
+      widget.onShowDeviceDetails!();
+    }
   }
 
   void _handleQRResult(BarcodeCapture capture) {
     final deviceState = ref.read(deviceNotifierProvider);
-    if (deviceState.isLoading || deviceState.pairedDevice != null) return;
+    if (deviceState.isLoading) return;
+
+    // If there's already a paired device, go to device details instead of scanning
+    if (deviceState.pairedDevice != null) {
+      _navigateToDeviceDetails();
+      return;
+    }
 
     final barcodes = capture.barcodes;
     if (barcodes.isNotEmpty) {
@@ -185,7 +216,7 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget> {
                             width: 32,
                             height: 40,
                             child: Icon(
-                              Icons.close,
+                              Icons.info_outline,
                               color: Colors.black.withOpacity(0.9),
                               size: 30,
                             ),

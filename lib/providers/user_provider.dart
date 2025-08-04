@@ -1,10 +1,13 @@
+// lib/providers/user_provider.dart (Corrected type mismatch)
 import 'package:Wicore/models/user_response_model.dart';
+import 'package:Wicore/models/user_request_model.dart';
+import 'package:Wicore/models/user_update_request_model.dart';
 import 'package:Wicore/providers/authentication_provider.dart';
+import 'package:Wicore/repository/user_repository.dart';
 import 'package:Wicore/services/user_api_client.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:Wicore/models/user_request_model.dart';
 import 'package:flutter/foundation.dart';
 
 // User API client provider using authenticated Dio
@@ -13,87 +16,7 @@ final userApiClientProvider = Provider<UserApiClient>((ref) {
   return UserApiClient(dio);
 });
 
-// User repository
-class UserRepository {
-  final UserApiClient _apiClient;
-  final Ref _ref;
-
-  UserRepository(this._apiClient, this._ref);
-
-  Future<UserResponse> createUser(UserRequest request) async {
-    try {
-      return await _apiClient.createUser(request);
-    } on DioException catch (e) {
-      throw _handleDioError(e);
-    }
-  }
-
-  Future<UserResponse> getUser(String userId) async {
-    try {
-      return await _apiClient.getUser(userId);
-    } on DioException catch (e) {
-      throw _handleDioError(e);
-    }
-  }
-
-  Future<UserResponse> updateUser(String userId, UserRequest request) async {
-    try {
-      return await _apiClient.updateUser(userId, request);
-    } on DioException catch (e) {
-      throw _handleDioError(e);
-    }
-  }
-
-  Future<UserResponse> deleteUser(String userId) async {
-    try {
-      return await _apiClient.deleteUser(userId);
-    } on DioException catch (e) {
-      throw _handleDioError(e);
-    }
-  }
-
-  Exception _handleDioError(DioException e) {
-    switch (e.type) {
-      case DioExceptionType.connectionTimeout:
-      case DioExceptionType.sendTimeout:
-      case DioExceptionType.receiveTimeout:
-        return Exception(
-          'Connection timeout. Please check your internet connection.',
-        );
-      case DioExceptionType.badResponse:
-        if (e.response?.statusCode == 401) {
-          try {
-            _ref.read(authNotifierProvider.notifier).setUnauthenticated();
-          } catch (authError) {
-            if (kDebugMode) print('Error setting unauthenticated: $authError');
-          }
-          return Exception('Authentication failed. Please sign in again.');
-        }
-        if (e.response?.data != null) {
-          try {
-            final errorResponse = UserErrorResponse.fromJson(e.response!.data);
-            return Exception('API Error: ${errorResponse.msg}');
-          } catch (_) {
-            return Exception('Server error: ${e.response?.statusCode}');
-          }
-        }
-        return Exception('Server error: ${e.response?.statusCode}');
-      case DioExceptionType.cancel:
-        return Exception('Request was cancelled');
-      case DioExceptionType.unknown:
-      default:
-        return Exception('Network error occurred');
-    }
-  }
-}
-
-// User repository provider
-final userRepositoryProvider = Provider<UserRepository>((ref) {
-  final apiClient = ref.read(userApiClientProvider);
-  return UserRepository(apiClient, ref);
-});
-
-// User state notifier
+// User state notifier - CORRECTED
 class UserNotifier extends StateNotifier<AsyncValue<UserResponse?>> {
   final UserRepository _repository;
   final Ref _ref;
@@ -112,7 +35,10 @@ class UserNotifier extends StateNotifier<AsyncValue<UserResponse?>> {
 
       final response = await _repository.createUser(request);
       state = AsyncValue.data(response);
+
+      print('🔧 ✅ UserNotifier - User created successfully');
     } catch (error, stackTrace) {
+      print('🔧 ❌ UserNotifier - Error creating user: $error');
       state = AsyncValue.error(error, stackTrace);
     }
   }
@@ -128,12 +54,16 @@ class UserNotifier extends StateNotifier<AsyncValue<UserResponse?>> {
 
       final response = await _repository.getUser(userId);
       state = AsyncValue.data(response);
+
+      print('🔧 ✅ UserNotifier - User retrieved successfully');
     } catch (error, stackTrace) {
+      print('🔧 ❌ UserNotifier - Error getting user: $error');
       state = AsyncValue.error(error, stackTrace);
     }
   }
 
-  Future<void> updateUser(String userId, UserRequest request) async {
+  // FIXED: Changed from UserRequest to UserUpdateRequest
+  Future<void> updateUser(String userId, UserUpdateRequest request) async {
     state = const AsyncValue.loading();
     try {
       final authNotifier = _ref.read(authNotifierProvider.notifier);
@@ -144,7 +74,10 @@ class UserNotifier extends StateNotifier<AsyncValue<UserResponse?>> {
 
       final response = await _repository.updateUser(userId, request);
       state = AsyncValue.data(response);
+
+      print('🔧 ✅ UserNotifier - User updated successfully');
     } catch (error, stackTrace) {
+      print('🔧 ❌ UserNotifier - Error updating user: $error');
       state = AsyncValue.error(error, stackTrace);
     }
   }
@@ -160,7 +93,10 @@ class UserNotifier extends StateNotifier<AsyncValue<UserResponse?>> {
 
       final response = await _repository.deleteUser(userId);
       state = AsyncValue.data(response);
+
+      print('🔧 ✅ UserNotifier - User deleted successfully');
     } catch (error, stackTrace) {
+      print('🔧 ❌ UserNotifier - Error deleting user: $error');
       state = AsyncValue.error(error, stackTrace);
     }
   }
@@ -184,12 +120,16 @@ class UserNotifier extends StateNotifier<AsyncValue<UserResponse?>> {
       final userId = userData?.id ?? userData?.username ?? '';
       final response = await _repository.getUser(userId);
       state = AsyncValue.data(response);
+
+      print('🔧 ✅ UserNotifier - Current user profile loaded');
     } catch (error, stackTrace) {
+      print('🔧 ❌ UserNotifier - Error getting current user profile: $error');
       state = AsyncValue.error(error, stackTrace);
     }
   }
 
-  Future<void> updateCurrentUserProfile(UserRequest request) async {
+  // FIXED: Changed from UserRequest to UserUpdateRequest
+  Future<void> updateCurrentUserProfile(UserUpdateRequest request) async {
     state = const AsyncValue.loading();
     try {
       final authState = _ref.read(authNotifierProvider);
@@ -208,9 +148,42 @@ class UserNotifier extends StateNotifier<AsyncValue<UserResponse?>> {
       final userId = userData?.id ?? userData?.username ?? '';
       final response = await _repository.updateUser(userId, request);
       state = AsyncValue.data(response);
+
+      print('🔧 ✅ UserNotifier - Current user profile updated');
     } catch (error, stackTrace) {
+      print('🔧 ❌ UserNotifier - Error updating current user profile: $error');
       state = AsyncValue.error(error, stackTrace);
     }
+  }
+
+  // NEW: Convenience method to update specific fields
+  Future<void> updateCurrentUserFields({
+    String? firstName,
+    String? lastName,
+    int? age,
+    int? deviceStrength,
+  }) async {
+    final updateRequest = UserUpdateRequest(
+      firstName: firstName,
+      lastName: lastName,
+      age: age,
+      deviceStrength: deviceStrength,
+    );
+
+    await updateCurrentUserProfile(updateRequest);
+  }
+
+  // NEW: Convenience method to update from existing UserItem
+  Future<void> updateFromUserItem(
+    UserItem userItem, {
+    int? deviceStrength,
+  }) async {
+    final updateRequest = UserUpdateRequest.fromUserItem(
+      userItem,
+      deviceStrength: deviceStrength,
+    );
+
+    await updateCurrentUserProfile(updateRequest);
   }
 
   void clearState() {
@@ -262,11 +235,11 @@ final isCurrentUserProfileLoadedProvider = Provider<bool>((ref) {
   );
 });
 
-// Helper provider to get current user data from profile - FIXED
+// Helper provider to get current user data from profile
 final currentUserDataProvider = Provider<UserItem?>((ref) {
   final userState = ref.watch(userProvider);
   return userState.maybeWhen(
-    data: (response) => response?.data, // Now data is directly UserItem
+    data: (response) => response?.data,
     orElse: () => null,
   );
 });

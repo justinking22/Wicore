@@ -151,9 +151,7 @@ class _PersonalInfoInputScreenState
         ),
       );
 
-      await ref
-          .read(userProvider.notifier)
-          .updateCurrentUserProfile(userRequest);
+      await ref.read(userProvider.notifier).createUser(userRequest);
 
       final userState = ref.read(userProvider);
       await userState.when(

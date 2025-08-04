@@ -1,3 +1,4 @@
+import 'package:Wicore/modals/records_screen_modal_bottom_sheet.dart';
 import 'package:Wicore/styles/colors.dart';
 import 'package:Wicore/styles/text_styles.dart';
 import 'package:Wicore/utilities/diagonal_stripes_painter.dart';
@@ -52,7 +53,14 @@ class _RecordsScreenState extends State<RecordsScreen> {
         },
         trailingButtonIcon: Icons.info_outline,
         showTrailingButton: true,
-        onTrailingPressed: () {},
+        onTrailingPressed: () {
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (context) => const RobotWorkMemoryModal(),
+          );
+        },
         trailingButtonIconSize: 30,
         backgroundColor: hasData == true ? Colors.white : Colors.white,
       ),

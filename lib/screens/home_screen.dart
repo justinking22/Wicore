@@ -2,34 +2,52 @@ import 'package:Wicore/screens/qr_acanner_screen.dart';
 import 'package:Wicore/widgets/device_details_widget.dart';
 import 'package:Wicore/styles/colors.dart';
 import 'package:Wicore/styles/text_styles.dart';
+import 'package:Wicore/modals/qr_scan_info_modal_bottom_sheet.dart';
 import 'package:Wicore/widgets/reusable_app_bar.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:Wicore/providers/device_provider.dart';
+import 'package:Wicore/states/device_state.dart';
+import 'dart:io';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  bool _isDeviceConnected = false;
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _showQRScanner = false;
   bool _showDeviceDetails = false;
-  String _deviceName = "";
-  String _scannedDeviceId = "";
 
-  // Removed initState and _checkForQRResult since we're using pure callbacks
+  @override
+  void initState() {
+    super.initState();
+    // Debug device state on app start
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _debugDeviceState();
+    });
+  }
+
+  void _debugDeviceState() {
+    final deviceState = ref.read(deviceNotifierProvider);
+    print('🏠 HOME SCREEN DEBUG - Initial state:');
+    print('  - pairedDevice: ${deviceState.pairedDevice?.deviceId}');
+    print('  - isLoading: ${deviceState.isLoading}');
+    print('  - error: ${deviceState.error}');
+    print('  - _showQRScanner: $_showQRScanner');
+    print('  - _showDeviceDetails: $_showDeviceDetails');
+  }
 
   void _handleQRScanned(String qrData) {
+    print('🏠 _handleQRScanned called with: $qrData');
     setState(() {
       _showQRScanner = false;
       _showDeviceDetails = true;
-      _isDeviceConnected = true;
-      _deviceName = "Samsung Galaxy S24";
-      _scannedDeviceId = qrData;
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -41,20 +59,51 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _navigateToDeviceDetails() {
-    if (_isDeviceConnected && _scannedDeviceId.isNotEmpty) {
+    final deviceState = ref.read(deviceNotifierProvider);
+    print('🏠 _navigateToDeviceDetails called');
+    print('  - pairedDevice: ${deviceState.pairedDevice?.deviceId}');
+
+    if (deviceState.pairedDevice != null) {
       setState(() {
         _showDeviceDetails = true;
       });
+    } else {
+      print('🏠 ❌ No paired device found, cannot navigate to details');
     }
   }
 
   void _backFromDeviceDetails() {
+    print('🏠 _backFromDeviceDetails called');
     setState(() {
       _showDeviceDetails = false;
     });
   }
 
   Future<void> _requestCameraPermission() async {
+    print('🏠 _requestCameraPermission called');
+
+    // Check if device is already paired before requesting permissions
+    final deviceState = ref.read(deviceNotifierProvider);
+    print('🏠 Device state check:');
+    print('  - pairedDevice: ${deviceState.pairedDevice?.deviceId}');
+
+    if (deviceState.pairedDevice != null) {
+      print('🏠 Device already paired, going to device details');
+      // Device already paired, go directly to device details
+      setState(() {
+        _showDeviceDetails = true;
+      });
+      return;
+    }
+
+    print('🏠 No device paired, proceeding with permissions');
+    // No device paired, proceed with permissions and QR scanner
+    await _requestPermissions();
+  }
+
+  Future<void> _requestPermissions() async {
+    print('🏠 _requestPermissions called');
+
     Map<Permission, PermissionStatus> statuses =
         await [
           Permission.camera,
@@ -64,6 +113,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ].request();
 
     bool allGranted = statuses.values.every((status) => status.isGranted);
+    print('🏠 Permissions result: allGranted = $allGranted');
 
     if (allGranted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -73,9 +123,26 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
 
-      setState(() {
-        _showQRScanner = true;
-      });
+      // Double-check device state before showing QR scanner
+      final deviceState = ref.read(deviceNotifierProvider);
+      print('🏠 Double-check before QR scanner:');
+      print('  - pairedDevice: ${deviceState.pairedDevice?.deviceId}');
+
+      if (deviceState.pairedDevice != null) {
+        print(
+          '🏠 Device was paired during permissions, going to device details',
+        );
+        // Device was paired while requesting permissions, go to device details
+        setState(() {
+          _showDeviceDetails = true;
+        });
+      } else {
+        print('🏠 No device paired, showing QR scanner');
+        // No device paired, show QR scanner
+        setState(() {
+          _showQRScanner = true;
+        });
+      }
     } else {
       _handlePermissionDenied(statuses);
     }
@@ -117,114 +184,154 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showSettingsDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+    if (Platform.isIOS) {
+      showCupertinoDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return CupertinoAlertDialog(
+            title: const Text('권한 필요'),
+            content: const Text(
+              'WICORE에서 근처 기기를 찾아 연결하고 기기 간 상대적 위치를 파악하도록 허용하시겠습니까?\n\n설정에서 카메라, 블루투스, 위치 권한을 허용해주세요.',
+            ),
+            actions: <CupertinoDialogAction>[
+              CupertinoDialogAction(
+                child: const Text('설정으로 이동'),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  openAppSettings();
+                },
+              ),
+              CupertinoDialogAction(
+                child: const Text('취소'),
+                isDestructiveAction: true,
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          );
+        },
+      );
+    } else {
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+            title: Row(
               children: [
-                const SizedBox(height: 10),
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.black54, width: 2),
-                  ),
-                  child: const Icon(
-                    Icons.info_outline,
-                    size: 24,
-                    color: Colors.black54,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'WICORE에서 근처 기기를 찾아 연결하고 기기 간 상대적 위치를 파악하도록 허용하시겠습니까?',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.black87,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 30),
-                Column(
-                  children: [
-                    SizedBox(
-                      width: double.infinity,
-                      child: TextButton(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          openAppSettings();
-                        },
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.blue,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        child: const Text(
-                          '허용',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                    Container(
-                      width: double.infinity,
-                      height: 1,
-                      color: Colors.grey[300],
-                    ),
-                    SizedBox(
-                      width: double.infinity,
-                      child: TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.blue,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        child: const Text(
-                          '허용 안 함',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.normal,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                Icon(Icons.info_outline, color: Colors.blue[600]),
+                const SizedBox(width: 8),
+                const Text('권한 필요'),
               ],
             ),
-          ),
-        );
-      },
-    );
+            content: const Text(
+              'WICORE에서 근처 기기를 찾아 연결하고 기기 간 상대적 위치를 파악하도록 허용하시겠습니까?\n\n설정에서 필요한 권한들을 허용해주세요.',
+              style: TextStyle(height: 1.4),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('취소'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  openAppSettings();
+                },
+                child: const Text('설정으로 이동'),
+              ),
+            ],
+          );
+        },
+      );
+    }
   }
 
   void _disconnectDevice() {
+    print('🏠 _disconnectDevice called');
+
+    final beforeState = ref.read(deviceNotifierProvider);
+    print(
+      '🏠 Before disconnect - pairedDevice: ${beforeState.pairedDevice?.deviceId}',
+    );
+
+    ref.read(deviceNotifierProvider.notifier).clearState();
+
     setState(() {
-      _isDeviceConnected = false;
       _showDeviceDetails = false;
-      _deviceName = "";
-      _scannedDeviceId = "";
     });
+
+    // Check state after clearing
+    Future.delayed(Duration(milliseconds: 100), () {
+      final afterState = ref.read(deviceNotifierProvider);
+      print(
+        '🏠 After disconnect - pairedDevice: ${afterState.pairedDevice?.deviceId}',
+      );
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('기기 연결이 해제되었습니다.'),
+        backgroundColor: Colors.orange,
+      ),
+    );
   }
 
   void _onBackFromQRScanner() {
+    print('🏠 _onBackFromQRScanner called');
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const QRConnectionModal(),
+    );
+  }
+
+  // DEBUG: Add force clear method
+  void _forceCleanState() {
+    print('🏠 🗑️ FORCE CLEARING ALL STATE');
+
+    // Clear device state
+    ref.read(deviceNotifierProvider.notifier).clearState();
+
+    // Clear local UI state
     setState(() {
       _showQRScanner = false;
+      _showDeviceDetails = false;
+    });
+
+    // Invalidate providers
+    ref.invalidate(deviceNotifierProvider);
+    ref.invalidate(userDeviceListProvider);
+    ref.invalidate(activeDeviceListProvider);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('모든 상태가 초기화되었습니다.'),
+        backgroundColor: Colors.red,
+      ),
+    );
+
+    // Check state after force clear
+    Future.delayed(Duration(milliseconds: 100), () {
+      final afterState = ref.read(deviceNotifierProvider);
+      print(
+        '🏠 After force clear - pairedDevice: ${afterState.pairedDevice?.deviceId}',
+      );
     });
   }
 
   Widget _buildHomeContent() {
+    final deviceState = ref.watch(deviceNotifierProvider);
+
+    print('🏠 _buildHomeContent called');
+    print('  - pairedDevice: ${deviceState.pairedDevice?.deviceId}');
+    print('  - _showDeviceDetails: $_showDeviceDetails');
+
+    // This method now only shows when no device is connected
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -235,36 +342,36 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(height: 140),
-                if (!_isDeviceConnected) ...[
-                  Text(
-                    '기기를 연결하려면\n접근 허용이 필요해요',
-                    style: TextStyles.kSemiBold.copyWith(
-                      fontSize: 32,
-                      height: 1.3,
-                    ),
+                Text(
+                  '기기를 연결하려면\n접근 허용이 필요해요',
+                  style: TextStyles.kSemiBold.copyWith(
+                    fontSize: 32,
+                    height: 1.3,
                   ),
-                  const SizedBox(height: 20),
-                  Text(
-                    '블루투스(기기연결)와 카메라(QR촬영)가\n필요하며 그 외에는 사용되지 않습니다.',
-                    style: TextStyles.kMedium.copyWith(
-                      color: CustomColors.lightGray,
-                    ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  '블루투스(기기연결)와 카메라(QR촬영)가\n필요하며 그 외에는 사용되지 않습니다.',
+                  style: TextStyles.kMedium.copyWith(
+                    color: CustomColors.lightGray,
                   ),
-                  RichText(
-                    text: TextSpan(
-                      style: TextStyles.kMedium,
-                      children: [
-                        TextSpan(
-                          text: '알림창의 ',
-                          style: TextStyles.kMedium.copyWith(color: Colors.red),
+                ),
+                RichText(
+                  text: TextSpan(
+                    style: TextStyles.kMedium,
+                    children: [
+                      TextSpan(
+                        text: Platform.isIOS ? '설정에서 ' : '알림창의 ',
+                        style: TextStyles.kMedium.copyWith(color: Colors.red),
+                      ),
+                      TextSpan(
+                        text: Platform.isIOS ? '【권한 허용】' : '【허용】',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
                         ),
-                        TextSpan(
-                          text: '【허용】',
-                          style: TextStyle(
-                            color: Colors.red,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                      ),
+                      if (!Platform.isIOS) ...[
                         TextSpan(
                           text: ' 또는 ',
                           style: TextStyles.kMedium.copyWith(color: Colors.red),
@@ -276,120 +383,63 @@ class _HomeScreenState extends State<HomeScreen> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        TextSpan(
-                          text: ' 을 눌러주세요.',
-                          style: TextStyles.kMedium.copyWith(color: Colors.red),
-                        ),
                       ],
-                    ),
+                      TextSpan(
+                        text: ' 을 눌러주세요.',
+                        style: TextStyles.kMedium.copyWith(color: Colors.red),
+                      ),
+                    ],
                   ),
-                ] else ...[
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.green[50],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.green[200]!),
-                    ),
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.check_circle,
-                          size: 48,
-                          color: Colors.green[600],
-                        ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          '기기가 연결되었습니다!',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '연결된 기기: $_deviceName',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '기기 ID: $_scannedDeviceId',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[500],
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: _navigateToDeviceDetails,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.blue[100],
-                                  foregroundColor: Colors.blue[700],
-                                  elevation: 0,
-                                ),
-                                child: const Text('기기 상세보기'),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: _disconnectDevice,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.red[100],
-                                  foregroundColor: Colors.red[700],
-                                  elevation: 0,
-                                ),
-                                child: const Text('연결 해제'),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                ),
               ],
             ),
           ),
-          if (!_isDeviceConnected)
-            Container(
-              padding: const EdgeInsets.only(bottom: 24.0),
-              child: SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: OutlinedButton(
-                  onPressed: _requestCameraPermission,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.black,
-                    side: const BorderSide(color: Colors.black),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+          Container(
+            padding: const EdgeInsets.only(bottom: 24.0),
+            child: SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: OutlinedButton(
+                onPressed: _requestCameraPermission,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.black,
+                  side: const BorderSide(color: Colors.black),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text('확인했습니다', style: TextStyles.kSemiBold),
                 ),
+                child: Text('확인했습니다', style: TextStyles.kSemiBold),
               ),
             ),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildQRScannerContent() {
+    print('🏠 _buildQRScannerContent called');
+
     return QRScannerWidget(
-      onQRScanned: _handleQRScanned, // Pure callback - no navigation
+      onQRScanned: _handleQRScanned,
       onBackPressed: _onBackFromQRScanner,
+      onShowDeviceDetails: () {
+        print('🏠 QR Scanner callback - onShowDeviceDetails called');
+        setState(() {
+          _showQRScanner = false;
+          _showDeviceDetails = true;
+        });
+      },
     );
   }
 
   Widget _buildDeviceDetailsContent() {
+    final deviceState = ref.watch(deviceNotifierProvider);
+    final scannedDeviceId = deviceState.pairedDevice?.deviceId ?? "";
+
+    print('🏠 _buildDeviceDetailsContent called');
+    print('  - scannedDeviceId: $scannedDeviceId');
+
     return Column(
       children: [
         CustomAppBar(
@@ -398,12 +448,12 @@ class _HomeScreenState extends State<HomeScreen> {
           onTrailingPressed: _disconnectDevice,
           showTrailingButton: true,
           trailingButtonColor: Colors.red,
-          showBackButton: true, // Add back button for better UX
-          onBackPressed: _backFromDeviceDetails, // Go back to home view
+          showBackButton: true,
+          onBackPressed: _backFromDeviceDetails,
         ),
         Expanded(
           child: DeviceDetailsWidget(
-            deviceId: _scannedDeviceId,
+            deviceId: scannedDeviceId,
             onDisconnect: _disconnectDevice,
           ),
         ),
@@ -413,6 +463,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final deviceState = ref.watch(deviceNotifierProvider);
+    final isDeviceConnected = deviceState.pairedDevice != null;
+
+    print('🏠 BUILD called:');
+    print('  - isDeviceConnected: $isDeviceConnected');
+    print('  - _showQRScanner: $_showQRScanner');
+    print('  - _showDeviceDetails: $_showDeviceDetails');
+    print(
+      '  - Final screen: ${_showQRScanner
+          ? 'QR_SCANNER'
+          : (isDeviceConnected || _showDeviceDetails)
+          ? 'DEVICE_DETAILS'
+          : 'HOME_CONTENT'}',
+    );
+
     return Scaffold(
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),
@@ -421,7 +486,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child:
             _showQRScanner
                 ? _buildQRScannerContent()
-                : _showDeviceDetails
+                : (isDeviceConnected || _showDeviceDetails)
                 ? _buildDeviceDetailsContent()
                 : _buildHomeContent(),
       ),

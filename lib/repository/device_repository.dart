@@ -1,3 +1,4 @@
+import 'package:Wicore/models/active_device_response_model.dart';
 import 'package:Wicore/models/device_list_response_model.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -37,15 +38,14 @@ class DeviceRepository {
     return DeviceResponse(code: e.response?.statusCode ?? -1, error: e.message);
   }
 
-  Future<DeviceListResponse> getActiveDevices(String userId) async {
+  // Method for getting active devices with battery info
+  Future<ActiveDeviceListResponse> getActiveDevices(String userId) async {
     try {
-      final response = await _apiClient.getActiveDevices(userId: userId);
-      return response;
-    } on DioException catch (e) {
-      return _handleDeviceListDioError(e);
+      print('🔧 Repository - Fetching active devices for userId: $userId');
+      return await _apiClient.getActiveDevices(userId: userId);
     } catch (e) {
-      if (kDebugMode) print('Error fetching active devices: $e');
-      return DeviceListResponse(code: -1, error: e.toString());
+      print('🔧 ❌ Repository - Error fetching active devices: $e');
+      rethrow;
     }
   }
 

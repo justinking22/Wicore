@@ -239,14 +239,6 @@ class DeviceHistoryScreen extends ConsumerWidget {
     final formattedDate =
         '${createdDate.year}.${createdDate.month.toString().padLeft(2, '0')}.${createdDate.day.toString().padLeft(2, '0')}';
 
-    // Format device ID (mask most digits, show last 4)
-    String formatDeviceId(String deviceId) {
-      if (deviceId.length >= 4) {
-        return '****-****-${deviceId.substring(deviceId.length - 4)}';
-      }
-      return deviceId;
-    }
-
     return Container(
       width: double.infinity,
       padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -276,15 +268,6 @@ class DeviceHistoryScreen extends ConsumerWidget {
                     fontWeight: FontWeight.w400,
                   ),
                 ),
-                SizedBox(height: 4),
-                Text(
-                  '상태: ${_getStatusText(device.status)}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: _getStatusColor(device.status),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
               ],
             ),
           ),
@@ -292,17 +275,12 @@ class DeviceHistoryScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                formatDeviceId(device.deviceId),
+                device.deviceId,
                 style: TextStyle(
                   fontSize: 16,
                   color: Colors.grey[600],
                   fontWeight: FontWeight.w400,
                 ),
-              ),
-              SizedBox(height: 4),
-              Text(
-                '강도: ${device.deviceStrength}',
-                style: TextStyle(fontSize: 12, color: Colors.grey[500]),
               ),
             ],
           ),
