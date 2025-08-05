@@ -17,9 +17,9 @@ abstract class UserApiClient {
   @GET('/user/{userId}')
   Future<UserResponse> getUser(@Path('userId') String userId);
 
-  @PATCH('/user/{userId}')
+  @PATCH('/user/{deviceId}')
   Future<UserResponse> updateUser(
-    @Path('userId') String userId,
+    @Path('deviceId') String deviceId,
     @Body() UserUpdateRequest request,
   );
 

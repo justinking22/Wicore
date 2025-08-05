@@ -38,7 +38,7 @@ class WelcomeScreen extends StatelessWidget {
               text: '다음',
               onPressed: () {
                 // Navigate to the first step of the registration process
-                context.push('/name-input');
+                context.push('/terms-of-use');
               },
             ),
             const SizedBox(height: 32),

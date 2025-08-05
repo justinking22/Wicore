@@ -1,3 +1,4 @@
+import 'package:Wicore/models/user_update_request_model.dart';
 import 'package:Wicore/providers/user_provider.dart';
 import 'package:Wicore/styles/colors.dart';
 import 'package:Wicore/styles/text_styles.dart';
@@ -58,6 +59,7 @@ class _PersonalInfoDisplayScreenState
   }
 
   // Load user data from API
+  // Load user data from API
   void _loadUserData() async {
     setState(() => _isLoading = true);
 
@@ -73,14 +75,28 @@ class _PersonalInfoDisplayScreenState
               // Convert API gender to Korean
               selectedGender = _convertGenderToKorean(userData.gender);
 
-              // Parse height (e.g., "172" -> "172" and "0")
-              final heightParts = userData.height.toString().split('.');
+              // Parse height - handle both string and number formats
+              String heightStr;
+              if (userData.height is String) {
+                heightStr = userData.height.toString();
+              } else {
+                heightStr = userData.height.toString();
+              }
+
+              final heightParts = heightStr.split('.');
               selectedMainHeight = heightParts[0];
               selectedDecimalHeight =
                   heightParts.length > 1 ? heightParts[1] : '0';
 
-              // Parse weight (e.g., "69" -> "69" and "0")
-              final weightParts = userData.weight.toString().split('.');
+              // Parse weight - handle both string and number formats
+              String weightStr;
+              if (userData.weight is String) {
+                weightStr = userData.weight.toString();
+              } else {
+                weightStr = userData.weight.toString();
+              }
+
+              final weightParts = weightStr.split('.');
               selectedMainWeight = weightParts[0];
               selectedDecimalWeight =
                   weightParts.length > 1 ? weightParts[1] : '0';
@@ -111,34 +127,28 @@ class _PersonalInfoDisplayScreenState
     setState(() => _isLoading = true);
 
     try {
-      // Get current user data to preserve other fields
+      // Get current user data to get the user ID
       final currentUserData = ref.read(currentUserDataProvider);
 
       if (currentUserData == null) {
         throw Exception('사용자 정보를 찾을 수 없습니다');
       }
 
-      // Create updated user data
-      final userRequest = UserRequest(
-        item: UserItem(
-          id: currentUserData.id,
-          firstName: currentUserData.firstName,
-          lastName: currentUserData.lastName,
-          email: currentUserData.email,
-          birthdate: currentUserData.birthdate,
-          weight: int.parse(
-            '$selectedMainWeight$selectedDecimalWeight',
-          ), // Convert back to API format
-          height: int.parse(
-            '$selectedMainHeight$selectedDecimalHeight',
-          ), // Convert back to API format
-          gender: _convertGenderToEnglish(selectedGender!),
-          onboarded:
-              true, // Mark as onboarded since they completed personal info
-        ),
+      // Create UserUpdateRequest with the new data
+      final userUpdateRequest = UserUpdateRequest(
+        firstName: currentUserData.firstName,
+        lastName: currentUserData.lastName,
+        weight:
+            '$selectedMainWeight.$selectedDecimalWeight', // Format as string
+        height:
+            '$selectedMainHeight.$selectedDecimalHeight', // Format as string
+        gender: _convertGenderToEnglish(selectedGender!),
       );
 
-      await ref.read(userProvider.notifier).createUser(userRequest);
+      // Use updateCurrentUserProfile instead of createUser
+      await ref
+          .read(userProvider.notifier)
+          .updateCurrentUserProfile(userUpdateRequest);
 
       final userState = ref.read(userProvider);
       userState.whenOrNull(
@@ -337,14 +347,15 @@ class _PersonalInfoDisplayScreenState
         return ReusablePicker(
           title: '성별',
           items: genders,
-          selectedItem:
-              selectedGender ?? genders[0], // Default to first item if null
+          selectedItem: selectedGender ?? genders[0],
           showDot: false,
           showIndex: false,
           onItemSelected: (String selected) {
             setState(() {
               selectedGender = selected;
             });
+            // Auto-save after selection
+            _saveUserData();
           },
         );
       },
@@ -360,15 +371,15 @@ class _PersonalInfoDisplayScreenState
           title: '키 (cm)',
           mainItems: mainHeights,
           decimalItems: decimalHeights,
-          selectedMainItem:
-              selectedMainHeight ?? mainHeights[20], // Default to 170
-          selectedDecimalItem:
-              selectedDecimalHeight ?? decimalHeights[0], // Default to 0
+          selectedMainItem: selectedMainHeight ?? mainHeights[20],
+          selectedDecimalItem: selectedDecimalHeight ?? decimalHeights[0],
           onItemSelected: (String main, String decimal) {
             setState(() {
               selectedMainHeight = main;
               selectedDecimalHeight = decimal;
             });
+            // Auto-save after selection
+            _saveUserData();
           },
         );
       },
@@ -384,15 +395,15 @@ class _PersonalInfoDisplayScreenState
           title: '체중 (kg)',
           mainItems: mainWeights,
           decimalItems: decimalWeights,
-          selectedMainItem:
-              selectedMainWeight ?? mainWeights[39], // Default to 69
-          selectedDecimalItem:
-              selectedDecimalWeight ?? decimalWeights[0], // Default to 0
+          selectedMainItem: selectedMainWeight ?? mainWeights[39],
+          selectedDecimalItem: selectedDecimalWeight ?? decimalWeights[0],
           onItemSelected: (String main, String decimal) {
             setState(() {
               selectedMainWeight = main;
               selectedDecimalWeight = decimal;
             });
+            // Auto-save after selection
+            _saveUserData();
           },
         );
       },

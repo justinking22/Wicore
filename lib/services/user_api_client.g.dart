@@ -90,7 +90,7 @@ class _UserApiClient implements UserApiClient {
 
   @override
   Future<UserResponse> updateUser(
-    String userId,
+    String deviceId,
     UserUpdateRequest request,
   ) async {
     final _extra = <String, dynamic>{};
@@ -105,7 +105,7 @@ class _UserApiClient implements UserApiClient {
     )
         .compose(
           _dio.options,
-          '/user/${userId}',
+          '/user/${deviceId}',
           queryParameters: queryParameters,
           data: _data,
         )

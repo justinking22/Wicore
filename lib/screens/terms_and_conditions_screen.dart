@@ -78,7 +78,7 @@ class _TermsAgreementScreenState extends State<TermsAgreementScreen> {
   void _handleConfirm() {
     if (_isButtonEnabled) {
       // Navigate to next screen (home or success screen)
-      context.push('/sign-up-complete');
+      context.push('/name-input');
     }
   }
 

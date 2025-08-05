@@ -3,6 +3,7 @@ import 'package:Wicore/models/user_response_model.dart';
 import 'package:Wicore/models/user_request_model.dart';
 import 'package:Wicore/models/user_update_request_model.dart';
 import 'package:Wicore/providers/authentication_provider.dart';
+import 'package:Wicore/providers/device_provider.dart';
 import 'package:Wicore/repository/user_repository.dart';
 import 'package:Wicore/services/user_api_client.dart';
 import 'package:dio/dio.dart';
@@ -128,28 +129,59 @@ class UserNotifier extends StateNotifier<AsyncValue<UserResponse?>> {
     }
   }
 
-  // FIXED: Changed from UserRequest to UserUpdateRequest
+  // Modified updateCurrentUserProfile method to use device ID instead of user ID
   Future<void> updateCurrentUserProfile(UserUpdateRequest request) async {
     state = const AsyncValue.loading();
     try {
-      final authState = _ref.read(authNotifierProvider);
       final authNotifier = _ref.read(authNotifierProvider.notifier);
-
       final token = await authNotifier.getValidToken();
       if (token == null) {
         throw Exception('No valid authentication token available');
       }
 
-      final userData = authState.userData;
-      if (userData?.id == null && userData?.username == null) {
-        throw Exception('No user ID available');
+      // Get device ID instead of user ID
+      String? deviceId;
+
+      // First try paired device
+      final pairedDevice = _ref.read(deviceDataProvider);
+      if (pairedDevice != null) {
+        deviceId = pairedDevice.deviceId;
+        print('🔧 Using paired device ID: $deviceId');
+      } else {
+        // Try device state
+        final deviceState = _ref.read(deviceNotifierProvider);
+        if (deviceState.pairedDevice != null) {
+          deviceId = deviceState.pairedDevice!.deviceId;
+          print('🔧 Using device from state: $deviceId');
+        }
       }
 
-      final userId = userData?.id ?? userData?.username ?? '';
-      final response = await _repository.updateUser(userId, request);
+      // If no paired device, try active devices
+      if (deviceId == null) {
+        try {
+          final activeDevices = await _ref.read(
+            activeDeviceListProvider.future,
+          );
+          if (activeDevices.isNotEmpty) {
+            deviceId = activeDevices.first.deviceId;
+            print('🔧 Using first active device ID: $deviceId');
+          }
+        } catch (e) {
+          print('🔧 Warning: Could not get active device ID: $e');
+        }
+      }
+
+      if (deviceId == null) {
+        throw Exception('No device found to associate with user update');
+      }
+
+      // Use device ID instead of user ID in the repository call
+      final response = await _repository.updateUser(deviceId, request);
       state = AsyncValue.data(response);
 
-      print('🔧 ✅ UserNotifier - Current user profile updated');
+      print(
+        '🔧 ✅ UserNotifier - Current user profile updated with device ID: $deviceId',
+      );
     } catch (error, stackTrace) {
       print('🔧 ❌ UserNotifier - Error updating current user profile: $error');
       state = AsyncValue.error(error, stackTrace);

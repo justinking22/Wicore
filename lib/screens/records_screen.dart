@@ -1,49 +1,113 @@
 import 'package:Wicore/modals/records_screen_modal_bottom_sheet.dart';
+import 'package:Wicore/providers/stats_provider.dart';
+import 'package:Wicore/models/stats_request_model.dart';
 import 'package:Wicore/styles/colors.dart';
 import 'package:Wicore/styles/text_styles.dart';
 import 'package:Wicore/utilities/diagonal_stripes_painter.dart';
 import 'package:Wicore/widgets/reusable_app_bar.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-class RecordsScreen extends StatefulWidget {
+class RecordsScreen extends ConsumerStatefulWidget {
   const RecordsScreen({super.key});
 
   @override
-  State<RecordsScreen> createState() => _RecordsScreenState();
+  ConsumerState<RecordsScreen> createState() => _RecordsScreenState();
 }
 
-class _RecordsScreenState extends State<RecordsScreen> {
-  int currentDay = 15; // Starting with day 15
-  bool hasData = false; // Track if current day has data
+class _RecordsScreenState extends ConsumerState<RecordsScreen> {
+  DateTime selectedDate = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    // Load today's stats when screen initializes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadStatsForSelectedDate();
+    });
+  }
+
+  void _loadStatsForSelectedDate() {
+    final dateString =
+        '${selectedDate.year}-${selectedDate.month}-${selectedDate.day}';
+    ref.read(statsNotifierProvider.notifier).loadStatsForDate(dateString);
+  }
 
   void _navigateToNextDay() {
     setState(() {
-      currentDay = 16; // Next day
-      hasData = true; // Day 16 has data
+      selectedDate = selectedDate.add(const Duration(days: 1));
     });
+    _loadStatsForSelectedDate();
   }
 
   void _navigateToPreviousDay() {
     setState(() {
-      currentDay = 15; // Previous day
-      hasData = false; // Day 15 has no data
+      selectedDate = selectedDate.subtract(const Duration(days: 1));
     });
+    _loadStatsForSelectedDate();
   }
 
   String _getCurrentDateString() {
-    if (currentDay == 15) {
-      return '25.06.15 / 일요일';
+    const weekdays = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+    final weekday = weekdays[selectedDate.weekday % 7];
+    return '${selectedDate.year.toString().substring(2)}.${selectedDate.month.toString().padLeft(2, '0')}.${selectedDate.day.toString().padLeft(2, '0')} / $weekday';
+  }
+
+  String _formatDuration(double minutes) {
+    final hours = (minutes / 60).floor();
+    final remainingMinutes = (minutes % 60).round();
+
+    if (hours > 0) {
+      return '$hours시간 ${remainingMinutes}분';
     } else {
-      return '25.06.16 / 월요일';
+      return '${remainingMinutes}분';
+    }
+  }
+
+  String _getPostureGradeText(String grade, int score) {
+    switch (grade.toLowerCase()) {
+      case 'excellent':
+        return '매우 좋음';
+      case 'good':
+        return '좋음';
+      case 'fair':
+        return '보통';
+      case 'poor':
+        return '나쁨';
+      default:
+        if (score >= 90) return '매우 좋음';
+        if (score >= 75) return '좋음';
+        if (score >= 60) return '보통';
+        return '나쁨';
+    }
+  }
+
+  Color _getPostureGradeColor(String grade, int score) {
+    switch (grade.toLowerCase()) {
+      case 'excellent':
+        return CustomColors.limeGreen;
+      case 'good':
+        return Colors.green;
+      case 'fair':
+        return Colors.orange;
+      case 'poor':
+        return Colors.red;
+      default:
+        if (score >= 90) return CustomColors.limeGreen;
+        if (score >= 75) return Colors.green;
+        if (score >= 60) return Colors.orange;
+        return Colors.red;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final statsState = ref.watch(statsNotifierProvider);
+    final hasData = statsState.hasData && !statsState.isLoading;
+
     return Scaffold(
-      backgroundColor:
-          hasData == true ? CustomColors.opaqueLightGray : Colors.white,
+      backgroundColor: hasData ? CustomColors.opaqueLightGray : Colors.white,
       appBar: CustomAppBar(
         title: '나의 작업 기록',
         leadingAssetPath: 'assets/icons/calendar_icon.png',
@@ -62,7 +126,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
           );
         },
         trailingButtonIconSize: 30,
-        backgroundColor: hasData == true ? Colors.white : Colors.white,
+        backgroundColor: Colors.white,
       ),
       body: SafeArea(
         child: Padding(
@@ -84,11 +148,10 @@ class _RecordsScreenState extends State<RecordsScreen> {
                         color: Color.fromRGBO(194, 194, 194, 1),
                       ),
                       child: const Center(
-                        // Add Center widget
                         child: Icon(
                           Icons.chevron_left,
                           color: Colors.white,
-                          size: 14, // Reduce size to fit container better
+                          size: 14,
                         ),
                       ),
                     ),
@@ -99,7 +162,6 @@ class _RecordsScreenState extends State<RecordsScreen> {
                     style: TextStyles.kSemiBold.copyWith(fontSize: 20),
                   ),
                   const SizedBox(width: 24),
-                  // For the right arrow
                   GestureDetector(
                     onTap: _navigateToNextDay,
                     child: Container(
@@ -110,11 +172,10 @@ class _RecordsScreenState extends State<RecordsScreen> {
                         color: Color.fromRGBO(194, 194, 194, 1),
                       ),
                       child: const Center(
-                        // Add Center widget
                         child: Icon(
                           Icons.chevron_right,
                           color: Colors.white,
-                          size: 14, // Reduce size to fit container better
+                          size: 14,
                         ),
                       ),
                     ),
@@ -122,10 +183,8 @@ class _RecordsScreenState extends State<RecordsScreen> {
                 ],
               ),
               const SizedBox(height: 20),
-              // Content based on whether there's data
-              Expanded(
-                child: hasData ? _buildDataContent() : _buildEmptyContent(),
-              ),
+              // Content based on state
+              Expanded(child: _buildContent(statsState)),
             ],
           ),
         ),
@@ -133,80 +192,135 @@ class _RecordsScreenState extends State<RecordsScreen> {
     );
   }
 
-  Widget _buildEmptyContent() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('아직은', style: TextStyles.kSemiBold.copyWith(fontSize: 32)),
-        Text('기록된 내용이 없어요', style: TextStyles.kSemiBold.copyWith(fontSize: 32)),
-      ],
-    );
+  Widget _buildContent(statsState) {
+    if (statsState.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (statsState.hasError) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '오류가 발생했습니다',
+            style: TextStyles.kSemiBold.copyWith(fontSize: 32),
+          ),
+          const SizedBox(height: 16),
+          Text(statsState.error ?? '알 수 없는 오류', style: TextStyles.kRegular),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: _loadStatsForSelectedDate,
+            child: const Text('다시 시도'),
+          ),
+        ],
+      );
+    }
+
+    if (!statsState.hasData) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('아직은', style: TextStyles.kSemiBold.copyWith(fontSize: 32)),
+          Text(
+            '기록된 내용이 없어요',
+            style: TextStyles.kSemiBold.copyWith(fontSize: 32),
+          ),
+        ],
+      );
+    }
+
+    return _buildDataContent(statsState);
   }
 
-  Widget _buildDataContent() {
+  Widget _buildDataContent(statsState) {
+    final stats = statsState.statsData;
+    if (stats == null) return const SizedBox();
+
     return SingleChildScrollView(
       child: Column(
         children: [
-          // Work time card
+          // Work time card - using bentMeanDuration
           _buildInfoCard(
             title: '로봇 이동시간',
-            value: '2',
-            unit: '시간',
-            subtitle: '52',
-            subtitleUnit: '분',
+            value: _formatDuration(stats.bentMeanDuration),
+            unit: '',
           ),
           const SizedBox(height: 16),
 
-          // Total activity card
+          // Total activity card - using totalCalories
           _buildInfoCard(
             title: '총 활동량',
-            value: '957',
+            value: stats.totalCalories.toString(),
             unit: '칼로리',
             showProgressBar: true,
-            progressValue: 0.8,
+            progressValue: (stats.totalCalories / 1200).clamp(
+              0.0,
+              1.0,
+            ), // Assuming 1200 as max
           ),
           const SizedBox(height: 16),
 
-          // Activity from robot card
+          // Activity from robot card - using lmaCalories
           _buildInfoCard(
             title: '총 활동량에서 로봇이 도와준 활동량',
-            value: '431',
+            value: stats.lmaCalories.toString(),
             unit: '칼로리',
             showProgressBar: true,
-            progressValue: 0.45,
+            progressValue:
+                stats.totalCalories > 0
+                    ? (stats.lmaCalories / stats.totalCalories).clamp(0.0, 1.0)
+                    : 0.0,
             progressColor: Colors.grey.shade800,
             hasStripes: true,
           ),
           const SizedBox(height: 16),
 
-          // Work score card
+          // Work score card - using postureScore
           _buildInfoCard(
             title: '작업자세 점수',
-            value: '96',
+            value: stats.postureScore.toString(),
             unit: '점',
             showButton: true,
-            buttonText: '매우 좋음',
-            buttonColor: CustomColors.limeGreen,
+            buttonText: _getPostureGradeText(
+              stats.postureGrade,
+              stats.postureScore,
+            ),
+            buttonColor: _getPostureGradeColor(
+              stats.postureGrade,
+              stats.postureScore,
+            ),
           ),
           const SizedBox(height: 16),
 
-          // Effects card
+          // Effects card - using totalLmaCount
           _buildInfoCard(
             title: '효율(부담)',
-            value: '7~11',
+            value:
+                '${(stats.totalLmaCount * 0.7).round()}~${stats.totalLmaCount}',
             unit: '회',
             showProgressBar: true,
-            progressValue: 0.3,
+            progressValue: (stats.totalLmaCount / 1000).clamp(
+              0.0,
+              1.0,
+            ), // Assuming 1000 as max
             progressColor: Colors.grey.shade800,
           ),
           const SizedBox(height: 16),
 
-          // Steps card
-          _buildInfoCard(title: '걸음', value: '12,800', unit: '걸음'),
+          // Steps card - using totalSteps
+          _buildInfoCard(
+            title: '걸음',
+            value: stats.totalSteps.toStringAsFixed(0),
+            unit: '걸음',
+          ),
           const SizedBox(height: 16),
 
-          // Distance card
-          _buildInfoCard(title: '이동거리', value: '4.3', unit: '키로미터'),
+          // Distance card - using totalDistance
+          _buildInfoCard(
+            title: '이동거리',
+            value: stats.totalDistance.toStringAsFixed(1),
+            unit: '키로미터',
+          ),
         ],
       ),
     );
@@ -245,7 +359,8 @@ class _RecordsScreenState extends State<RecordsScreen> {
                 text: TextSpan(
                   children: [
                     TextSpan(text: value, style: TextStyles.kBold),
-                    TextSpan(text: ' $unit', style: TextStyles.kRegular),
+                    if (unit.isNotEmpty)
+                      TextSpan(text: ' $unit', style: TextStyles.kRegular),
                     if (subtitle != null && subtitleUnit != null) ...[
                       TextSpan(text: ' $subtitle', style: TextStyles.kBold),
                       TextSpan(
@@ -275,7 +390,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
                           child: Container(
                             decoration: BoxDecoration(
                               color: progressColor ?? Colors.grey.shade800,
-                              borderRadius: BorderRadius.only(
+                              borderRadius: const BorderRadius.only(
                                 topLeft: Radius.circular(4),
                                 bottomLeft: Radius.circular(4),
                               ),
@@ -288,7 +403,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
                             left:
                                 progressValue *
                                 MediaQuery.of(context).size.width *
-                                0.4, // Adjust based on available width
+                                0.4,
                             child: Container(
                               width: 120,
                               height: 20,

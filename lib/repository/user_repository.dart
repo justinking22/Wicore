@@ -37,18 +37,18 @@ class UserRepository {
 
   // Updated method to use UserUpdateRequest (this looks correct in your code)
   Future<UserResponse> updateUser(
-    String userId,
+    String deviceId,
     UserUpdateRequest request,
   ) async {
     try {
-      print('🔧 Repository - Updating user: $userId');
+      print('🔧 Repository - Updating user: $deviceId');
       print('🔧 Repository - Update data: ${request.toJsonNonNull()}');
 
       if (request.isEmpty) {
         throw Exception('No fields to update');
       }
 
-      return await _apiClient.updateUser(userId, request);
+      return await _apiClient.updateUser(deviceId, request);
     } on DioException catch (e) {
       print('🔧 ❌ Repository - Error updating user: $e');
       throw _handleDioError(e);

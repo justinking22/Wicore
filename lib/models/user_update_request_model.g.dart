@@ -12,6 +12,9 @@ UserUpdateRequest _$UserUpdateRequestFromJson(Map<String, dynamic> json) =>
       lastName: json['lastName'] as String?,
       age: (json['age'] as num?)?.toInt(),
       deviceStrength: (json['deviceStrength'] as num?)?.toInt(),
+      weight: json['weight'] as String?,
+      height: json['height'] as String?,
+      gender: json['gender'] as String?,
     );
 
 Map<String, dynamic> _$UserUpdateRequestToJson(UserUpdateRequest instance) =>
@@ -20,4 +23,7 @@ Map<String, dynamic> _$UserUpdateRequestToJson(UserUpdateRequest instance) =>
       'lastName': instance.lastName,
       'age': instance.age,
       'deviceStrength': instance.deviceStrength,
+      'weight': instance.weight,
+      'height': instance.height,
+      'gender': instance.gender,
     };
