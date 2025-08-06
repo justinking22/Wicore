@@ -13,6 +13,8 @@ SignUpServerResponse _$SignUpServerResponseFromJson(
           ? null
           : SignUpData.fromJson(json['data'] as Map<String, dynamic>),
       code: (json['code'] as num?)?.toInt(),
+      msg: json['msg'] as String?,
+      error: json['error'] as String?,
     );
 
 Map<String, dynamic> _$SignUpServerResponseToJson(
@@ -20,6 +22,8 @@ Map<String, dynamic> _$SignUpServerResponseToJson(
     <String, dynamic>{
       'data': instance.data,
       'code': instance.code,
+      'msg': instance.msg,
+      'error': instance.error,
     };
 
 SignUpData _$SignUpDataFromJson(Map<String, dynamic> json) => SignUpData(

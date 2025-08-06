@@ -1,7 +1,8 @@
 import 'package:Wicore/dialogs/confirmation_dialog.dart';
 import 'package:Wicore/providers/authentication_provider.dart';
+import 'package:Wicore/states/auth_status.dart';
 import 'package:Wicore/utilities/sign_up_form_state.dart';
-import 'package:Wicore/services/api_service.dart';
+
 import 'package:Wicore/styles/colors.dart';
 import 'package:Wicore/styles/text_styles.dart';
 import 'package:Wicore/widgets/reusable_app_bar.dart';
@@ -23,7 +24,6 @@ class _EmailVerificationScreenState
   bool _isResending = false;
 
   Future<void> _handleNext() async {
-    // Simply navigate to login screen
     context.go('/login');
   }
 

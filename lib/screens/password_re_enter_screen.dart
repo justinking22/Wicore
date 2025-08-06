@@ -1,4 +1,6 @@
 import 'package:Wicore/dialogs/confirmation_dialog.dart';
+import 'package:Wicore/models/sign_up_response_model.dart';
+import 'package:Wicore/services/api_error_code_service.dart' show ApiErrorCode;
 import 'package:Wicore/utilities/sign_up_form_state.dart';
 import 'package:Wicore/providers/authentication_provider.dart';
 
@@ -64,6 +66,7 @@ class _PasswordConfirmationScreenState
     });
   }
 
+  // Enhanced _handleNext method with better error handling
   Future<void> _handleNext() async {
     if (!_isButtonEnabled || _isSigningUp) return;
 
@@ -83,12 +86,7 @@ class _PasswordConfirmationScreenState
     if (signUpForm.name.isEmpty ||
         signUpForm.email.isEmpty ||
         signUpForm.password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('필수 정보가 누락되었습니다. 처음부터 다시 시도해주세요.'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showErrorSnackBar('필수 정보가 누락되었습니다. 처음부터 다시 시도해주세요.');
       context.push('/welcome');
       return;
     }
@@ -124,24 +122,16 @@ class _PasswordConfirmationScreenState
         }
       } else {
         if (mounted) {
-          print('❌ Signup failed: ${result.message}');
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result.message ?? '회원가입에 실패했습니다. 다시 시도해주세요.'),
-              backgroundColor: Colors.red,
-            ),
+          print(
+            '❌ Signup failed: Code ${result.code}, Message: ${result.errorMessage}',
           );
+          _handleSignUpError(result);
         }
       }
     } catch (e) {
       print('❌ Error during signup: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('회원가입 중 오류가 발생했습니다. 다시 시도해주세요.'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showErrorSnackBar('회원가입 중 오류가 발생했습니다. 다시 시도해주세요.');
       }
     } finally {
       if (mounted) {
@@ -150,6 +140,59 @@ class _PasswordConfirmationScreenState
         });
       }
     }
+  }
+
+  // Simplified error handling
+  void _handleSignUpError(SignUpServerResponse result) {
+    final errorCode = result.code ?? -1;
+    String userFriendlyMessage;
+
+    // Handle specific error codes with localized messages
+    switch (errorCode) {
+      case ApiErrorCode.userNameAlreadyExist:
+        userFriendlyMessage = '이미 사용 중인 이메일입니다. 다른 이메일을 사용해주세요.';
+        break;
+
+      case ApiErrorCode.invalidPassword:
+        userFriendlyMessage = '비밀번호가 정책에 맞지 않습니다. 영문과 숫자를 포함하여 7자 이상 입력해주세요.';
+        break;
+
+      case ApiErrorCode.dataIsInvalid:
+        userFriendlyMessage = '입력한 정보가 올바르지 않습니다. 다시 확인해주세요.';
+        break;
+
+      case ApiErrorCode.dataHaveNoRequiredAtt:
+        userFriendlyMessage = '필수 정보가 누락되었습니다. 모든 항목을 입력해주세요.';
+        break;
+
+      case ApiErrorCode.invalidParameter:
+        userFriendlyMessage = '입력한 정보가 요구사항을 만족하지 않습니다.';
+        break;
+
+      case ApiErrorCode.internalServerError:
+        userFriendlyMessage = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+        break;
+
+      default:
+        // For unknown errors, use the server message or fallback
+        userFriendlyMessage =
+            result.errorMessage.isNotEmpty
+                ? result.errorMessage
+                : '회원가입에 실패했습니다. 다시 시도해주세요.';
+    }
+
+    _showErrorSnackBar(userFriendlyMessage);
+  }
+
+  // Simple error snackbar
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 4),
+      ),
+    );
   }
 
   void _showPasswordMismatchError() {

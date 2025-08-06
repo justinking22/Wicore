@@ -15,6 +15,7 @@ UserUpdateRequest _$UserUpdateRequestFromJson(Map<String, dynamic> json) =>
       weight: json['weight'] as String?,
       height: json['height'] as String?,
       gender: json['gender'] as String?,
+      number: json['number'] as String?,
     );
 
 Map<String, dynamic> _$UserUpdateRequestToJson(UserUpdateRequest instance) =>
@@ -26,4 +27,5 @@ Map<String, dynamic> _$UserUpdateRequestToJson(UserUpdateRequest instance) =>
       'weight': instance.weight,
       'height': instance.height,
       'gender': instance.gender,
+      'number': instance.number,
     };

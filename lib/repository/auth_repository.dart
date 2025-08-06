@@ -1,3 +1,4 @@
+import 'package:Wicore/services/api_error_code_service.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -30,21 +31,54 @@ class AuthRepository {
   }) async {
     try {
       final request = SignUpRequest(email: email, password: password);
-
       final serverResponse = await _apiClient.signUp(request);
 
-      // Save user ID if available
-      if (serverResponse.data?.id != null) {
+      // Log the response for debugging
+      if (kDebugMode) {
+        print('SignUp Response:');
+        print('Code: ${serverResponse.code}');
+        print('Success: ${serverResponse.isSuccess}');
+        print('Message: ${serverResponse.errorMessage}');
+      }
+
+      // Save user ID if available and signup was successful
+      if (serverResponse.isSuccess && serverResponse.data?.id != null) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('id', serverResponse.data!.id!);
       }
 
       return serverResponse;
     } on DioException catch (e) {
-      return _handleSignUpDioError(e);
+      if (kDebugMode) {
+        print('DioException during signup:');
+        print('Status Code: ${e.response?.statusCode}');
+        print('Response Data: ${e.response?.data}');
+      }
+
+      // Try to parse the error response
+      if (e.response != null && e.response!.data is Map<String, dynamic>) {
+        try {
+          return SignUpServerResponse.fromJson(e.response!.data);
+        } catch (parseError) {
+          if (kDebugMode) print('Failed to parse error response: $parseError');
+        }
+      }
+
+      // Fallback for network errors or unparseable responses
+      return SignUpServerResponse(
+        data: null,
+        code: ApiErrorCode.internalServerError,
+        msg: 'Network error occurred. Please try again.',
+        error: 'Network Error',
+      );
     } catch (e) {
       if (kDebugMode) print('Error during signup: $e');
-      return SignUpServerResponse(data: null, code: -1);
+      return SignUpServerResponse(
+        data: null,
+        code: ApiErrorCode.internalServerError,
+        msg: 'An unexpected error occurred during signup',
+        error: 'Unexpected Error',
+      );
     }
   }
 

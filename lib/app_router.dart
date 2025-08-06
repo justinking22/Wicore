@@ -97,13 +97,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       // Handle users needing confirmation
-      if (authState.status == AuthStatus.needsConfirmation) {
-        if (currentPath != '/email-verification' &&
-            currentPath != '/success-verification') {
-          print('Redirecting to email verification');
-          return '/email-verification';
-        }
-      }
+      // if (authState.status == AuthStatus.needsConfirmation) {
+      //   if (currentPath != '/email-verification' &&
+      //       currentPath != '/success-verification') {
+      //     print('Redirecting to email verification');
+      //     return '/email-verification';
+      //   }
+      // }
 
       return null; // No redirect needed
     },

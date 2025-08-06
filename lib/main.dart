@@ -1,7 +1,7 @@
 import 'package:Wicore/app_router.dart';
 import 'package:Wicore/providers/authentication_provider.dart';
 import 'package:Wicore/states/auth_status.dart';
-import 'package:Wicore/utilities/app_initialization_state.dart';
+import 'package:Wicore/states/app_initialization_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';

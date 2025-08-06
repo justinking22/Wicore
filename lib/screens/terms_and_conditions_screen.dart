@@ -19,7 +19,8 @@ class _TermsAgreementScreenState extends State<TermsAgreementScreen> {
   bool _agreePrivacy = false;
   bool _agreeLocation = false;
 
-  bool get _isButtonEnabled => _agreeService && _agreePrivacy && _agreeLocation;
+  // Only require the mandatory terms (service and privacy)
+  bool get _isButtonEnabled => _agreeService && _agreePrivacy;
 
   void _updateAgreeAll() {
     setState(() {
@@ -140,79 +141,98 @@ class _TermsAgreementScreenState extends State<TermsAgreementScreen> {
           );
         },
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 40),
+      body: Column(
+        children: [
+          // Scrollable content
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 40),
 
-            // Title text
-            Text('안전한 이용을 위해', style: TextStyles.kBody),
-            const SizedBox(height: 8),
-            Text('약관에 동의해주세요', style: TextStyles.kBody),
+                  // Title text
+                  Text('안전한 이용을 위해', style: TextStyles.kBody),
+                  const SizedBox(height: 8),
+                  Text('약관에 동의해주세요', style: TextStyles.kBody),
 
-            const SizedBox(height: 24),
+                  const SizedBox(height: 24),
 
-            // Subtitle text
-            Text('동의하신 내용은 언제든지 앱에서', style: TextStyles.kMedium),
-            const SizedBox(height: 4),
-            Text('다시 확인하실 수 있어요.', style: TextStyles.kMedium),
+                  // Subtitle text
+                  Text('동의하신 내용은 언제든지 앱에서', style: TextStyles.kMedium),
+                  const SizedBox(height: 4),
+                  Text('다시 확인하실 수 있어요.', style: TextStyles.kMedium),
 
-            const SizedBox(height: 60),
+                  const SizedBox(height: 60),
 
-            // Agree all checkbox
-            _buildCheckboxRow(
-              title: '전체동의',
-              textStyle: TextStyles.kSemiBold,
-              value: _agreeAll,
-              onChanged: _handleAgreeAllChanged,
-              isBold: true,
+                  // Agree all checkbox
+                  _buildCheckboxRow(
+                    title: '전체동의',
+                    textStyle: TextStyles.kSemiBold,
+                    value: _agreeAll,
+                    onChanged: _handleAgreeAllChanged,
+                    isBold: true,
+                  ),
+
+                  // Divider line
+                  const Divider(
+                    height: 32,
+                    thickness: 1,
+                    color: Color(0xFFE0E0E0),
+                  ),
+
+                  // Individual agreement checkboxes
+                  _buildCheckboxRow(
+                    title: '[필수] 서비스 이용 약관',
+                    textStyle: TextStyles.kRegular,
+                    value: _agreeService,
+                    onChanged: _handleServiceChanged,
+                    showArrow: true,
+                    onArrowTap: () => _showTermsDetails('서비스 이용 약관'),
+                  ),
+
+                  _buildCheckboxRow(
+                    title: '[필수] 개인정보 수집 및 이용 동의',
+                    textStyle: TextStyles.kRegular,
+                    value: _agreePrivacy,
+                    onChanged: _handlePrivacyChanged,
+                    showArrow: true,
+                    onArrowTap: () => _showTermsDetails('개인정보 수집 및 이용 동의'),
+                  ),
+
+                  _buildCheckboxRow(
+                    title: '[선택] 위치 정보 수집 동의',
+                    textStyle: TextStyles.kRegular,
+                    value: _agreeLocation,
+                    onChanged: _handleLocationChanged,
+                    showArrow: true,
+                    onArrowTap: () => _showTermsDetails('위치 정보 수집 동의'),
+                  ),
+
+                  // Add some bottom padding to ensure content doesn't get cut off
+                  const SizedBox(height: 100),
+                ],
+              ),
             ),
+          ),
 
-            // Divider line
-            const Divider(height: 32, thickness: 1, color: Color(0xFFE0E0E0)),
-
-            // Individual agreement checkboxes
-            _buildCheckboxRow(
-              title: '[필수] 서비스 이용 약관',
-              textStyle: TextStyles.kRegular,
-              value: _agreeService,
-              onChanged: _handleServiceChanged,
-              showArrow: true,
-              onArrowTap: () => _showTermsDetails('서비스 이용 약관'),
+          // Fixed bottom button
+          Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              children: [
+                CustomButton(
+                  text: '확인',
+                  isEnabled: _isButtonEnabled,
+                  onPressed: _isButtonEnabled ? _handleConfirm : null,
+                  disabledBackgroundColor: Colors.grey,
+                ),
+                const SizedBox(height: 12),
+              ],
             ),
-
-            _buildCheckboxRow(
-              title: '[필수] 개인정보 수집 및 이용 동의',
-              textStyle: TextStyles.kRegular,
-              value: _agreePrivacy,
-              onChanged: _handlePrivacyChanged,
-              showArrow: true,
-              onArrowTap: () => _showTermsDetails('개인정보 수집 및 이용 동의'),
-            ),
-
-            _buildCheckboxRow(
-              title: '[선택] 위치 정보 수집 동의',
-              textStyle: TextStyles.kRegular,
-              value: _agreeLocation,
-              onChanged: _handleLocationChanged,
-              showArrow: true,
-              onArrowTap: () => _showTermsDetails('위치 정보 수집 동의'),
-            ),
-
-            const Spacer(),
-
-            // Confirm button
-            CustomButton(
-              text: '확인',
-              isEnabled: _isButtonEnabled,
-              onPressed: _isButtonEnabled ? _handleConfirm : null,
-              disabledBackgroundColor: Colors.grey,
-            ),
-            const SizedBox(height: 32),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

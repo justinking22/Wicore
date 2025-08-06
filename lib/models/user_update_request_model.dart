@@ -12,7 +12,8 @@ class UserUpdateRequest {
   final int? deviceStrength;
   final String? weight;
   final String? height;
-  final String? gender; // Optional field to update device strength
+  final String? gender;
+  final String? number; // Optional field to update device strength
 
   const UserUpdateRequest({
     this.firstName,
@@ -22,6 +23,7 @@ class UserUpdateRequest {
     this.weight,
     this.height,
     this.gender,
+    this.number,
   });
 
   factory UserUpdateRequest.fromJson(Map<String, dynamic> json) =>
