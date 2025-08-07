@@ -14,6 +14,8 @@ class _KoreanCalendarState extends ConsumerState<KoreanCalendar> {
   DateTime today = DateTime.now();
   late int currentYear;
   late int currentMonth;
+  late ScrollController _scrollController;
+  final double monthHeight = 350.0;
 
   final List<String> koreanDayNames = ['일', '월', '화', '수', '목', '금', '토'];
   final List<String> koreanMonthNames = [
@@ -36,13 +38,6 @@ class _KoreanCalendarState extends ConsumerState<KoreanCalendar> {
   final Color customGreen = Color.fromRGBO(204, 255, 56, 1.0);
   // Lime color for device usage dates
   final Color limeColor = Color.fromRGBO(204, 255, 56, 1.0);
-
-  @override
-  void initState() {
-    super.initState();
-    currentYear = today.year;
-    currentMonth = today.month;
-  }
 
   void _changeYear(int delta) {
     setState(() {
@@ -70,6 +65,50 @@ class _KoreanCalendarState extends ConsumerState<KoreanCalendar> {
     }
 
     return deviceUsageDates;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    currentYear = today.year;
+    currentMonth = today.month;
+    _scrollController = ScrollController();
+
+    // Scroll to current month after build with a longer delay
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Add a small delay to ensure layout is complete
+      Future.delayed(Duration(milliseconds: 100), () {
+        _scrollToCurrentMonth();
+      });
+    });
+  }
+
+  void _scrollToCurrentMonth() {
+    try {
+      final double position = (currentMonth - 1) * monthHeight;
+      print('📅 Scrolling to month $currentMonth at position $position');
+
+      _scrollController
+          .animateTo(
+            position,
+            duration: Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          )
+          .then((_) {
+            print('📅 Scroll animation completed');
+          })
+          .catchError((error) {
+            print('📅 Error during scroll: $error');
+          });
+    } catch (e) {
+      print('📅 Error in _scrollToCurrentMonth: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -174,6 +213,11 @@ class _KoreanCalendarState extends ConsumerState<KoreanCalendar> {
   Widget _buildCalendarContent(List<DeviceListItem> devices) {
     final deviceUsageDates = _parseDeviceUsageDates(devices);
 
+    // Scroll after first layout
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToCurrentMonth();
+    });
+
     return Column(
       children: [
         // Year navigation
@@ -184,21 +228,7 @@ class _KoreanCalendarState extends ConsumerState<KoreanCalendar> {
             children: [
               GestureDetector(
                 onTap: () => _changeYear(-1),
-                child: Container(
-                  width: 18,
-                  height: 18,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Color.fromRGBO(194, 194, 194, 1),
-                  ),
-                  child: Center(
-                    child: Icon(
-                      Icons.chevron_left,
-                      color: Colors.white,
-                      size: 12,
-                    ),
-                  ),
-                ),
+                child: _buildYearButton(Icons.chevron_left),
               ),
               const SizedBox(width: 24),
               Text(
@@ -208,21 +238,7 @@ class _KoreanCalendarState extends ConsumerState<KoreanCalendar> {
               const SizedBox(width: 24),
               GestureDetector(
                 onTap: () => _changeYear(1),
-                child: Container(
-                  width: 18,
-                  height: 18,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Color.fromRGBO(194, 194, 194, 1),
-                  ),
-                  child: Center(
-                    child: Icon(
-                      Icons.chevron_right,
-                      color: Colors.white,
-                      size: 12,
-                    ),
-                  ),
-                ),
+                child: _buildYearButton(Icons.chevron_right),
               ),
             ],
           ),
@@ -233,10 +249,10 @@ class _KoreanCalendarState extends ConsumerState<KoreanCalendar> {
               ref.invalidate(userDeviceListProvider);
             },
             child: SingleChildScrollView(
+              controller: _scrollController,
               physics: AlwaysScrollableScrollPhysics(),
               child: Column(
                 children: [
-                  // Show all 12 months of the selected year
                   for (int month = 1; month <= 12; month++) ...[
                     _buildMonthCalendar(month, deviceUsageDates),
                     if (month < 12) SizedBox(height: 40),
@@ -247,6 +263,18 @@ class _KoreanCalendarState extends ConsumerState<KoreanCalendar> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildYearButton(IconData icon) {
+    return Container(
+      width: 18,
+      height: 18,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Color.fromRGBO(194, 194, 194, 1),
+      ),
+      child: Center(child: Icon(icon, color: Colors.white, size: 12)),
     );
   }
 
@@ -378,10 +406,7 @@ class _KoreanCalendarState extends ConsumerState<KoreanCalendar> {
     bool isPrevMonth = false,
     bool isNextMonth = false,
   }) {
-    // Calculate the actual date for this day
     DateTime actualDate = DateTime(year, month, day);
-
-    // Check device usage status for this date
     String? deviceStatus;
     bool hasDeviceUsage = false;
 
@@ -392,24 +417,22 @@ class _KoreanCalendarState extends ConsumerState<KoreanCalendar> {
 
     bool isActiveDevice = hasDeviceUsage && deviceStatus == 'active';
     bool isExpiredDevice = hasDeviceUsage && deviceStatus == 'expired';
-
-    // Check if this date is in the future
     bool isFutureDate = actualDate.isAfter(today);
 
-    // Determine text color - consistent across all months
+    // Determine text color
     Color textColor = Colors.black;
-
-    // Weekend colors always apply (regardless of past/future)
     int weekday = actualDate.weekday;
+
+    // Set weekend color to blue
     if (weekday == DateTime.sunday || weekday == DateTime.saturday) {
       textColor = Colors.blue;
     }
 
-    // Future dates should be faded out but keep weekend colors
-    if (isFutureDate &&
-        weekday != DateTime.sunday &&
-        weekday != DateTime.saturday) {
-      textColor = Colors.grey.shade400;
+    // Future dates should be faded out
+    if (isFutureDate) {
+      textColor = textColor.withOpacity(
+        0.3,
+      ); // Fade out but keep blue for weekends
     }
 
     return Container(
