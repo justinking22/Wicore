@@ -330,12 +330,22 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen> {
             value: _formatBreathRange(stats?.breathMean, stats?.breathStd),
             unit: '회',
             showProgressBar: true,
-            progressValue:
-                (stats?.breathMean ?? 0.0 + (stats?.breathStd ?? 0.0)) / 40.0,
+            // Update these values to represent start and end points of range
             progressMinValue:
-                (stats?.breathMean ?? 0.0 - (stats?.breathStd ?? 0.0)) / 40.0,
+                ((stats?.breathMean ?? 0.0) - (stats?.breathStd ?? 0.0)).clamp(
+                  0.0,
+                  40.0,
+                ) /
+                40.0,
+            progressValue:
+                ((stats?.breathMean ?? 0.0) + (stats?.breathStd ?? 0.0)).clamp(
+                  0.0,
+                  40.0,
+                ) /
+                40.0,
             progressColor: Colors.grey.shade800,
           ),
+
           const SizedBox(height: 16),
           _buildInfoCard(
             title: '작업자세 점수',
@@ -351,16 +361,7 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen> {
               stats?.postureScore ?? 0,
             ),
           ),
-          const SizedBox(height: 16),
-          _buildInfoCard(
-            title: '효율(부담)',
-            value:
-                '${((stats?.totalLmaCount ?? 0) * 0.7).round()}~${stats?.totalLmaCount ?? 0}',
-            unit: '회',
-            showProgressBar: true,
-            progressValue: ((stats?.totalLmaCount ?? 0) / 1000).clamp(0.0, 1.0),
-            progressColor: Colors.grey.shade800,
-          ),
+
           const SizedBox(height: 16),
           _buildInfoCard(
             title: '걸음',
@@ -428,68 +429,101 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen> {
               if (showProgressBar) ...[
                 const SizedBox(width: 16),
                 Expanded(
-                  child: Container(
-                    height: 20,
-                    width: 120,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Stack(
-                      children: [
-                        // Main progress bar (80% fill for Total and Robot-Assisted)
-                        FractionallySizedBox(
-                          alignment: Alignment.centerLeft,
-                          widthFactor: progressValue,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: progressColor ?? Colors.grey.shade800,
-                              borderRadius: BorderRadius.only(
-                                topLeft: Radius.circular(4),
-                                bottomLeft: Radius.circular(4),
-                              ),
-                            ),
-                          ),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final containerWidth = constraints.maxWidth;
+                      return Container(
+                        height: 20,
+                        width: 120,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(4),
                         ),
-                        // Striped section for Robot-Assisted Activity
-                        if (hasStripes && stripeWidth > 0)
-                          Positioned(
-                            left: (progressValue - stripeWidth) * 120,
-                            child: Container(
-                              width: stripeWidth * 120,
+                        child: Stack(
+                          children: [
+                            // Base background (gray)
+                            Container(
                               height: 20,
                               decoration: BoxDecoration(
-                                color: stripeColor ?? Colors.grey.shade800,
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.only(
-                                  topRight: Radius.circular(4),
-                                  bottomRight: Radius.circular(4),
-                                ),
-                                child: CustomPaint(
-                                  painter: DiagonalStripesPainter(),
-                                ),
+                                color: Colors.grey.shade300,
+                                borderRadius: BorderRadius.circular(4),
                               ),
                             ),
-                          ),
-                        // Breath range fill
-                        if (progressMinValue > 0.0)
-                          Positioned(
-                            left: progressMinValue * 120,
-                            child: Container(
-                              width: (progressValue - progressMinValue) * 120,
-                              height: 20,
-                              decoration: BoxDecoration(
-                                color: progressColor ?? Colors.grey.shade800,
-                                borderRadius: const BorderRadius.only(
-                                  topLeft: Radius.circular(4),
-                                  bottomLeft: Radius.circular(4),
+
+                            // Only show range bar if this is the breath card
+                            if (title == '호흡(분당)')
+                              Positioned(
+                                left: progressMinValue * containerWidth,
+                                child: Container(
+                                  width:
+                                      (progressValue - progressMinValue) *
+                                      containerWidth,
+                                  height: 20,
+                                  decoration: BoxDecoration(
+                                    color:
+                                        progressColor ?? Colors.grey.shade800,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ),
-                      ],
-                    ),
+
+                            // Show normal progress bar for other cases
+                            if (title != '호흡(분당)')
+                              FractionallySizedBox(
+                                alignment: Alignment.centerLeft,
+                                widthFactor: progressValue,
+                                child: Container(
+                                  height: 20,
+                                  decoration: BoxDecoration(
+                                    color:
+                                        progressColor ?? Colors.grey.shade800,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                ),
+                              ),
+
+                            // Keep existing stripe logic for other progress bars
+                            if (hasStripes &&
+                                stripeWidth > 0 &&
+                                title != '호흡(분당)')
+                              Positioned(
+                                left:
+                                    (progressValue - stripeWidth).clamp(
+                                      0.0,
+                                      1.0,
+                                    ) *
+                                    containerWidth,
+                                child: Container(
+                                  width: stripeWidth * containerWidth,
+                                  height: 20,
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.only(
+                                      topRight: Radius.circular(4),
+                                      bottomRight: Radius.circular(4),
+                                    ),
+                                    child: Stack(
+                                      children: [
+                                        Container(
+                                          color: CustomColors.limeGreen,
+                                        ),
+                                        CustomPaint(
+                                          painter: DiagonalStripesPainter(
+                                            color: Colors.black,
+                                            strokeWidth: 1.0,
+                                            spacing: 6.0,
+                                            isReversed: true,
+                                          ),
+                                          size: Size.infinite,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],
