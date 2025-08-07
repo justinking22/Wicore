@@ -1,6 +1,6 @@
 import 'package:Wicore/screens/home_screen.dart';
 import 'package:Wicore/screens/qr_acanner_screen.dart';
-import 'package:Wicore/screens/records_screen.dart';
+import 'package:Wicore/screens/stats_screen.dart';
 import 'package:Wicore/screens/settings_screen.dart';
 import 'package:Wicore/styles/colors.dart';
 import 'package:flutter/material.dart';

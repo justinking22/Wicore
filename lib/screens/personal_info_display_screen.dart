@@ -1,346 +1,153 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:Wicore/models/user_update_request_model.dart';
 import 'package:Wicore/providers/user_provider.dart';
 import 'package:Wicore/styles/colors.dart';
 import 'package:Wicore/styles/text_styles.dart';
 import 'package:Wicore/widgets/dual_picker.dart';
 import 'package:Wicore/widgets/reusable_app_bar.dart';
-import 'package:Wicore/widgets/reusable_button.dart';
 import 'package:Wicore/widgets/reusable_info_field.dart';
 import 'package:Wicore/widgets/reusable_picker.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:Wicore/models/user_request_model.dart';
 
 class PersonalInfoDisplayScreen extends ConsumerStatefulWidget {
+  const PersonalInfoDisplayScreen({super.key});
+
   @override
-  _PersonalInfoDisplayScreenState createState() =>
+  ConsumerState<PersonalInfoDisplayScreen> createState() =>
       _PersonalInfoDisplayScreenState();
 }
 
 class _PersonalInfoDisplayScreenState
     extends ConsumerState<PersonalInfoDisplayScreen> {
-  String? selectedGender = '여성'; // Set with data
-  String? selectedMainHeight = '172'; // Set with data
-  String? selectedDecimalHeight = '3'; // Set with data
-  String? selectedMainWeight = '69'; // Set with data
-  String? selectedDecimalWeight = '8'; // Set with data
+  String? selectedGender;
+  String? selectedMainHeight;
+  String? selectedDecimalHeight;
+  String? selectedMainWeight;
+  String? selectedDecimalWeight;
+  bool _isLoading = false;
 
   final List<String> genders = ['남성', '여성'];
   final List<String> mainHeights = List.generate(
     219,
     (index) => (54 + index).toString(),
   );
-
   final List<String> decimalHeights = List.generate(
     10,
     (index) => index.toString(),
   );
-
   final List<String> mainWeights = List.generate(
     634,
     (index) => (2 + index).toString(),
   );
-
   final List<String> decimalWeights = List.generate(
     10,
     (index) => index.toString(),
   );
 
-  bool _isLoading = false;
-
   @override
   void initState() {
     super.initState();
-    // Load user data when screen initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadUserData();
     });
   }
 
-  // Load user data from API
-  // Load user data from API
   void _loadUserData() async {
     setState(() => _isLoading = true);
-
     try {
       await ref.read(userProvider.notifier).getCurrentUserProfile();
       final userState = ref.read(userProvider);
 
-      userState.whenOrNull(
+      userState.when(
         data: (response) {
           if (response?.data != null) {
             final userData = response!.data;
             setState(() {
-              // Convert API gender to Korean
-              selectedGender = _convertGenderToKorean(userData.gender);
-
-              // Parse height - handle both string and number formats
-              String heightStr;
-              if (userData.height is String) {
-                heightStr = userData.height.toString();
+              selectedGender =
+                  userData?.gender != null
+                      ? _convertGenderToKorean(userData!.gender!)
+                      : null;
+              if (userData?.height != null) {
+                final heightValue = userData?.height.toString();
+                if (heightValue!.contains!('.')) {
+                  final heightParts = heightValue.split('.');
+                  selectedMainHeight = heightParts[0];
+                  selectedDecimalHeight =
+                      heightParts.length > 1
+                          ? heightParts[1].padRight(1, '0')
+                          : '0';
+                } else {
+                  selectedMainHeight = heightValue;
+                  selectedDecimalHeight = '0';
+                }
               } else {
-                heightStr = userData.height.toString();
+                selectedMainHeight = null;
+                selectedDecimalHeight = null;
               }
-
-              final heightParts = heightStr.split('.');
-              selectedMainHeight = heightParts[0];
-              selectedDecimalHeight =
-                  heightParts.length > 1 ? heightParts[1] : '0';
-
-              // Parse weight - handle both string and number formats
-              String weightStr;
-              if (userData.weight is String) {
-                weightStr = userData.weight.toString();
+              if (userData?.weight != null) {
+                final weightValue = userData?.weight.toString();
+                if (weightValue!.contains!('.')) {
+                  final weightParts = weightValue.split('.');
+                  selectedMainWeight = weightParts[0];
+                  selectedDecimalWeight =
+                      weightParts.length > 1
+                          ? weightParts[1].padRight(1, '0')
+                          : '0';
+                } else {
+                  selectedMainWeight = weightValue;
+                  selectedDecimalWeight = '0';
+                }
               } else {
-                weightStr = userData.weight.toString();
+                selectedMainWeight = null;
+                selectedDecimalWeight = null;
               }
-
-              final weightParts = weightStr.split('.');
-              selectedMainWeight = weightParts[0];
-              selectedDecimalWeight =
-                  weightParts.length > 1 ? weightParts[1] : '0';
             });
+          } else {
+            setState(() {
+              selectedGender = null;
+              selectedMainHeight = null;
+              selectedDecimalHeight = null;
+              selectedMainWeight = null;
+              selectedDecimalWeight = null;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('No user data available')),
+            );
           }
         },
-      );
-    } catch (e) {
-      print('Error loading user data: $e');
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  // Save user data to API
-  void _saveUserData() async {
-    if (selectedGender == null ||
-        selectedMainHeight == null ||
-        selectedDecimalHeight == null ||
-        selectedMainWeight == null ||
-        selectedDecimalWeight == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('모든 정보를 입력해주세요')));
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      // Get current user data to get the user ID
-      final currentUserData = ref.read(currentUserDataProvider);
-
-      if (currentUserData == null) {
-        throw Exception('사용자 정보를 찾을 수 없습니다');
-      }
-
-      // Create UserUpdateRequest with the new data
-      final userUpdateRequest = UserUpdateRequest(
-        firstName: currentUserData.firstName,
-        lastName: currentUserData.lastName,
-        weight:
-            '$selectedMainWeight.$selectedDecimalWeight', // Format as string
-        height:
-            '$selectedMainHeight.$selectedDecimalHeight', // Format as string
-        gender: _convertGenderToEnglish(selectedGender!),
-      );
-
-      // Use updateCurrentUserProfile instead of createUser
-      await ref
-          .read(userProvider.notifier)
-          .updateCurrentUserProfile(userUpdateRequest);
-
-      final userState = ref.read(userProvider);
-      userState.whenOrNull(
-        data: (response) {
-          if (response != null) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text('신체정보가 저장되었습니다')));
-          }
-        },
+        loading: () {},
         error: (error, stack) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('저장 중 오류가 발생했습니다: $error')));
+          setState(() {
+            selectedGender = null;
+            selectedMainHeight = null;
+            selectedDecimalHeight = null;
+            selectedMainWeight = null;
+            selectedDecimalWeight = null;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to load user data: $error')),
+          );
         },
       );
     } catch (e) {
-      print('Error saving user data: $e');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('저장 중 오류가 발생했습니다')));
+      setState(() {
+        selectedGender = null;
+        selectedMainHeight = null;
+        selectedDecimalHeight = null;
+        selectedMainWeight = null;
+        selectedDecimalWeight = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Exception loading user data: $e')),
+      );
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
-  // Helper methods to convert between Korean and English gender values
-  String _convertGenderToKorean(String englishGender) {
-    switch (englishGender.toLowerCase()) {
-      case 'male':
-        return '남성';
-      case 'female':
-        return '여성';
-      default:
-        return '여성'; // Default fallback
-    }
-  }
-
-  String _convertGenderToEnglish(String koreanGender) {
-    switch (koreanGender) {
-      case '남성':
-        return 'male';
-      case '여성':
-        return 'female';
-      default:
-        return 'female'; // Default fallback
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // Watch for loading state from user provider
-    final userState = ref.watch(userProvider);
-    final isApiLoading = userState.maybeWhen(
-      loading: () => true,
-      orElse: () => false,
-    );
-
-    return Scaffold(
-      appBar: CustomAppBar(
-        title: '신체정보',
-        showBackButton: true,
-        onBackPressed: context.pop,
-        backgroundColor: CustomColors.lighterGray,
-        // Add save action
-        // actions: [
-        //   if (_isLoading || isApiLoading)
-        //     Padding(
-        //       padding: const EdgeInsets.all(16.0),
-        //       child: SizedBox(
-        //         width: 20,
-        //         height: 20,
-        //         child: CircularProgressIndicator(strokeWidth: 2),
-        //       ),
-        //     )
-        //   else
-        //     TextButton(
-        //       onPressed: _saveUserData,
-        //       child: Text(
-        //         '저장',
-        //         style: TextStyle(
-        //           color: CustomColors.primary,
-        //           fontWeight: FontWeight.bold,
-        //         ),
-        //       ),
-        //     ),
-        //],
-      ),
-      body: Container(
-        color: CustomColors.lighterGray,
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      // Gender Field
-                      InfoField(
-                        hasUnit: false,
-                        label: '성별',
-                        value: selectedGender ?? '입력하기',
-                        isPlaceholder: selectedGender == null,
-                        onTap: () => _showGenderPicker(),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Divider(height: 1, color: Colors.grey[300]),
-                      ),
-
-                      // Height Field - Fixed display
-                      InfoField(
-                        hasUnit: true,
-                        label: '키',
-                        value:
-                            (selectedMainHeight != null &&
-                                    selectedDecimalHeight != null)
-                                ? '${selectedMainHeight}.${selectedDecimalHeight}cm'
-                                : '입력하기',
-                        isPlaceholder:
-                            selectedMainHeight == null ||
-                            selectedDecimalHeight == null,
-                        onTap: () => _showHeightPicker(),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Divider(height: 1, color: Colors.grey[300]),
-                      ),
-
-                      // Weight Field - Fixed display
-                      InfoField(
-                        hasUnit: true,
-                        label: '체중',
-                        value:
-                            (selectedMainWeight != null &&
-                                    selectedDecimalWeight != null)
-                                ? '${selectedMainWeight}.${selectedDecimalWeight}kg'
-                                : '입력하기',
-                        isPlaceholder:
-                            selectedMainWeight == null ||
-                            selectedDecimalWeight == null,
-                        onTap: () => _showWeightPicker(),
-                      ),
-                    ],
-                  ),
-                ),
-                // Optional: Add a save button at the bottom
-                // SizedBox(height: 20),
-                // if (!_isLoading && !isApiLoading)
-                //   SizedBox(
-                //     width: double.infinity,
-                //     child: ElevatedButton(
-                //       onPressed: _saveUserData,
-                //       style: ElevatedButton.styleFrom(
-                //         backgroundColor: CustomColors.primary,
-                //         padding: EdgeInsets.symmetric(vertical: 16),
-                //         shape: RoundedRectangleBorder(
-                //           borderRadius: BorderRadius.circular(12),
-                //         ),
-                //       ),
-                //       child: Text(
-                //         '신체정보 저장',
-                //         style: TextStyle(
-                //           color: Colors.white,
-                //           fontSize: 16,
-                //           fontWeight: FontWeight.bold,
-                //         ),
-                //       ),
-                //     ),
-                //   ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showGenderPicker() {
-    showModalBottomSheet(
+  void _showGenderPicker() async {
+    await showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
@@ -350,20 +157,30 @@ class _PersonalInfoDisplayScreenState
           selectedItem: selectedGender ?? genders[0],
           showDot: false,
           showIndex: false,
-          onItemSelected: (String selected) {
-            setState(() {
-              selectedGender = selected;
-            });
-            // Auto-save after selection
-            _saveUserData();
+          onItemSelected: (String selected) async {
+            setState(() => selectedGender = selected);
+            try {
+              await ref
+                  .read(userProvider.notifier)
+                  .updateCurrentUserProfile(
+                    UserUpdateRequest(
+                      gender: _convertGenderToEnglish(selected),
+                    ),
+                  );
+              _loadUserData();
+            } catch (e) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('성별 저장 오류: $e')));
+            }
           },
         );
       },
     );
   }
 
-  void _showHeightPicker() {
-    showModalBottomSheet(
+  void _showHeightPicker() async {
+    await showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
@@ -371,23 +188,34 @@ class _PersonalInfoDisplayScreenState
           title: '키 (cm)',
           mainItems: mainHeights,
           decimalItems: decimalHeights,
-          selectedMainItem: selectedMainHeight ?? mainHeights[20],
-          selectedDecimalItem: selectedDecimalHeight ?? decimalHeights[0],
-          onItemSelected: (String main, String decimal) {
+          selectedMainItem:
+              selectedMainHeight ?? mainHeights[116], // Default to 170
+          selectedDecimalItem:
+              selectedDecimalHeight ?? decimalHeights[0], // Default to 0
+          onItemSelected: (String main, String decimal) async {
             setState(() {
               selectedMainHeight = main;
               selectedDecimalHeight = decimal;
             });
-            // Auto-save after selection
-            _saveUserData();
+            try {
+              final height = double.parse('$main.$decimal');
+              await ref
+                  .read(userProvider.notifier)
+                  .updateCurrentUserProfile(UserUpdateRequest(height: height));
+              _loadUserData();
+            } catch (e) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('키 저장 오류: $e')));
+            }
           },
         );
       },
     );
   }
 
-  void _showWeightPicker() {
-    showModalBottomSheet(
+  void _showWeightPicker() async {
+    await showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
@@ -395,18 +223,184 @@ class _PersonalInfoDisplayScreenState
           title: '체중 (kg)',
           mainItems: mainWeights,
           decimalItems: decimalWeights,
-          selectedMainItem: selectedMainWeight ?? mainWeights[39],
-          selectedDecimalItem: selectedDecimalWeight ?? decimalWeights[0],
-          onItemSelected: (String main, String decimal) {
+          selectedMainItem:
+              selectedMainWeight ?? mainWeights[67], // Default to 69
+          selectedDecimalItem:
+              selectedDecimalWeight ?? decimalWeights[0], // Default to 0
+          onItemSelected: (String main, String decimal) async {
             setState(() {
               selectedMainWeight = main;
               selectedDecimalWeight = decimal;
             });
-            // Auto-save after selection
-            _saveUserData();
+            try {
+              final weight = double.parse('$main.$decimal');
+              await ref
+                  .read(userProvider.notifier)
+                  .updateCurrentUserProfile(UserUpdateRequest(weight: weight));
+              _loadUserData();
+            } catch (e) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('체중 저장 오류: $e')));
+            }
           },
         );
       },
+    );
+  }
+
+  String _convertGenderToKorean(String gender) {
+    return gender.toLowerCase() == 'male' ? '남성' : '여성';
+  }
+
+  String _convertGenderToEnglish(String gender) {
+    return gender == '남성' ? 'male' : 'female';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        color: Colors.white,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CustomAppBar(
+              title: '신체정보',
+              showBackButton: true,
+              onBackPressed: context.pop,
+              backgroundColor: Colors.white,
+            ),
+            const SizedBox(height: 20),
+            Container(
+              color: Colors.white,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(left: 20),
+                    child: Container(
+                      color: Colors.white,
+                      width: double.infinity,
+                      child: Text(
+                        '정보를 입력주시면\n더 잘 도울 수 있어요',
+                        style: TextStyles.kBody,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 20),
+                    child: Container(
+                      color: Colors.white,
+                      width: double.infinity,
+                      child: Text(
+                        '성별, 키, 몸무게 등을 입력주시면\n로봇이 더 잘 도울 수 있어요.',
+                        style: TextStyles.kMedium,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 40),
+            Expanded(
+              child: Container(
+                color: CustomColors.lighterGray,
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Consumer(
+                    builder: (context, ref, child) {
+                      final userState = ref.watch(userProvider);
+                      final isApiLoading = userState.maybeWhen(
+                        loading: () => true,
+                        orElse: () => false,
+                      );
+
+                      return Column(
+                        children: [
+                          if (_isLoading || isApiLoading)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 16),
+                              child: CircularProgressIndicator(),
+                            ),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              children: [
+                                InfoField(
+                                  hasUnit: false,
+                                  label: '성별',
+                                  value: selectedGender ?? '입력하기',
+                                  isPlaceholder: selectedGender == null,
+                                  onTap: _showGenderPicker,
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                  ),
+                                  child: Divider(
+                                    height: 1,
+                                    color: Colors.grey[300],
+                                  ),
+                                ),
+                                InfoField(
+                                  hasUnit: true,
+                                  label: '키',
+                                  value:
+                                      (selectedMainHeight != null &&
+                                              selectedDecimalHeight != null)
+                                          ? '$selectedMainHeight.$selectedDecimalHeight cm'
+                                          : '입력하기',
+                                  isPlaceholder:
+                                      selectedMainHeight == null ||
+                                      selectedDecimalHeight == null,
+                                  onTap: _showHeightPicker,
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                  ),
+                                  child: Divider(
+                                    height: 1,
+                                    color: Colors.grey[300],
+                                  ),
+                                ),
+                                InfoField(
+                                  hasUnit: true,
+                                  label: '체중',
+                                  value:
+                                      (selectedMainWeight != null &&
+                                              selectedDecimalWeight != null)
+                                          ? '$selectedMainWeight.$selectedDecimalWeight kg'
+                                          : '입력하기',
+                                  isPlaceholder:
+                                      selectedMainWeight == null ||
+                                      selectedDecimalWeight == null,
+                                  onTap: _showWeightPicker,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

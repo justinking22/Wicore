@@ -30,14 +30,14 @@ class StatsNotifier extends StateNotifier<StatsState> {
     if (state.isLoading && !refresh) return;
 
     final authState = _ref.watch(authNotifierProvider);
+    if (kDebugMode) {
+      print(
+        '🔧 Stats - Auth check - isAuthenticated: ${authState.isAuthenticated}',
+      );
+    }
 
-    print(
-      '🔧 Stats - Auth check - isAuthenticated: ${authState.isAuthenticated}',
-    );
-
-    // Enhanced authentication check
     if (!authState.isAuthenticated) {
-      print('🔧 ❌ Stats authentication failed');
+      if (kDebugMode) print('🔧 ❌ Stats authentication failed');
       state = state.copyWith(
         error: 'User not authenticated',
         isLoading: false,
@@ -46,7 +46,7 @@ class StatsNotifier extends StateNotifier<StatsState> {
       return;
     }
 
-    print('🔧 ✅ Loading today\'s stats');
+    if (kDebugMode) print('🔧 ✅ Loading today\'s stats');
 
     state = state.copyWith(
       isLoading: !refresh,
@@ -56,10 +56,8 @@ class StatsNotifier extends StateNotifier<StatsState> {
     );
 
     try {
-      // Ensure we have a valid token before making the request
       final authNotifier = _ref.read(authNotifierProvider.notifier);
       final token = await authNotifier.getValidToken();
-
       if (token == null) {
         state = state.copyWith(
           isLoading: false,
@@ -70,31 +68,20 @@ class StatsNotifier extends StateNotifier<StatsState> {
       }
 
       final response = await _repository.getTodayStats();
+      final today = DateTime.now();
+      final todayString = '${today.year}-${today.month}-${today.day}';
 
-      if (response.code == 0) {
-        final today = DateTime.now();
-        final todayString = '${today.year}-${today.month}-${today.day}';
-
-        state = state.copyWith(
-          currentStats: response,
-          isLoading: false,
-          isRefreshing: false,
-          error: null,
-          selectedDate: todayString,
-          timeRange: StatsTimeRange.today,
-        );
-        print('🔧 ✅ Loaded today\'s stats successfully');
-      } else {
-        state = state.copyWith(
-          isLoading: false,
-          isRefreshing: false,
-          error: 'Failed to load stats: ${response.code}',
-        );
-      }
+      state = state.copyWith(
+        currentStats: response.data != null ? response : null,
+        isLoading: false,
+        isRefreshing: false,
+        error: null,
+        selectedDate: todayString,
+        timeRange: StatsTimeRange.today,
+      );
+      if (kDebugMode) print('🔧 ✅ Loaded today\'s stats successfully');
     } catch (e) {
-      print('🔧 ❌ Error loading today\'s stats: $e');
-
-      // Check if it's an authentication error
+      if (kDebugMode) print('🔧 ❌ Error loading today\'s stats: $e');
       if (e.toString().contains('Authentication failed') ||
           e.toString().contains('401')) {
         _ref.read(authNotifierProvider.notifier).setUnauthenticated();
@@ -107,6 +94,7 @@ class StatsNotifier extends StateNotifier<StatsState> {
         state = state.copyWith(
           isLoading: false,
           isRefreshing: false,
+          currentStats: null,
           error: e.toString(),
         );
       }
@@ -117,9 +105,10 @@ class StatsNotifier extends StateNotifier<StatsState> {
     if (state.isLoading && !refresh) return;
 
     final authState = _ref.watch(authNotifierProvider);
+    if (kDebugMode)
+      print('🔧 ❌ Stats authentication failed: ${authState.isAuthenticated}');
 
     if (!authState.isAuthenticated) {
-      print('🔧 ❌ Stats authentication failed');
       state = state.copyWith(
         error: 'User not authenticated',
         isLoading: false,
@@ -128,7 +117,7 @@ class StatsNotifier extends StateNotifier<StatsState> {
       return;
     }
 
-    print('🔧 ✅ Loading stats for date: $date');
+    if (kDebugMode) print('🔧 ✅ Loading stats for date: $date');
 
     state = state.copyWith(
       isLoading: !refresh,
@@ -138,10 +127,8 @@ class StatsNotifier extends StateNotifier<StatsState> {
     );
 
     try {
-      // Ensure we have a valid token before making the request
       final authNotifier = _ref.read(authNotifierProvider.notifier);
       final token = await authNotifier.getValidToken();
-
       if (token == null) {
         state = state.copyWith(
           isLoading: false,
@@ -154,26 +141,17 @@ class StatsNotifier extends StateNotifier<StatsState> {
       final request = StatsRequest(date: date);
       final response = await _repository.getStats(request);
 
-      if (response.code == 0) {
-        state = state.copyWith(
-          currentStats: response,
-          isLoading: false,
-          isRefreshing: false,
-          error: null,
-          selectedDate: date,
-          timeRange: StatsTimeRange.custom,
-        );
-        print('🔧 ✅ Loaded stats for $date successfully');
-      } else {
-        state = state.copyWith(
-          isLoading: false,
-          isRefreshing: false,
-          error: 'Failed to load stats for $date: ${response.code}',
-        );
-      }
+      state = state.copyWith(
+        currentStats: response.data != null ? response : null,
+        isLoading: false,
+        isRefreshing: false,
+        error: null,
+        selectedDate: date,
+        timeRange: StatsTimeRange.custom,
+      );
+      if (kDebugMode) print('🔧 ✅ Loaded stats for $date successfully');
     } catch (e) {
-      print('🔧 ❌ Error loading stats for $date: $e');
-
+      if (kDebugMode) print('🔧 ❌ Error loading stats for $date: $e');
       if (e.toString().contains('Authentication failed') ||
           e.toString().contains('401')) {
         _ref.read(authNotifierProvider.notifier).setUnauthenticated();
@@ -186,6 +164,7 @@ class StatsNotifier extends StateNotifier<StatsState> {
         state = state.copyWith(
           isLoading: false,
           isRefreshing: false,
+          currentStats: null,
           error: e.toString(),
         );
       }
@@ -196,9 +175,10 @@ class StatsNotifier extends StateNotifier<StatsState> {
     if (state.isLoading && !refresh) return;
 
     final authState = _ref.watch(authNotifierProvider);
+    if (kDebugMode)
+      print('🔧 ❌ Stats authentication failed: ${authState.isAuthenticated}');
 
     if (!authState.isAuthenticated) {
-      print('🔧 ❌ Stats authentication failed');
       state = state.copyWith(
         error: 'User not authenticated',
         isLoading: false,
@@ -207,7 +187,7 @@ class StatsNotifier extends StateNotifier<StatsState> {
       return;
     }
 
-    print('🔧 ✅ Loading weekly stats');
+    if (kDebugMode) print('🔧 ✅ Loading weekly stats');
 
     state = state.copyWith(
       isLoading: !refresh,
@@ -217,10 +197,8 @@ class StatsNotifier extends StateNotifier<StatsState> {
     );
 
     try {
-      // Ensure we have a valid token before making the request
       final authNotifier = _ref.read(authNotifierProvider.notifier);
       final token = await authNotifier.getValidToken();
-
       if (token == null) {
         state = state.copyWith(
           isLoading: false,
@@ -231,20 +209,23 @@ class StatsNotifier extends StateNotifier<StatsState> {
       }
 
       final weeklyStats = await _repository.getWeeklyStats();
-      final todayStats = weeklyStats.isNotEmpty ? weeklyStats.last : null;
+      final validWeeklyStats =
+          weeklyStats.where((stats) => stats.data != null).toList();
+      final todayStats =
+          validWeeklyStats.isNotEmpty ? validWeeklyStats.last : null;
 
       state = state.copyWith(
         currentStats: todayStats,
-        historicalStats: weeklyStats,
+        historicalStats: validWeeklyStats,
         isLoading: false,
         isRefreshing: false,
         error: null,
         timeRange: StatsTimeRange.week,
       );
-      print('🔧 ✅ Loaded ${weeklyStats.length} days of weekly stats');
+      if (kDebugMode)
+        print('🔧 ✅ Loaded ${validWeeklyStats.length} days of weekly stats');
     } catch (e) {
-      print('🔧 ❌ Error loading weekly stats: $e');
-
+      if (kDebugMode) print('🔧 ❌ Error loading weekly stats: $e');
       if (e.toString().contains('Authentication failed') ||
           e.toString().contains('401')) {
         _ref.read(authNotifierProvider.notifier).setUnauthenticated();
@@ -257,6 +238,7 @@ class StatsNotifier extends StateNotifier<StatsState> {
         state = state.copyWith(
           isLoading: false,
           isRefreshing: false,
+          currentStats: null,
           error: e.toString(),
         );
       }
@@ -267,9 +249,10 @@ class StatsNotifier extends StateNotifier<StatsState> {
     if (state.isLoading && !refresh) return;
 
     final authState = _ref.watch(authNotifierProvider);
+    if (kDebugMode)
+      print('🔧 ❌ Stats authentication failed: ${authState.isAuthenticated}');
 
     if (!authState.isAuthenticated) {
-      print('🔧 ❌ Stats authentication failed');
       state = state.copyWith(
         error: 'User not authenticated',
         isLoading: false,
@@ -278,7 +261,7 @@ class StatsNotifier extends StateNotifier<StatsState> {
       return;
     }
 
-    print('🔧 ✅ Loading monthly stats');
+    if (kDebugMode) print('🔧 ✅ Loading monthly stats');
 
     state = state.copyWith(
       isLoading: !refresh,
@@ -288,10 +271,8 @@ class StatsNotifier extends StateNotifier<StatsState> {
     );
 
     try {
-      // Ensure we have a valid token before making the request
       final authNotifier = _ref.read(authNotifierProvider.notifier);
       final token = await authNotifier.getValidToken();
-
       if (token == null) {
         state = state.copyWith(
           isLoading: false,
@@ -302,20 +283,23 @@ class StatsNotifier extends StateNotifier<StatsState> {
       }
 
       final monthlyStats = await _repository.getMonthlyStats();
-      final latestStats = monthlyStats.isNotEmpty ? monthlyStats.last : null;
+      final validMonthlyStats =
+          monthlyStats.where((stats) => stats.data != null).toList();
+      final latestStats =
+          validMonthlyStats.isNotEmpty ? validMonthlyStats.last : null;
 
       state = state.copyWith(
         currentStats: latestStats,
-        historicalStats: monthlyStats,
+        historicalStats: validMonthlyStats,
         isLoading: false,
         isRefreshing: false,
         error: null,
         timeRange: StatsTimeRange.month,
       );
-      print('🔧 ✅ Loaded ${monthlyStats.length} days of monthly stats');
+      if (kDebugMode)
+        print('🔧 ✅ Loaded ${validMonthlyStats.length} days of monthly stats');
     } catch (e) {
-      print('🔧 ❌ Error loading monthly stats: $e');
-
+      if (kDebugMode) print('🔧 ❌ Error loading monthly stats: $e');
       if (e.toString().contains('Authentication failed') ||
           e.toString().contains('401')) {
         _ref.read(authNotifierProvider.notifier).setUnauthenticated();
@@ -328,6 +312,7 @@ class StatsNotifier extends StateNotifier<StatsState> {
         state = state.copyWith(
           isLoading: false,
           isRefreshing: false,
+          currentStats: null,
           error: e.toString(),
         );
       }

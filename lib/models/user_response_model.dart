@@ -5,12 +5,15 @@ part 'user_response_model.g.dart';
 
 @JsonSerializable()
 class UserResponse {
-  final UserItem data;
+  @JsonKey(defaultValue: null)
+  final UserItem? data; // Made nullable
+  @JsonKey(defaultValue: 0)
   final int code;
+  @JsonKey(defaultValue: '')
   final String msg;
 
   const UserResponse({
-    required this.data,
+    this.data, // Nullable
     required this.code,
     required this.msg,
   });
@@ -23,8 +26,11 @@ class UserResponse {
 
 @JsonSerializable()
 class UserErrorResponse {
+  @JsonKey(defaultValue: '')
   final String error;
+  @JsonKey(defaultValue: 0)
   final int code;
+  @JsonKey(defaultValue: '')
   final String msg;
 
   const UserErrorResponse({

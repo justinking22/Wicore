@@ -1,18 +1,25 @@
+import 'package:Wicore/widgets/onboarding_manager.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:Wicore/models/user_update_request_model.dart';
+import 'package:Wicore/providers/user_provider.dart';
 import 'package:Wicore/styles/colors.dart';
 import 'package:Wicore/styles/text_styles.dart';
 import 'package:Wicore/widgets/reusable_app_bar.dart';
 import 'package:Wicore/widgets/reusable_button.dart';
-import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
-class PhoneInputScreen extends StatefulWidget {
+class PhoneInputScreen extends ConsumerStatefulWidget {
+  const PhoneInputScreen({super.key});
+
   @override
   _PhoneInputScreenState createState() => _PhoneInputScreenState();
 }
 
-class _PhoneInputScreenState extends State<PhoneInputScreen> {
+class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
   final TextEditingController _phoneController = TextEditingController();
   bool _isButtonEnabled = false;
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -33,11 +40,106 @@ class _PhoneInputScreenState extends State<PhoneInputScreen> {
     });
   }
 
+  void _saveAndContinue() async {
+    if (!_isButtonEnabled) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('전화번호를 입력해주세요')));
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      final phoneNumber = _phoneController.text;
+
+      // Save phone number
+      await ref
+          .read(userProvider.notifier)
+          .updateCurrentUserProfile(UserUpdateRequest(number: phoneNumber));
+
+      print('📱 PhoneInput - Phone number saved successfully');
+
+      // ✅ IMPORTANT: Set onboarded to true
+      await ref
+          .read(userProvider.notifier)
+          .updateCurrentUserProfile(UserUpdateRequest(onboarded: true));
+
+      print('✅ PhoneInput - User marked as onboarded in API');
+
+      // ✅ Also mark as completed locally
+      final onboardingManager = ref.read(onboardingManagerProvider);
+      await onboardingManager.markOnboardingCompleted();
+
+      print('✅ PhoneInput - User marked as onboarded locally');
+
+      // Refresh user provider to ensure onboarded status is updated
+      await ref.read(userProvider.notifier).getCurrentUserProfile();
+
+      print('🔄 PhoneInput - User profile refreshed');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('온보딩이 완료되었습니다!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        context.push('/prep-done');
+      }
+    } catch (e) {
+      print('❌ PhoneInput - Error during save: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('저장 중 오류가 발생했습니다: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
+
+  // ✅ Also update the skip function
+  void _skipAndContinue() async {
+    try {
+      // ✅ Even when skipping, mark as onboarded so they don't see it again today
+      await ref
+          .read(userProvider.notifier)
+          .updateCurrentUserProfile(UserUpdateRequest(onboarded: true));
+
+      print('⏭️ PhoneInput - User marked as onboarded (skipped)');
+
+      // Mark as completed locally
+      final onboardingManager = ref.read(onboardingManagerProvider);
+      await onboardingManager.markOnboardingCompleted();
+
+      // Refresh profile
+      await ref.read(userProvider.notifier).getCurrentUserProfile();
+
+      if (mounted) {
+        context.push('/navigation');
+      }
+    } catch (e) {
+      print('❌ PhoneInput - Error during skip: $e');
+      if (mounted) {
+        // Even if there's an error, let them continue
+        context.push('/prep-done');
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final userState = ref.watch(userProvider);
+    final isApiLoading = userState.maybeWhen(
+      loading: () => true,
+      orElse: () => false,
+    );
+
     return GestureDetector(
       onTap: () {
-        // Dismiss keyboard when tapping outside
         FocusScope.of(context).unfocus();
       },
       child: Scaffold(
@@ -52,51 +154,41 @@ class _PhoneInputScreenState extends State<PhoneInputScreen> {
                 trailingButtonText: '건너뛰기',
                 showBackButton: false,
                 onTrailingPressed: () {
-                  context.push('/prep-done');
+                  _skipAndContinue();
                 },
               ),
-              SizedBox(height: 20),
-
-              // Header Text Section
-              SingleChildScrollView(
-                child: SizedBox(
-                  height: MediaQuery.of(context).size.height,
-                  child: Container(
-                    color: Colors.white,
-                    child: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(left: 20),
-                          child: Container(
-                            color: Colors.white,
-                            width: double.infinity,
-                            child: Text(
-                              '보호자의 전화번호를\n입력해주세요',
-                              style: TextStyles.kBody,
-                            ),
-                          ),
+              const SizedBox(height: 20),
+              Container(
+                color: Colors.white,
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(left: 20),
+                      child: Container(
+                        color: Colors.white,
+                        width: double.infinity,
+                        child: Text(
+                          '보호자의 전화번호를\n입력해주세요',
+                          style: TextStyles.kBody,
                         ),
-                        SizedBox(height: 12),
-                        Padding(
-                          padding: const EdgeInsets.only(left: 20),
-                          child: Container(
-                            color: Colors.white,
-                            width: double.infinity,
-                            child: Text(
-                              '비상연락이 필요한 경우\n작성해주신 연락처로 연락이 갈 예정이에요.',
-                              style: TextStyles.kMedium,
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 12),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 20),
+                      child: Container(
+                        color: Colors.white,
+                        width: double.infinity,
+                        child: Text(
+                          '비상연락이 필요한 경우\n작성해주신 연락처로 연락이 갈 예정이에요.',
+                          style: TextStyles.kMedium,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-
-              SizedBox(height: 40),
-
-              // Form Container with Grey Background
+              const SizedBox(height: 40),
               Expanded(
                 child: Container(
                   color: CustomColors.lighterGray,
@@ -105,7 +197,7 @@ class _PhoneInputScreenState extends State<PhoneInputScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        SizedBox(height: 30),
+                        const SizedBox(height: 30),
                         Text(
                           '보호자 연락처',
                           style: TextStyle(
@@ -115,9 +207,7 @@ class _PhoneInputScreenState extends State<PhoneInputScreen> {
                             fontFamily: TextStyles.kFontFamily,
                           ),
                         ),
-                        SizedBox(height: 12),
-
-                        // Phone Input Field
+                        const SizedBox(height: 12),
                         Container(
                           decoration: BoxDecoration(
                             color: Colors.white,
@@ -126,7 +216,7 @@ class _PhoneInputScreenState extends State<PhoneInputScreen> {
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.05),
                                 blurRadius: 10,
-                                offset: Offset(0, 2),
+                                offset: const Offset(0, 2),
                               ),
                             ],
                           ),
@@ -149,31 +239,27 @@ class _PhoneInputScreenState extends State<PhoneInputScreen> {
                                 border: InputBorder.none,
                                 contentPadding: EdgeInsets.zero,
                               ),
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 16,
                                 color: Colors.black,
                               ),
                             ),
                           ),
                         ),
-
-                        Spacer(),
-
-                        // Next Button
-                        CustomButton(
-                          text: '다음',
-                          isEnabled: _isButtonEnabled,
-                          onPressed:
-                              _isButtonEnabled
-                                  ? () {
-                                    // Handle next button press
-                                    print(
-                                      'Phone number: ${_phoneController.text}',
-                                    );
-                                  }
-                                  : null,
-                          disabledBackgroundColor: Colors.grey,
-                        ),
+                        const Spacer(),
+                        if (_isSaving || isApiLoading)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: CircularProgressIndicator(),
+                          )
+                        else
+                          CustomButton(
+                            text: '다음',
+                            isEnabled: _isButtonEnabled,
+                            onPressed:
+                                _isButtonEnabled ? _saveAndContinue : null,
+                            disabledBackgroundColor: Colors.grey,
+                          ),
                       ],
                     ),
                   ),

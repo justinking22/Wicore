@@ -15,7 +15,7 @@ class DeviceDetailsWidget extends ConsumerStatefulWidget {
   const DeviceDetailsWidget({
     Key? key,
     required this.deviceId,
-    this.batteryPercentage = 39,
+    this.batteryPercentage = 75,
     this.onDisconnect,
   }) : super(key: key);
 
@@ -34,15 +34,29 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
     print(
       '🔍 DeviceDetailsWidget initialized with deviceId: ${widget.deviceId}',
     );
+    // Reset selected strength when widget initializes
+    selectedStrength = null;
+  }
+
+  @override
+  void didUpdateWidget(DeviceDetailsWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Reset selected strength if device ID changes
+    if (oldWidget.deviceId != widget.deviceId) {
+      selectedStrength = null;
+      print(
+        '🔍 DeviceDetailsWidget - Device changed, resetting selected strength',
+      );
+    }
   }
 
   String _getStrengthText(int strength) {
     switch (strength) {
-      case 1:
+      case 0:
         return "약";
-      case 5:
+      case 1:
         return "중";
-      case 10:
+      case 2:
         return "강";
       default:
         return "약";
@@ -52,25 +66,45 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
   int _getStrengthValue(String text) {
     switch (text) {
       case "약":
-        return 1;
+        return 0;
       case "중":
-        return 5;
-      case "강":
-        return 10;
-      default:
         return 1;
+      case "강":
+        return 2;
+      default:
+        return 0;
     }
   }
 
-  Future<void> _updateDeviceStrength(int newStrength) async {
+  // ✅ FIXED: No conversion needed - API and display use same values
+  int _apiStrengthToDisplayStrength(int apiStrength) {
+    // Both API and display use: 0=약, 1=중, 2=강
+    return apiStrength;
+  }
+
+  // ✅ FIXED: No conversion needed - same values
+  int _displayStrengthToUserStrength(int displayStrength) {
+    // System uses: 0=약, 1=중, 2=강
+    return displayStrength;
+  }
+
+  Future<void> _updateDeviceStrength(int newDisplayStrength) async {
     if (isUpdating) return;
 
     setState(() {
       isUpdating = true;
+      selectedStrength = newDisplayStrength;
     });
 
     try {
-      final updateRequest = UserUpdateRequest(deviceStrength: newStrength);
+      // Convert display strength to user profile strength
+      final userStrength = _displayStrengthToUserStrength(newDisplayStrength);
+
+      print(
+        '🔧 DeviceDetails - Updating strength: display=$newDisplayStrength, user=$userStrength',
+      );
+
+      final updateRequest = UserUpdateRequest(deviceStrength: userStrength);
       await ref
           .read(userProvider.notifier)
           .updateCurrentUserProfile(updateRequest);
@@ -78,28 +112,44 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('기기 강도가 업데이트되었습니다'),
+            content: Text(
+              '기기 강도가 ${_getStrengthText(newDisplayStrength)}(으)로 업데이트되었습니다',
+            ),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 2),
           ),
         );
       }
 
+      // Refresh device providers to get updated data
       ref.invalidate(userDeviceListProvider);
       ref.invalidate(activeDeviceListProvider);
+
+      // Force a rebuild of this widget with updated data
+      // Wait a moment for the providers to refresh
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      if (mounted) {
+        setState(() {
+          // This will trigger a rebuild and re-fetch from providers
+        });
+      }
+
+      print('✅ DeviceDetails - Strength updated and UI refreshed');
     } catch (error) {
       print('🔧 ❌ Error updating device strength: $error');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('강도 업데이트에 실패했습니다: $error'),
+            content: Text('강도 업데이트에 실패했습니다'),
             backgroundColor: Colors.red,
             duration: Duration(seconds: 3),
           ),
         );
       }
 
+      // Reset selection on error
       setState(() {
         selectedStrength = null;
       });
@@ -112,15 +162,15 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
     }
   }
 
+  // ✅ FIXED: Strength button logic
   Widget _buildStrengthButton(
     String text,
     bool isSelected,
-    bool isCurrentDevice,
+    int displayStrength,
   ) {
     final strengthValue = _getStrengthValue(text);
-    final bool hasChanges =
-        selectedStrength != null &&
-        selectedStrength != (isCurrentDevice ? strengthValue : null);
+    final bool isCurrentlyUpdating =
+        isUpdating && selectedStrength == strengthValue;
 
     return Expanded(
       child: GestureDetector(
@@ -128,9 +178,6 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
             isUpdating
                 ? null
                 : () {
-                  setState(() {
-                    selectedStrength = strengthValue;
-                  });
                   _updateDeviceStrength(strengthValue);
                 },
         child: Container(
@@ -139,13 +186,13 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
             color: isSelected ? Colors.black : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
             border:
-                hasChanges && selectedStrength == strengthValue
+                isCurrentlyUpdating
                     ? Border.all(color: Colors.blue, width: 2)
                     : null,
           ),
           child: Center(
             child:
-                isUpdating && selectedStrength == strengthValue
+                isCurrentlyUpdating
                     ? SizedBox(
                       width: 16,
                       height: 16,
@@ -173,257 +220,286 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
 
   Widget _buildDeviceContent({
     required String deviceId,
-    required int currentStrength,
+    required int? currentStrength,
     required int batteryLevel,
     required bool isNewlyPaired,
   }) {
-    // Initialize selected strength if not set
-    if (selectedStrength == null) {
-      selectedStrength = currentStrength;
-    }
+    // Convert API strength to display strength for UI
+    final displayStrength =
+        currentStrength != null
+            ? _apiStrengthToDisplayStrength(currentStrength)
+            : 0;
+
+    // Use selectedStrength if available (for immediate UI updates), otherwise use API strength
+    final effectiveDisplayStrength = selectedStrength ?? displayStrength;
+
+    print('🔍 DeviceDetails - Building content:');
+    print('  - API strength: $currentStrength');
+    print('  - Display strength: $displayStrength');
+    print('  - Selected strength: $selectedStrength');
+    print('  - Effective strength: $effectiveDisplayStrength');
+    print('  - Battery: $batteryLevel');
 
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 60),
-
-          // Device ID Section
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('기기번호', style: TextStyles.kMedium.copyWith(fontSize: 18)),
-              Text(
-                deviceId,
-                style: TextStyles.kRegular.copyWith(color: Color(0xFF666666)),
-              ),
-            ],
+      child: SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight:
+                MediaQuery.of(context).size.height -
+                MediaQuery.of(context).padding.top -
+                kToolbarHeight,
           ),
+          child: IntrinsicHeight(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 60),
 
-          const SizedBox(height: 10),
-
-          // Device Image Area
-          DottedBorder(
-            options: RoundedRectDottedBorderOptions(
-              color: Colors.grey[400]!,
-              strokeWidth: 2,
-              dashPattern: [8, 4],
-              radius: Radius.circular(8),
-              padding: EdgeInsets.zero,
-            ),
-            child: Container(
-              width: double.infinity,
-              height: 320,
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      isNewlyPaired ? Icons.qr_code_scanner : Icons.devices,
-                      size: 64,
-                      color: Colors.grey[400],
-                    ),
-                    SizedBox(height: 16),
-                    Text(
-                      isNewlyPaired ? '새로 연결된 기기' : '기기 이미지 영역',
-                      style: TextStyles.kMedium.copyWith(
-                        fontSize: 18,
-                        color: Colors.grey[400],
+                  // Device ID Section
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '기기번호',
+                        style: TextStyles.kMedium.copyWith(fontSize: 18),
                       ),
-                    ),
-                    if (isNewlyPaired) ...[
-                      SizedBox(height: 8),
                       Text(
                         deviceId,
                         style: TextStyles.kRegular.copyWith(
-                          fontSize: 14,
-                          color: Colors.grey[500],
+                          color: Color(0xFF666666),
                         ),
                       ),
                     ],
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 40),
-
-          // Battery Section
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    '배터리',
-                    style: TextStyles.kMedium.copyWith(
-                      fontSize: 16,
-                      color: Colors.black87,
-                    ),
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '$batteryLevel',
-                    style: TextStyles.kSemiBold.copyWith(
-                      fontSize: 32,
-                      color: Colors.black,
-                    ),
-                  ),
-                  Text(
-                    ' %',
-                    style: TextStyles.kMedium.copyWith(
-                      fontSize: 16,
-                      color: Colors.black87,
-                    ),
-                  ),
-                ],
-              ),
-              Container(
-                height: 36,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: _getBatteryButtonColor(batteryLevel),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Text(
-                  _getBatteryButtonText(batteryLevel),
-                  style: TextStyles.kRegular.copyWith(color: Colors.black),
-                ),
-              ),
-            ],
-          ),
 
-          const SizedBox(height: 16),
-          Divider(),
-          const SizedBox(height: 16),
+                  const SizedBox(height: 10),
 
-          // Signal Strength Section
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '출력값(강도)',
-                style: TextStyles.kMedium.copyWith(
-                  fontSize: 16,
-                  color: Colors.black87,
-                ),
-              ),
-              if (isUpdating)
-                Row(
-                  children: [
-                    SizedBox(
-                      width: 12,
-                      height: 12,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                  // Device Image Area
+                  DottedBorder(
+                    options: RoundedRectDottedBorderOptions(
+                      color: Colors.grey[400]!,
+                      strokeWidth: 2,
+                      dashPattern: [8, 4],
+                      radius: Radius.circular(8),
+                      padding: EdgeInsets.zero,
                     ),
-                    SizedBox(width: 8),
-                    Text(
-                      '업데이트 중...',
-                      style: TextStyles.kRegular.copyWith(
-                        fontSize: 12,
-                        color: Colors.grey[600],
+                    child: Container(
+                      width: double.infinity,
+                      height: 320,
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              isNewlyPaired
+                                  ? Icons.qr_code_scanner
+                                  : Icons.devices,
+                              size: 64,
+                              color: Colors.grey[400],
+                            ),
+                            SizedBox(height: 16),
+                            Text(
+                              isNewlyPaired ? '새로 연결된 기기' : '기기 이미지 영역',
+                              style: TextStyles.kMedium.copyWith(
+                                fontSize: 18,
+                                color: Colors.grey[400],
+                              ),
+                            ),
+                            if (isNewlyPaired) ...[
+                              SizedBox(height: 8),
+                              Text(
+                                deviceId,
+                                style: TextStyles.kRegular.copyWith(
+                                  fontSize: 14,
+                                  color: Colors.grey[500],
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
                     ),
-                  ],
-                )
-              else if (isNewlyPaired)
-                Text(
-                  '새로 연결된 기기',
-                  style: TextStyles.kRegular.copyWith(
-                    fontSize: 12,
-                    color: Colors.blue[600],
                   ),
-                ),
-            ],
-          ),
 
-          const SizedBox(height: 16),
+                  const SizedBox(height: 40),
 
-          // Signal Strength Buttons
-          Container(
-            height: 48,
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                _buildStrengthButton("약", currentStrength == 1, true),
-                _buildStrengthButton("중", currentStrength == 5, true),
-                _buildStrengthButton("강", currentStrength == 10, true),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Status info
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: isNewlyPaired ? Colors.green[50] : Colors.blue[50],
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  isNewlyPaired
-                      ? Icons.check_circle_outline
-                      : Icons.info_outline,
-                  size: 16,
-                  color: isNewlyPaired ? Colors.green[700] : Colors.blue[700],
-                ),
-                SizedBox(width: 8),
-                Text(
-                  isNewlyPaired
-                      ? '기기가 성공적으로 연결되었습니다'
-                      : '현재 강도: ${_getStrengthText(currentStrength)} ($currentStrength)',
-                  style: TextStyles.kRegular.copyWith(
-                    fontSize: 12,
-                    color: isNewlyPaired ? Colors.green[700] : Colors.blue[700],
+                  // Battery Section
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            '배터리',
+                            style: TextStyles.kMedium.copyWith(
+                              fontSize: 16,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '$batteryLevel',
+                            style: TextStyles.kSemiBold.copyWith(
+                              fontSize: 32,
+                              color: Colors.black,
+                            ),
+                          ),
+                          Text(
+                            ' %',
+                            style: TextStyles.kMedium.copyWith(
+                              fontSize: 16,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        height: 36,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _getBatteryButtonColor(batteryLevel),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Text(
+                          _getBatteryButtonText(batteryLevel),
+                          style: TextStyles.kRegular.copyWith(
+                            color: Colors.black,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
+
+                  const SizedBox(height: 16),
+                  Divider(),
+                  const SizedBox(height: 16),
+
+                  // Signal Strength Section
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '출력값(강도)',
+                        style: TextStyles.kMedium.copyWith(
+                          fontSize: 16,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      if (isUpdating)
+                        Row(
+                          children: [
+                            SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              '업데이트 중...',
+                              style: TextStyles.kRegular.copyWith(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        )
+                      else
+                        Text(
+                          '현재: ${_getStrengthText(displayStrength)}',
+                          style: TextStyles.kRegular.copyWith(
+                            fontSize: 12,
+                            color: Colors.blue[600],
+                          ),
+                        ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // ✅ FIXED: Signal Strength Buttons
+                  Container(
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        _buildStrengthButton(
+                          "약",
+                          effectiveDisplayStrength == 0,
+                          effectiveDisplayStrength,
+                        ),
+                        _buildStrengthButton(
+                          "중",
+                          effectiveDisplayStrength == 1,
+                          effectiveDisplayStrength,
+                        ),
+                        _buildStrengthButton(
+                          "강",
+                          effectiveDisplayStrength == 2,
+                          effectiveDisplayStrength,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Status info
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isNewlyPaired ? Colors.green[50] : Colors.blue[50],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isNewlyPaired
+                              ? Icons.check_circle_outline
+                              : Icons.info_outline,
+                          size: 16,
+                          color:
+                              isNewlyPaired
+                                  ? Colors.green[700]
+                                  : Colors.blue[700],
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          isNewlyPaired
+                              ? '기기가 성공적으로 연결되었습니다'
+                              : '강도: ${_getStrengthText(effectiveDisplayStrength)} (${selectedStrength ?? currentStrength}) | 배터리: $batteryLevel%',
+                          style: TextStyles.kRegular.copyWith(
+                            fontSize: 12,
+                            color:
+                                isNewlyPaired
+                                    ? Colors.green[700]
+                                    : Colors.blue[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 40),
+                ],
+              ),
             ),
           ),
-
-          const Spacer(),
-        ],
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final deviceState = ref.watch(deviceNotifierProvider);
-
-    print('🔍 DeviceDetailsWidget build:');
-    print('  - Looking for deviceId: ${widget.deviceId}');
-    print(
-      '  - deviceNotifierProvider pairedDevice: ${deviceState.pairedDevice?.deviceId}',
-    );
-
-    // Priority 1: Check if we have a newly paired device from QR scanning
-    if (deviceState.pairedDevice != null &&
-        (widget.deviceId.isEmpty ||
-            widget.deviceId == deviceState.pairedDevice!.deviceId)) {
-      print('  - Using newly paired device from deviceNotifierProvider');
-
-      final pairedDevice = deviceState.pairedDevice!;
-      return _buildDeviceContent(
-        deviceId: pairedDevice.deviceId,
-        currentStrength: pairedDevice.deviceStrength,
-        batteryLevel: widget.batteryPercentage, // Use default for newly paired
-        isNewlyPaired: true,
-      );
-    }
-
     // Priority 2: Try to get device from activeDeviceListProvider (has battery info)
     final activeDevicesAsync = ref.watch(activeDeviceListProvider);
 
@@ -441,10 +517,13 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
           print(
             '  - Found device in activeDeviceListProvider: ${activeDevice.deviceId}',
           );
+          print(
+            '  - Device battery: ${activeDevice.battery}, strength: ${activeDevice.deviceStrength}',
+          );
           return _buildDeviceContent(
             deviceId: activeDevice.deviceId,
             currentStrength: activeDevice.deviceStrength,
-            batteryLevel: activeDevice.battery,
+            batteryLevel: activeDevice.battery, // ✅ Use real battery from API
             isNewlyPaired: false,
           );
         }
@@ -470,7 +549,9 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
               return _buildDeviceContent(
                 deviceId: userDevice.deviceId,
                 currentStrength: userDevice.deviceStrength,
-                batteryLevel: widget.batteryPercentage, // Use default
+                batteryLevel:
+                    widget
+                        .batteryPercentage, // Use widget default (user devices don't have battery info)
                 isNewlyPaired: false,
               );
             }

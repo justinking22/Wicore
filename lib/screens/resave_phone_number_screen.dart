@@ -1,24 +1,34 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:Wicore/models/user_update_request_model.dart';
+import 'package:Wicore/providers/user_provider.dart';
 import 'package:Wicore/styles/colors.dart';
 import 'package:Wicore/styles/text_styles.dart';
 import 'package:Wicore/widgets/reusable_app_bar.dart';
 import 'package:Wicore/widgets/reusable_button.dart';
-import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
-class ResavePhoneNumberScreen extends StatefulWidget {
+class ResavePhoneNumberScreen extends ConsumerStatefulWidget {
+  const ResavePhoneNumberScreen({super.key});
+
   @override
   _ResavePhoneNumberScreenState createState() =>
       _ResavePhoneNumberScreenState();
 }
 
-class _ResavePhoneNumberScreenState extends State<ResavePhoneNumberScreen> {
+class _ResavePhoneNumberScreenState
+    extends ConsumerState<ResavePhoneNumberScreen> {
   final TextEditingController _phoneController = TextEditingController();
   bool _isButtonEnabled = false;
+  bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
     _phoneController.addListener(_onPhoneChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadPhoneNumber();
+    });
   }
 
   @override
@@ -34,15 +44,76 @@ class _ResavePhoneNumberScreenState extends State<ResavePhoneNumberScreen> {
     });
   }
 
+  void _loadPhoneNumber() async {
+    setState(() => _isSaving = true);
+    try {
+      await ref.read(userProvider.notifier).getCurrentUserProfile();
+      final userState = ref.read(userProvider);
+      userState.when(
+        data: (response) {
+          if (response?.data?.number != null) {
+            setState(() {
+              _phoneController.text = response!.data!.number!;
+              _isButtonEnabled = true;
+            });
+          }
+        },
+        loading: () {},
+        error: (error, stack) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('전화번호 로드 실패: $error')));
+        },
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('전화번호 로드 중 오류: $e')));
+    } finally {
+      setState(() => _isSaving = false);
+    }
+  }
+
+  void _savePhoneNumber() async {
+    if (!_isButtonEnabled) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('전화번호를 입력해주세요')));
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      final phoneNumber = _phoneController.text;
+      await ref
+          .read(userProvider.notifier)
+          .updateCurrentUserProfile(UserUpdateRequest(number: phoneNumber));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('전화번호가 성공적으로 저장되었습니다')));
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('저장 중 오류가 발생했습니다: $e')));
+    } finally {
+      setState(() => _isSaving = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final userState = ref.watch(userProvider);
+    final isApiLoading = userState.maybeWhen(
+      loading: () => true,
+      orElse: () => false,
+    );
+
     return GestureDetector(
       onTap: () {
-        // Dismiss keyboard when tapping outside
         FocusScope.of(context).unfocus();
       },
       child: Scaffold(
-        resizeToAvoidBottomInset: false,
         body: Container(
           color: CustomColors.lighterGray,
           child: Column(
@@ -50,16 +121,11 @@ class _ResavePhoneNumberScreenState extends State<ResavePhoneNumberScreen> {
             children: [
               CustomAppBar(
                 title: '보호자 연락처',
-
                 showBackButton: true,
-                onTrailingPressed: () {
-                  context.pop;
-                },
+                onBackPressed: () => context.pop(),
                 backgroundColor: CustomColors.lighterGray,
               ),
-              SizedBox(height: 20),
-
-              // Header Text Section
+              const SizedBox(height: 20),
               Container(
                 color: CustomColors.lighterGray,
                 child: Column(
@@ -75,7 +141,7 @@ class _ResavePhoneNumberScreenState extends State<ResavePhoneNumberScreen> {
                         ),
                       ),
                     ),
-                    SizedBox(height: 12),
+                    const SizedBox(height: 12),
                     Padding(
                       padding: const EdgeInsets.only(left: 20),
                       child: Container(
@@ -92,10 +158,7 @@ class _ResavePhoneNumberScreenState extends State<ResavePhoneNumberScreen> {
                   ],
                 ),
               ),
-
-              SizedBox(height: 40),
-
-              // Form Container with Grey Background
+              const SizedBox(height: 40),
               Expanded(
                 child: Container(
                   color: CustomColors.lighterGray,
@@ -104,7 +167,7 @@ class _ResavePhoneNumberScreenState extends State<ResavePhoneNumberScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        SizedBox(height: 30),
+                        const SizedBox(height: 30),
                         Text(
                           '보호자 연락처',
                           style: TextStyle(
@@ -114,9 +177,7 @@ class _ResavePhoneNumberScreenState extends State<ResavePhoneNumberScreen> {
                             fontFamily: TextStyles.kFontFamily,
                           ),
                         ),
-                        SizedBox(height: 12),
-
-                        // Phone Input Field
+                        const SizedBox(height: 12),
                         Container(
                           decoration: BoxDecoration(
                             color: Colors.white,
@@ -125,7 +186,7 @@ class _ResavePhoneNumberScreenState extends State<ResavePhoneNumberScreen> {
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.05),
                                 blurRadius: 10,
-                                offset: Offset(0, 2),
+                                offset: const Offset(0, 2),
                               ),
                             ],
                           ),
@@ -157,25 +218,20 @@ class _ResavePhoneNumberScreenState extends State<ResavePhoneNumberScreen> {
                             ),
                           ),
                         ),
-
-                        Spacer(),
-
-                        // Next Button
-                        CustomButton(
-                          text: '저장',
-                          isEnabled: _isButtonEnabled,
-                          onPressed:
-                              _isButtonEnabled
-                                  ? () {
-                                    // Handle save button press
-                                    print(
-                                      'Phone number: ${_phoneController.text}',
-                                    );
-                                    // You can add navigation or save logic here
-                                  }
-                                  : null,
-                          disabledBackgroundColor: Colors.grey,
-                        ),
+                        const Spacer(),
+                        if (_isSaving || isApiLoading)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: CircularProgressIndicator(),
+                          )
+                        else
+                          CustomButton(
+                            text: '저장',
+                            isEnabled: _isButtonEnabled,
+                            onPressed:
+                                _isButtonEnabled ? _savePhoneNumber : null,
+                            disabledBackgroundColor: Colors.grey,
+                          ),
                       ],
                     ),
                   ),

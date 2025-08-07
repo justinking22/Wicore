@@ -8,6 +8,6 @@ part 'stats_api_client.g.dart';
 abstract class StatsApiClient {
   factory StatsApiClient(Dio dio) = _StatsApiClient;
 
-  @GET('/user/{date}')
+  @GET('/stats/{date}')
   Future<StatsResponse> getStats(@Path('date') String date);
 }

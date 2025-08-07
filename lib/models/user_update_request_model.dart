@@ -1,19 +1,35 @@
-// lib/models/user_update_request_model.dart
-import 'package:Wicore/models/user_request_model.dart';
 import 'package:json_annotation/json_annotation.dart';
 
 part 'user_update_request_model.g.dart';
 
 @JsonSerializable()
 class UserUpdateRequest {
+  @JsonKey(defaultValue: null, includeIfNull: false)
   final String? firstName;
+  @JsonKey(defaultValue: null, includeIfNull: false)
   final String? lastName;
+  @JsonKey(defaultValue: null, includeIfNull: false)
   final int? age;
+  @JsonKey(name: 'devicestrength', defaultValue: null, includeIfNull: false)
   final int? deviceStrength;
-  final String? weight;
-  final String? height;
+  @JsonKey(defaultValue: null, includeIfNull: false)
+  final double? weight;
+  @JsonKey(defaultValue: null, includeIfNull: false)
+  final double? height;
+  @JsonKey(defaultValue: null, includeIfNull: false)
   final String? gender;
-  final String? number; // Optional field to update device strength
+  @JsonKey(defaultValue: null, includeIfNull: false)
+  final String? number;
+  @JsonKey(defaultValue: null, includeIfNull: false)
+  final bool? onboarded; // Changed to bool? to match UserItem
+  @JsonKey(defaultValue: null, includeIfNull: false)
+  final String? email;
+  @JsonKey(defaultValue: null, includeIfNull: false)
+  final String? id;
+  @JsonKey(defaultValue: null, includeIfNull: false)
+  final String? updated;
+  @JsonKey(defaultValue: null, includeIfNull: false)
+  final String? created;
 
   const UserUpdateRequest({
     this.firstName,
@@ -24,6 +40,11 @@ class UserUpdateRequest {
     this.height,
     this.gender,
     this.number,
+    this.onboarded,
+    this.email,
+    this.id,
+    this.updated,
+    this.created,
   });
 
   factory UserUpdateRequest.fromJson(Map<String, dynamic> json) =>
@@ -31,62 +52,23 @@ class UserUpdateRequest {
 
   Map<String, dynamic> toJson() => _$UserUpdateRequestToJson(this);
 
-  // Helper method to create from UserItem
-  factory UserUpdateRequest.fromUserItem(
-    UserItem userItem, {
-    int? deviceStrength,
-  }) {
-    // Calculate age from birthdate if needed
-    int? calculatedAge;
-    try {
-      final birthDate = DateTime.parse(userItem.birthdate);
-      final now = DateTime.now();
-      calculatedAge = now.year - birthDate.year;
-      if (now.month < birthDate.month ||
-          (now.month == birthDate.month && now.day < birthDate.day)) {
-        calculatedAge--;
-      }
-    } catch (e) {
-      calculatedAge = null;
-    }
-
-    return UserUpdateRequest(
-      firstName: userItem.firstName,
-      lastName: userItem.lastName,
-      age: calculatedAge,
-      deviceStrength: deviceStrength,
-    );
+  Map<String, dynamic> toJsonNonNull() {
+    final json = toJson();
+    return json..removeWhere((key, value) => value == null);
   }
 
-  // Helper method to create with only changed fields
-  UserUpdateRequest copyWith({
-    String? firstName,
-    String? lastName,
-    int? age,
-    int? deviceStrength,
-  }) {
-    return UserUpdateRequest(
-      firstName: firstName ?? this.firstName,
-      lastName: lastName ?? this.lastName,
-      age: age ?? this.age,
-      deviceStrength: deviceStrength ?? this.deviceStrength,
-    );
-  }
-
-  // Helper method to check if request is empty
   bool get isEmpty =>
       firstName == null &&
       lastName == null &&
       age == null &&
-      deviceStrength == null;
-
-  // Helper method to get non-null fields only
-  Map<String, dynamic> toJsonNonNull() {
-    final Map<String, dynamic> json = {};
-    if (firstName != null) json['firstName'] = firstName;
-    if (lastName != null) json['lastName'] = lastName;
-    if (age != null) json['age'] = age;
-    if (deviceStrength != null) json['deviceStrength'] = deviceStrength;
-    return json;
-  }
+      deviceStrength == null &&
+      weight == null &&
+      height == null &&
+      gender == null &&
+      number == null &&
+      onboarded == null &&
+      email == null &&
+      id == null &&
+      updated == null &&
+      created == null;
 }

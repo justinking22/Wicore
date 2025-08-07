@@ -34,7 +34,7 @@ class _StatsApiClient implements StatsApiClient {
     )
         .compose(
           _dio.options,
-          '/user/${date}',
+          '/stats/${date}',
           queryParameters: queryParameters,
           data: _data,
         )

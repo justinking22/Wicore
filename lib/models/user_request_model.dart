@@ -4,26 +4,50 @@ part 'user_request_model.g.dart';
 
 @JsonSerializable()
 class UserItem {
-  final String id;
-  final String firstName;
-  final String lastName;
-  final String email;
-  final String birthdate;
-  final int weight;
-  final int height;
-  final String gender;
-  final bool onboarded;
+  @JsonKey(defaultValue: null, includeIfNull: false)
+  final String? id;
+  @JsonKey(defaultValue: null, includeIfNull: false)
+  final String? firstName;
+  @JsonKey(defaultValue: null, includeIfNull: false)
+  final String? lastName;
+  @JsonKey(defaultValue: null, includeIfNull: false)
+  final String? email;
+  @JsonKey(defaultValue: null, includeIfNull: false)
+  final String? birthdate;
+  @JsonKey(defaultValue: null, includeIfNull: false)
+  final double? weight; // Changed to double? to match API
+  @JsonKey(defaultValue: null, includeIfNull: false)
+  final double? height; // Changed to double? to match API
+  @JsonKey(defaultValue: null, includeIfNull: false)
+  final String? gender;
+  @JsonKey(defaultValue: null, includeIfNull: false)
+  final bool? onboarded;
+  @JsonKey(defaultValue: null, includeIfNull: false)
+  final int? age;
+  @JsonKey(defaultValue: null, includeIfNull: false)
+  final String? number;
+  @JsonKey(name: 'devicestrength', defaultValue: null, includeIfNull: false)
+  final int? deviceStrength;
+  @JsonKey(defaultValue: null, includeIfNull: false)
+  final String? created;
+  @JsonKey(defaultValue: null, includeIfNull: false)
+  final String? updated;
 
   const UserItem({
-    required this.id,
-    required this.firstName,
-    required this.lastName,
-    required this.email,
-    required this.birthdate,
-    required this.weight,
-    required this.height,
-    required this.gender,
-    required this.onboarded,
+    this.id,
+    this.firstName,
+    this.lastName,
+    this.email,
+    this.birthdate,
+    this.weight,
+    this.height,
+    this.gender,
+    this.onboarded,
+    this.age,
+    this.number,
+    this.deviceStrength,
+    this.created,
+    this.updated,
   });
 
   factory UserItem.fromJson(Map<String, dynamic> json) =>
@@ -34,9 +58,10 @@ class UserItem {
 
 @JsonSerializable()
 class UserRequest {
-  final UserItem item;
+  @JsonKey(defaultValue: null)
+  final UserItem? item; // Made nullable to handle potential null cases
 
-  const UserRequest({required this.item});
+  const UserRequest({this.item});
 
   factory UserRequest.fromJson(Map<String, dynamic> json) =>
       _$UserRequestFromJson(json);

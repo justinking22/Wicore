@@ -7,9 +7,11 @@ part of 'user_response_model.dart';
 // **************************************************************************
 
 UserResponse _$UserResponseFromJson(Map<String, dynamic> json) => UserResponse(
-      data: UserItem.fromJson(json['data'] as Map<String, dynamic>),
-      code: (json['code'] as num).toInt(),
-      msg: json['msg'] as String,
+      data: json['data'] == null
+          ? null
+          : UserItem.fromJson(json['data'] as Map<String, dynamic>),
+      code: (json['code'] as num?)?.toInt() ?? 0,
+      msg: json['msg'] as String? ?? '',
     );
 
 Map<String, dynamic> _$UserResponseToJson(UserResponse instance) =>
@@ -21,9 +23,9 @@ Map<String, dynamic> _$UserResponseToJson(UserResponse instance) =>
 
 UserErrorResponse _$UserErrorResponseFromJson(Map<String, dynamic> json) =>
     UserErrorResponse(
-      error: json['error'] as String,
-      code: (json['code'] as num).toInt(),
-      msg: json['msg'] as String,
+      error: json['error'] as String? ?? '',
+      code: (json['code'] as num?)?.toInt() ?? 0,
+      msg: json['msg'] as String? ?? '',
     );
 
 Map<String, dynamic> _$UserErrorResponseToJson(UserErrorResponse instance) =>

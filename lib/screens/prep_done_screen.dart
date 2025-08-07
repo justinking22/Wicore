@@ -11,7 +11,9 @@ class PrepDoneScreen extends StatefulWidget {
 }
 
 class _PrepDoneScreenState extends State<PrepDoneScreen> {
-  void _handleNext() {}
+  void _handleNext() {
+    context.go('/navigation');
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -14,21 +14,53 @@ class StatsRepository {
 
   Future<StatsResponse> getStats(StatsRequest request) async {
     try {
-      print('🔧 Repository - Getting stats for date: ${request.date}');
-      return await _apiClient.getStats(request.date);
+      if (kDebugMode) {
+        print('🔧 Repository - Getting stats for date: ${request.date}');
+      }
+      final response = await _apiClient.getStats(request.date);
+      if (response.code == 0 && response.data != null) {
+        return response;
+      }
+      throw Exception(
+        'No stats data available for date: ${request.date}, code: ${response.code}',
+      );
     } on DioException catch (e) {
-      print('🔧 ❌ Repository - Error getting stats: $e');
+      if (kDebugMode) {
+        print('🔧 ❌ Repository - Error getting stats: ${e.response?.data}');
+      }
       throw _handleDioError(e);
+    } catch (e) {
+      if (kDebugMode) {
+        print('🔧 ❌ Repository - Unexpected error: $e');
+      }
+      throw Exception('Failed to fetch stats: $e');
     }
   }
 
   Future<StatsResponse> getStatsForDate(String date) async {
     try {
-      print('🔧 Repository - Getting stats for date: $date');
-      return await _apiClient.getStats(date);
+      if (kDebugMode) {
+        print('🔧 Repository - Getting stats for date: $date');
+      }
+      final response = await _apiClient.getStats(date);
+      if (response.code == 0 && response.data != null) {
+        return response;
+      }
+      throw Exception(
+        'No stats data available for date: $date, code: ${response.code}',
+      );
     } on DioException catch (e) {
-      print('🔧 ❌ Repository - Error getting stats for date: $e');
+      if (kDebugMode) {
+        print(
+          '🔧 ❌ Repository - Error getting stats for date: ${e.response?.data}',
+        );
+      }
       throw _handleDioError(e);
+    } catch (e) {
+      if (kDebugMode) {
+        print('🔧 ❌ Repository - Unexpected error: $e');
+      }
+      throw Exception('Failed to fetch stats: $e');
     }
   }
 
@@ -60,7 +92,6 @@ class StatsRepository {
           }
           return Exception('Authentication failed. Please sign in again.');
         }
-
         // Handle specific status codes
         switch (e.response?.statusCode) {
           case 400:
@@ -74,25 +105,24 @@ class StatsRepository {
           case 500:
             return Exception('Server error. Please try again later.');
         }
-
-        if (e.response?.data != null) {
+        if (e.response?.data != null &&
+            e.response!.data is Map<String, dynamic>) {
           try {
-            // Try to parse as StatsResponse to get error message
             final errorResponse = StatsResponse.fromJson(e.response!.data);
             return Exception('API Error: ${errorResponse.code}');
           } catch (_) {
-            // If we can't parse the error response, return generic error
-            return Exception('Server error: ${e.response?.statusCode}');
+            return Exception(
+              'Invalid error response format: ${e.response?.data}',
+            );
           }
         }
-        return Exception('Server error: ${e.response?.statusCode}');
-
+        return Exception(
+          'Server error: ${e.response?.statusCode ?? 'unknown'}',
+        );
       case DioExceptionType.cancel:
         return Exception('Request was cancelled');
-
       case DioExceptionType.unknown:
       default:
-        // Check if it's a network connectivity issue
         if (e.message?.contains('SocketException') == true) {
           return Exception(
             'No internet connection. Please check your network.',
@@ -113,7 +143,6 @@ class StatsRepository {
     if (!_isValidDateFormat(date)) {
       throw Exception('Invalid date format. Use YYYY-M-D format.');
     }
-
     return getStatsForDate(date);
   }
 
@@ -125,10 +154,8 @@ class StatsRepository {
     if (startDate.isAfter(endDate)) {
       throw Exception('Start date must be before or equal to end date.');
     }
-
     final results = <StatsResponse>[];
     var currentDate = startDate;
-
     while (!currentDate.isAfter(endDate)) {
       try {
         final stats = await getStatsForDateTime(currentDate);
@@ -137,11 +164,9 @@ class StatsRepository {
         if (kDebugMode) {
           print('Failed to get stats for ${currentDate.toString()}: $e');
         }
-        // Continue with next date even if one fails
       }
       currentDate = currentDate.add(const Duration(days: 1));
     }
-
     return results;
   }
 
@@ -150,10 +175,8 @@ class StatsRepository {
     if (days <= 0) {
       throw Exception('Days must be greater than 0.');
     }
-
     final endDate = DateTime.now();
     final startDate = endDate.subtract(Duration(days: days - 1));
-
     return getStatsForDateRange(startDate, endDate);
   }
 

@@ -41,6 +41,36 @@ class DeviceNotifier extends StateNotifier<DeviceState> {
         // Invalidate device lists to refresh them after pairing
         _ref.invalidate(allUserDevicesProvider);
         _ref.invalidate(activeDevicesProvider);
+      } else if (response.code == -106) {
+        // Device already paired - set minimal paired device data and let providers fetch details
+        print(
+          '📱 Device already paired (code -106), setting paired device and letting providers fetch details...',
+        );
+
+        // Create minimal DeviceResponseData with required fields
+        // The UI will use existing providers to fetch full device details
+        final deviceData = DeviceResponseData(
+          deviceId: deviceId,
+          offset: offset, // Use the offset from the request
+          userId:
+              '', // Will be populated by providers when they fetch device details
+          expiryDate: '', // Will be populated by providers
+          status: 'active', // Assume active since device is already paired
+          deviceStrength: 0, // Default value
+          created: DateTime.now().toIso8601String(), // Default to current time
+          updated: DateTime.now().toIso8601String(), // Default to current time
+        );
+
+        _ref.read(deviceDataProvider.notifier).state = deviceData;
+        state = state.copyWith(pairedDevice: deviceData, isLoading: false);
+
+        // Invalidate device lists to refresh them - this will trigger providers to fetch fresh data
+        _ref.invalidate(allUserDevicesProvider);
+        _ref.invalidate(activeDevicesProvider);
+
+        print(
+          '📱 Successfully set paired device ID: $deviceId - UI will fetch details from providers',
+        );
       } else {
         state = state.copyWith(
           isLoading: false,
@@ -205,6 +235,7 @@ final deviceAuthStateListener = Provider<void>((ref) {
 
   return;
 });
+
 final activeDevicesProvider = FutureProvider.autoDispose<
   ActiveDeviceListResponse
 >((ref) async {
@@ -259,18 +290,38 @@ final activeDeviceListProvider = FutureProvider.autoDispose<
   try {
     final response = await ref.watch(activeDevicesProvider.future);
 
-    if (response.isSuccess && response.devices != null) {
-      print(
-        '🔧 ✅ activeDeviceListProvider - ${response.devices!.length} active devices found',
-      );
-      return response.devices!;
+    print(
+      '🔧 activeDeviceListProvider - Response success: ${response.isSuccess}',
+    );
+
+    if (response.isSuccess) {
+      final devices = response.devices; // Uses the getter we added
+
+      if (devices != null) {
+        print(
+          '🔧 ✅ activeDeviceListProvider - ${devices.length} active devices found',
+        );
+
+        // Log device details for debugging
+        for (final device in devices) {
+          print(
+            '🔧 📱 Device: ${device.deviceId}, Battery: ${device.battery}%, Strength: ${device.deviceStrength}',
+          );
+        }
+
+        return devices;
+      } else {
+        print('🔧 ⚠️ activeDeviceListProvider - No devices in response');
+        return <ActiveDeviceListItem>[];
+      }
     }
 
     print('🔧 ❌ activeDeviceListProvider - Failed: ${response.error}');
-    throw Exception(response.error ?? 'Failed to fetch active devices');
+    return <ActiveDeviceListItem>[]; // Return empty list instead of throwing
   } catch (e) {
     print('🔧 ❌ activeDeviceListProvider error: $e');
-    rethrow;
+    // Return empty list instead of throwing error to prevent UI crashes
+    return <ActiveDeviceListItem>[];
   }
 });
 

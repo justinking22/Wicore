@@ -34,7 +34,7 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget> {
     super.initState();
     controller = MobileScannerController();
 
-    // Check if device is already paired when scanner initializes
+    // Check for existing device immediately after widget is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkExistingPairedDevice();
     });
@@ -42,14 +42,24 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget> {
 
   void _checkExistingPairedDevice() {
     final deviceState = ref.read(deviceNotifierProvider);
-    if (deviceState.pairedDevice != null) {
-      // Device is already paired, go directly to device details
+    final pairedDevice = ref.read(deviceDataProvider);
+
+    if (deviceState.pairedDevice != null || pairedDevice != null) {
+      String deviceId =
+          deviceState.pairedDevice?.deviceId ?? pairedDevice?.deviceId ?? '';
+      print('📱 Found existing paired device: $deviceId');
       _navigateToDeviceDetails();
     }
   }
 
   void _navigateToDeviceDetails() {
-    // Call the callback to navigate to device details
+    try {
+      // Stop camera before navigation
+      controller.stop();
+    } catch (e) {
+      print('Error stopping camera: $e');
+    }
+
     if (widget.onShowDeviceDetails != null) {
       widget.onShowDeviceDetails!();
     }
@@ -57,13 +67,17 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget> {
 
   void _handleQRResult(BarcodeCapture capture) {
     final deviceState = ref.read(deviceNotifierProvider);
-    if (deviceState.isLoading) return;
+    final pairedDevice = ref.read(deviceDataProvider);
 
-    // If there's already a paired device, go to device details instead of scanning
-    if (deviceState.pairedDevice != null) {
+    // First check if device is already paired
+    if (deviceState.pairedDevice != null || pairedDevice != null) {
+      print('📱 Device already paired, navigating to details');
       _navigateToDeviceDetails();
       return;
     }
+
+    // Proceed with scanning if no device is paired
+    if (deviceState.isLoading) return;
 
     final barcodes = capture.barcodes;
     if (barcodes.isNotEmpty) {
@@ -111,11 +125,24 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget> {
   Widget build(BuildContext context) {
     final deviceState = ref.watch(deviceNotifierProvider);
 
-    // Listen for successful pairing and call callback
+    // Listen for successful pairing and navigate (including -106 already paired case)
     ref.listen<DeviceState>(deviceNotifierProvider, (previous, next) {
+      // Handle successful pairing (including -106 already paired case)
       if (next.pairedDevice != null && previous?.pairedDevice == null) {
-        // Device was just paired successfully
+        print('📱 Device just paired: ${next.pairedDevice?.deviceId}');
         _handleSuccess(next.pairedDevice!);
+        _navigateToDeviceDetails();
+      }
+
+      // Handle specific error cases that should still redirect
+      if (next.error != null && previous?.error == null) {
+        // Check if the error is about device already being paired
+        if (next.error!.contains('already paired') ||
+            next.error!.contains('-106')) {
+          print('📱 Device already paired error detected, attempting redirect');
+          // The pairDevice method should have handled this, but just in case
+          _navigateToDeviceDetails();
+        }
       }
     });
 
@@ -311,6 +338,11 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget> {
   }
 
   Widget _buildErrorOverlay(String error) {
+    // Don't show error overlay for "already paired" cases as they should redirect
+    if (error.contains('already paired') || error.contains('-106')) {
+      return Container(); // Return empty container
+    }
+
     return Container(
       color: Colors.black54,
       child: Center(

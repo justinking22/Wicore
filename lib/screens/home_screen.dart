@@ -27,16 +27,51 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // Debug device state on app start
+    // Check for paired device on initialization
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkExistingDevice();
       _debugDeviceState();
     });
   }
 
+  void _checkExistingDevice() {
+    // Get device ID from multiple sources
+    String? deviceId;
+
+    // First try paired device provider
+    final pairedDevice = ref.read(deviceDataProvider);
+    if (pairedDevice != null) {
+      deviceId = pairedDevice.deviceId;
+      print('🔧 Using paired device ID: $deviceId');
+    } else {
+      // Try device state
+      final deviceState = ref.read(deviceNotifierProvider);
+      if (deviceState.pairedDevice != null) {
+        deviceId = deviceState.pairedDevice!.deviceId;
+        print('🔧 Using device from state: $deviceId');
+      }
+    }
+
+    print('🏠 Checking for existing paired device');
+    print('  - deviceId: $deviceId');
+
+    if (deviceId != null) {
+      print('🏠 Found existing paired device, showing device details');
+      setState(() {
+        _showDeviceDetails = true;
+        _showQRScanner = false;
+      });
+    }
+  }
+
   void _debugDeviceState() {
     final deviceState = ref.read(deviceNotifierProvider);
+    final pairedDevice = ref.read(deviceDataProvider);
     print('🏠 HOME SCREEN DEBUG - Initial state:');
-    print('  - pairedDevice: ${deviceState.pairedDevice?.deviceId}');
+    print(
+      '  - deviceState.pairedDevice: ${deviceState.pairedDevice?.deviceId}',
+    );
+    print('  - pairedDevice: ${pairedDevice?.deviceId}');
     print('  - isLoading: ${deviceState.isLoading}');
     print('  - error: ${deviceState.error}');
     print('  - _showQRScanner: $_showQRScanner');
@@ -45,27 +80,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _handleQRScanned(String qrData) {
     print('🏠 _handleQRScanned called with: $qrData');
+
+    // Always navigate to device details when QR is successfully processed
     setState(() {
       _showQRScanner = false;
       _showDeviceDetails = true;
     });
 
+    // Show success message
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('QR 코드 스캔 완료: $qrData'),
+        content: Text('기기 연결 완료'),
         backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
       ),
     );
   }
 
   void _navigateToDeviceDetails() {
     final deviceState = ref.read(deviceNotifierProvider);
+    final pairedDevice = ref.read(deviceDataProvider);
     print('🏠 _navigateToDeviceDetails called');
-    print('  - pairedDevice: ${deviceState.pairedDevice?.deviceId}');
+    print(
+      '  - deviceState.pairedDevice: ${deviceState.pairedDevice?.deviceId}',
+    );
+    print('  - pairedDevice: ${pairedDevice?.deviceId}');
 
-    if (deviceState.pairedDevice != null) {
+    if (deviceState.pairedDevice != null || pairedDevice != null) {
       setState(() {
         _showDeviceDetails = true;
+        _showQRScanner = false;
       });
     } else {
       print('🏠 ❌ No paired device found, cannot navigate to details');
@@ -84,14 +128,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     // Check if device is already paired before requesting permissions
     final deviceState = ref.read(deviceNotifierProvider);
+    final pairedDevice = ref.read(deviceDataProvider);
     print('🏠 Device state check:');
-    print('  - pairedDevice: ${deviceState.pairedDevice?.deviceId}');
+    print(
+      '  - deviceState.pairedDevice: ${deviceState.pairedDevice?.deviceId}',
+    );
+    print('  - pairedDevice: ${pairedDevice?.deviceId}');
 
-    if (deviceState.pairedDevice != null) {
+    if (deviceState.pairedDevice != null || pairedDevice != null) {
       print('🏠 Device already paired, going to device details');
       // Device already paired, go directly to device details
       setState(() {
         _showDeviceDetails = true;
+        _showQRScanner = false; // Ensure QR scanner is not shown
       });
       return;
     }
@@ -125,16 +174,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
       // Double-check device state before showing QR scanner
       final deviceState = ref.read(deviceNotifierProvider);
+      final pairedDevice = ref.read(deviceDataProvider);
       print('🏠 Double-check before QR scanner:');
-      print('  - pairedDevice: ${deviceState.pairedDevice?.deviceId}');
+      print(
+        '  - deviceState.pairedDevice: ${deviceState.pairedDevice?.deviceId}',
+      );
+      print('  - pairedDevice: ${pairedDevice?.deviceId}');
 
-      if (deviceState.pairedDevice != null) {
+      if (deviceState.pairedDevice != null || pairedDevice != null) {
         print(
           '🏠 Device was paired during permissions, going to device details',
         );
         // Device was paired while requesting permissions, go to device details
         setState(() {
           _showDeviceDetails = true;
+          _showQRScanner = false;
         });
       } else {
         print('🏠 No device paired, showing QR scanner');
@@ -253,10 +307,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void _disconnectDevice() {
     print('🏠 _disconnectDevice called');
 
-    final beforeState = ref.read(deviceNotifierProvider);
+    final beforeDeviceState = ref.read(deviceNotifierProvider);
+    final beforePairedDevice = ref.read(deviceDataProvider);
+    print('🏠 Before disconnect:');
     print(
-      '🏠 Before disconnect - pairedDevice: ${beforeState.pairedDevice?.deviceId}',
+      '  - deviceState.pairedDevice: ${beforeDeviceState.pairedDevice?.deviceId}',
     );
+    print('  - pairedDevice: ${beforePairedDevice?.deviceId}');
 
     ref.read(deviceNotifierProvider.notifier).clearState();
 
@@ -266,10 +323,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     // Check state after clearing
     Future.delayed(Duration(milliseconds: 100), () {
-      final afterState = ref.read(deviceNotifierProvider);
+      final afterDeviceState = ref.read(deviceNotifierProvider);
+      final afterPairedDevice = ref.read(deviceDataProvider);
+      print('🏠 After disconnect:');
       print(
-        '🏠 After disconnect - pairedDevice: ${afterState.pairedDevice?.deviceId}',
+        '  - deviceState.pairedDevice: ${afterDeviceState.pairedDevice?.deviceId}',
       );
+      print('  - pairedDevice: ${afterPairedDevice?.deviceId}');
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -317,102 +377,118 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     // Check state after force clear
     Future.delayed(Duration(milliseconds: 100), () {
-      final afterState = ref.read(deviceNotifierProvider);
+      final afterDeviceState = ref.read(deviceNotifierProvider);
+      final afterPairedDevice = ref.read(deviceDataProvider);
+      print('🏠 After force clear:');
       print(
-        '🏠 After force clear - pairedDevice: ${afterState.pairedDevice?.deviceId}',
+        '  - deviceState.pairedDevice: ${afterDeviceState.pairedDevice?.deviceId}',
       );
+      print('  - pairedDevice: ${afterPairedDevice?.deviceId}');
     });
   }
 
   Widget _buildHomeContent() {
     final deviceState = ref.watch(deviceNotifierProvider);
+    final pairedDevice = ref.watch(deviceDataProvider);
 
     print('🏠 _buildHomeContent called');
-    print('  - pairedDevice: ${deviceState.pairedDevice?.deviceId}');
+    print(
+      '  - deviceState.pairedDevice: ${deviceState.pairedDevice?.deviceId}',
+    );
+    print('  - pairedDevice: ${pairedDevice?.deviceId}');
     print('  - _showDeviceDetails: $_showDeviceDetails');
 
-    // This method now only shows when no device is connected
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 24.0),
-      child: Column(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(height: 140),
-                Text(
-                  '기기를 연결하려면\n접근 허용이 필요해요',
-                  style: TextStyles.kSemiBold.copyWith(
-                    fontSize: 32,
-                    height: 1.3,
+      child: SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: MediaQuery.of(context).size.height,
+          ),
+          child: IntrinsicHeight(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(height: 140),
+                  Text(
+                    '기기를 연결하려면\n접근 허용이 필요해요',
+                    style: TextStyles.kSemiBold.copyWith(
+                      fontSize: 32,
+                      height: 1.3,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  '블루투스(기기연결)와 카메라(QR촬영)가\n필요하며 그 외에는 사용되지 않습니다.',
-                  style: TextStyles.kMedium.copyWith(
-                    color: CustomColors.lightGray,
+                  const SizedBox(height: 20),
+                  Text(
+                    '블루투스(기기연결)와 카메라(QR촬영)가\n필요하며 그 외에는 사용되지 않습니다.',
+                    style: TextStyles.kMedium.copyWith(
+                      color: CustomColors.lightGray,
+                    ),
                   ),
-                ),
-                RichText(
-                  text: TextSpan(
-                    style: TextStyles.kMedium,
-                    children: [
-                      TextSpan(
-                        text: Platform.isIOS ? '설정에서 ' : '알림창의 ',
-                        style: TextStyles.kMedium.copyWith(color: Colors.red),
-                      ),
-                      TextSpan(
-                        text: Platform.isIOS ? '【권한 허용】' : '【허용】',
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      if (!Platform.isIOS) ...[
+                  RichText(
+                    text: TextSpan(
+                      style: TextStyles.kMedium,
+                      children: [
                         TextSpan(
-                          text: ' 또는 ',
+                          text: Platform.isIOS ? '설정에서 ' : '알림창의 ',
                           style: TextStyles.kMedium.copyWith(color: Colors.red),
                         ),
                         TextSpan(
-                          text: '【허가】',
+                          text: Platform.isIOS ? '【권한 허용】' : '【허용】',
                           style: TextStyle(
                             color: Colors.red,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+                        if (!Platform.isIOS) ...[
+                          TextSpan(
+                            text: ' 또는 ',
+                            style: TextStyles.kMedium.copyWith(
+                              color: Colors.red,
+                            ),
+                          ),
+                          TextSpan(
+                            text: '【허가】',
+                            style: TextStyle(
+                              color: Colors.red,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                        TextSpan(
+                          text: ' 을 눌러주세요.',
+                          style: TextStyles.kMedium.copyWith(color: Colors.red),
+                        ),
                       ],
-                      TextSpan(
-                        text: ' 을 눌러주세요.',
-                        style: TextStyles.kMedium.copyWith(color: Colors.red),
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  // Add more content here if needed - it will all be scrollable
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.only(bottom: 24.0),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: OutlinedButton(
+                        onPressed: _requestCameraPermission,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.black,
+                          side: const BorderSide(color: Colors.black),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text('확인했습니다', style: TextStyles.kSemiBold),
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.only(bottom: 24.0),
-            child: SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: OutlinedButton(
-                onPressed: _requestCameraPermission,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.black,
-                  side: const BorderSide(color: Colors.black),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: Text('확인했습니다', style: TextStyles.kSemiBold),
+                ],
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -434,11 +510,53 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildDeviceDetailsContent() {
-    final deviceState = ref.watch(deviceNotifierProvider);
-    final scannedDeviceId = deviceState.pairedDevice?.deviceId ?? "";
+    // Get device ID from multiple sources
+    String? deviceId;
+
+    // First try device state
+    final deviceState = ref.read(deviceNotifierProvider);
+    if (deviceState.pairedDevice != null) {
+      deviceId = deviceState.pairedDevice!.deviceId;
+      print('🔧 Using device from state: $deviceId');
+    }
+
+    // Fall back to paired device provider
+    if (deviceId == null) {
+      final pairedDevice = ref.read(deviceDataProvider);
+      if (pairedDevice != null) {
+        deviceId = pairedDevice.deviceId;
+        print('🔧 Using paired device ID: $deviceId');
+      }
+    }
 
     print('🏠 _buildDeviceDetailsContent called');
-    print('  - scannedDeviceId: $scannedDeviceId');
+    print('  - deviceId: $deviceId');
+
+    if (deviceId == null) {
+      // Fallback if no device ID is available
+      return Container(
+        color: Colors.white,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              Text('기기 정보를 찾을 수 없습니다'),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    _showDeviceDetails = false;
+                  });
+                },
+                child: Text('돌아가기'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Column(
       children: [
@@ -453,7 +571,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         Expanded(
           child: DeviceDetailsWidget(
-            deviceId: scannedDeviceId,
+            deviceId: deviceId,
             onDisconnect: _disconnectDevice,
           ),
         ),
@@ -464,19 +582,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final deviceState = ref.watch(deviceNotifierProvider);
-    final isDeviceConnected = deviceState.pairedDevice != null;
+    final pairedDevice = ref.watch(deviceDataProvider);
+
+    // Determine if device is connected from multiple sources
+    bool isDeviceConnected =
+        deviceState.pairedDevice != null || pairedDevice != null;
 
     print('🏠 BUILD called:');
+    print(
+      '  - deviceState.pairedDevice: ${deviceState.pairedDevice?.deviceId}',
+    );
+    print('  - pairedDevice: ${pairedDevice?.deviceId}');
     print('  - isDeviceConnected: $isDeviceConnected');
     print('  - _showQRScanner: $_showQRScanner');
     print('  - _showDeviceDetails: $_showDeviceDetails');
-    print(
-      '  - Final screen: ${_showQRScanner
-          ? 'QR_SCANNER'
-          : (isDeviceConnected || _showDeviceDetails)
-          ? 'DEVICE_DETAILS'
-          : 'HOME_CONTENT'}',
-    );
+
+    String screenToShow = 'UNKNOWN';
+    if (_showQRScanner) {
+      screenToShow = 'QR_SCANNER';
+    } else if (isDeviceConnected || _showDeviceDetails) {
+      screenToShow = 'DEVICE_DETAILS';
+    } else {
+      screenToShow = 'HOME_CONTENT';
+    }
+
+    print('  - Final screen: $screenToShow');
 
     return Scaffold(
       body: AnimatedSwitcher(

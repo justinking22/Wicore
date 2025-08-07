@@ -1,4 +1,10 @@
+import 'package:Wicore/widgets/onboarding_manager.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:Wicore/models/user_update_request_model.dart';
 import 'package:Wicore/providers/user_provider.dart';
+
 import 'package:Wicore/styles/colors.dart';
 import 'package:Wicore/styles/text_styles.dart';
 import 'package:Wicore/widgets/dual_picker.dart';
@@ -6,12 +12,10 @@ import 'package:Wicore/widgets/reusable_app_bar.dart';
 import 'package:Wicore/widgets/reusable_button.dart';
 import 'package:Wicore/widgets/reusable_info_field.dart';
 import 'package:Wicore/widgets/reusable_picker.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:Wicore/models/user_request_model.dart';
 
 class PersonalInfoInputScreen extends ConsumerStatefulWidget {
+  const PersonalInfoInputScreen({super.key});
+
   @override
   _PersonalInfoInputScreenState createState() =>
       _PersonalInfoInputScreenState();
@@ -19,196 +23,87 @@ class PersonalInfoInputScreen extends ConsumerStatefulWidget {
 
 class _PersonalInfoInputScreenState
     extends ConsumerState<PersonalInfoInputScreen> {
-  String? selectedGender; // Changed: nullable, starts null
-  String? selectedMainHeight; // Changed: nullable, starts null
-  String? selectedDecimalHeight; // Changed: nullable, starts null
-  String? selectedMainWeight; // Changed: nullable, starts null
-  String? selectedDecimalWeight; // Changed: nullable, starts null
+  String? selectedGender;
+  String? selectedMainHeight;
+  String? selectedDecimalHeight;
+  String? selectedMainWeight;
+  String? selectedDecimalWeight;
+  bool _isSaving = false;
 
   final List<String> genders = ['남성', '여성'];
   final List<String> mainHeights = List.generate(
     219,
     (index) => (54 + index).toString(),
   );
-
   final List<String> decimalHeights = List.generate(
     10,
     (index) => index.toString(),
   );
-
   final List<String> mainWeights = List.generate(
     634,
     (index) => (2 + index).toString(),
   );
-
   final List<String> decimalWeights = List.generate(
     10,
     (index) => index.toString(),
   );
 
-  bool _isSaving = false;
-
   @override
   void initState() {
     super.initState();
-    // Load existing user data if available
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadExistingUserData();
-    });
+    _checkOnboardingStatus(); // Add this for debugging
   }
 
-  // Load existing user data to pre-populate fields
-  void _loadExistingUserData() async {
-    try {
-      await ref.read(userProvider.notifier).getCurrentUserProfile();
-      final userState = ref.read(userProvider);
+  // ✅ Add this method to check onboarding status for debugging
+  void _checkOnboardingStatus() async {
+    final userState = ref.read(userProvider);
+    final onboardingManager = ref.read(onboardingManagerProvider);
 
-      userState.whenOrNull(
-        data: (response) {
-          if (response?.data != null) {
-            final userData = response!.data;
-            setState(() {
-              // Convert API gender to Korean
-              selectedGender = _convertGenderToKorean(userData.gender);
+    final apiOnboarded = userState.maybeWhen(
+      data: (response) => response?.data?.onboarded ?? false,
+      orElse: () => false,
+    );
 
-              // Parse height (e.g., 1720 -> "172" and "0")
-              final heightStr = userData.height.toString();
-              if (heightStr.length >= 3) {
-                selectedMainHeight = heightStr.substring(
-                  0,
-                  heightStr.length - 1,
-                );
-                selectedDecimalHeight = heightStr.substring(
-                  heightStr.length - 1,
-                );
-              }
+    final localOnboarded =
+        await onboardingManager.hasCompletedOnboardingLocally();
+    final daysSincePrompt = await onboardingManager.daysSinceLastPrompt();
 
-              // Parse weight (e.g., 690 -> "69" and "0")
-              final weightStr = userData.weight.toString();
-              if (weightStr.length >= 2) {
-                selectedMainWeight = weightStr.substring(
-                  0,
-                  weightStr.length - 1,
-                );
-                selectedDecimalWeight = weightStr.substring(
-                  weightStr.length - 1,
-                );
-              }
-            });
-          }
-        },
-      );
-    } catch (e) {
-      print('Error loading existing user data: $e');
-      // Continue with empty form - this is fine for input screen
-    }
+    print('🔍 PersonalInfo - API onboarded: $apiOnboarded');
+    print('🔍 PersonalInfo - Local onboarded: $localOnboarded');
+    print('🔍 PersonalInfo - Days since last prompt: $daysSincePrompt');
   }
 
-  // Save personal info and proceed to next step
-  void _saveAndContinue() async {
-    if (selectedGender == null ||
-        selectedMainHeight == null ||
-        selectedDecimalHeight == null ||
-        selectedMainWeight == null ||
-        selectedDecimalWeight == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('모든 정보를 입력해주세요')));
-      return;
-    }
-
-    setState(() => _isSaving = true);
-
-    try {
-      // Get current user data to preserve other fields
-      final currentUserData = ref.read(currentUserDataProvider);
-
-      if (currentUserData == null) {
-        throw Exception('사용자 정보를 찾을 수 없습니다');
-      }
-
-      // Convert UI values to API format
-      final heightValue = int.parse(
-        '$selectedMainHeight$selectedDecimalHeight',
-      );
-      final weightValue = int.parse(
-        '$selectedMainWeight$selectedDecimalWeight',
-      );
-
-      // Create updated user data
-      final userRequest = UserRequest(
-        item: UserItem(
-          id: currentUserData.id,
-          firstName: currentUserData.firstName,
-          lastName: currentUserData.lastName,
-          email: currentUserData.email,
-          birthdate: currentUserData.birthdate,
-          weight: weightValue,
-          height: heightValue,
-          gender: _convertGenderToEnglish(selectedGender!),
-          onboarded:
-              true, // Mark as onboarded since they completed personal info
-        ),
-      );
-
-      await ref.read(userProvider.notifier).createUser(userRequest);
-
-      final userState = ref.read(userProvider);
-      await userState.when(
-        data: (response) async {
-          if (response != null) {
-            // Success - navigate to next screen
-            context.push('/phone-input');
-          }
-        },
-        loading: () async {
-          // Wait a bit more for loading to complete
-          await Future.delayed(Duration(milliseconds: 500));
-        },
-        error: (error, stack) async {
-          throw error;
-        },
-      );
-    } catch (e) {
-      print('Error saving personal info: $e');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('저장 중 오류가 발생했습니다')));
-    } finally {
-      setState(() => _isSaving = false);
-    }
-  }
-
-  // Skip personal info and proceed to next step
+  // ✅ Updated skip function with proper onboarding logic
   void _skipAndContinue() async {
-    // Just proceed to next screen without saving
-    context.push('/phone-input');
+    try {
+      print('⏭️ PersonalInfo - User chose to skip personal info');
+
+      // Mark that we've shown the onboarding today (so they don't see it again today)
+      final onboardingManager = ref.read(onboardingManagerProvider);
+      await onboardingManager.markOnboardingPromptShown();
+
+      print('📅 PersonalInfo - Marked onboarding as shown today');
+
+      if (mounted) {
+        context.push('/phone-input');
+      }
+    } catch (e) {
+      print('❌ PersonalInfo - Error during skip: $e');
+      if (mounted) {
+        // Even if there's an error, let them continue
+        context.push('/phone-input');
+      }
+    }
   }
 
-  // Helper methods to convert between Korean and English gender values
   String _convertGenderToKorean(String englishGender) {
-    switch (englishGender.toLowerCase()) {
-      case 'male':
-        return '남성';
-      case 'female':
-        return '여성';
-      default:
-        return '여성'; // Default fallback
-    }
+    return englishGender.toLowerCase() == 'male' ? '남성' : '여성';
   }
 
   String _convertGenderToEnglish(String koreanGender) {
-    switch (koreanGender) {
-      case '남성':
-        return 'male';
-      case '여성':
-        return 'female';
-      default:
-        return 'female'; // Default fallback
-    }
+    return koreanGender == '남성' ? 'male' : 'female';
   }
 
-  // Check if form is complete
   bool get _isFormComplete {
     return selectedGender != null &&
         selectedMainHeight != null &&
@@ -219,7 +114,6 @@ class _PersonalInfoInputScreenState
 
   @override
   Widget build(BuildContext context) {
-    // Watch for loading state from user provider
     final userState = ref.watch(userProvider);
     final isApiLoading = userState.maybeWhen(
       loading: () => true,
@@ -239,8 +133,7 @@ class _PersonalInfoInputScreenState
               showBackButton: false,
               onTrailingPressed: _skipAndContinue,
             ),
-            SizedBox(height: 20),
-
+            const SizedBox(height: 20),
             Container(
               color: Colors.white,
               child: Column(
@@ -256,7 +149,7 @@ class _PersonalInfoInputScreenState
                       ),
                     ),
                   ),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                   Padding(
                     padding: const EdgeInsets.only(left: 20),
                     child: Container(
@@ -271,10 +164,7 @@ class _PersonalInfoInputScreenState
                 ],
               ),
             ),
-
-            SizedBox(height: 40),
-
-            // Form Container with Grey Background
+            const SizedBox(height: 40),
             Expanded(
               child: Container(
                 color: CustomColors.lighterGray,
@@ -290,13 +180,12 @@ class _PersonalInfoInputScreenState
                             BoxShadow(
                               color: Colors.black.withOpacity(0.05),
                               blurRadius: 10,
-                              offset: Offset(0, 2),
+                              offset: const Offset(0, 2),
                             ),
                           ],
                         ),
                         child: Column(
                           children: [
-                            // Gender Field
                             InfoField(
                               hasUnit: false,
                               label: '성별',
@@ -313,15 +202,13 @@ class _PersonalInfoInputScreenState
                                 color: Colors.grey[300],
                               ),
                             ),
-
-                            // Height Field - Fixed display
                             InfoField(
                               hasUnit: true,
                               label: '키',
                               value:
                                   (selectedMainHeight != null &&
                                           selectedDecimalHeight != null)
-                                      ? '${selectedMainHeight}.${selectedDecimalHeight}cm'
+                                      ? '$selectedMainHeight.$selectedDecimalHeight cm'
                                       : '입력하기',
                               isPlaceholder:
                                   selectedMainHeight == null ||
@@ -337,15 +224,13 @@ class _PersonalInfoInputScreenState
                                 color: Colors.grey[300],
                               ),
                             ),
-
-                            // Weight Field - Fixed display
                             InfoField(
                               hasUnit: true,
                               label: '체중',
                               value:
                                   (selectedMainWeight != null &&
                                           selectedDecimalWeight != null)
-                                      ? '${selectedMainWeight}.${selectedDecimalWeight}kg'
+                                      ? '$selectedMainWeight.$selectedDecimalWeight kg'
                                       : '입력하기',
                               isPlaceholder:
                                   selectedMainWeight == null ||
@@ -355,12 +240,9 @@ class _PersonalInfoInputScreenState
                           ],
                         ),
                       ),
-
-                      Spacer(),
-
-                      // Show loading indicator or button based on state
+                      const Spacer(),
                       if (_isSaving || isApiLoading)
-                        Container(
+                        const Padding(
                           padding: EdgeInsets.symmetric(vertical: 16),
                           child: CircularProgressIndicator(),
                         )
@@ -382,30 +264,123 @@ class _PersonalInfoInputScreenState
     );
   }
 
-  void _showGenderPicker() {
-    showModalBottomSheet(
+  void _saveAndContinue() async {
+    if (!_isFormComplete) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('모든 정보를 입력해주세요')));
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      print('🔄 PersonalInfo - Starting to save user data');
+
+      // Validate all values before parsing
+      if (selectedMainHeight == null ||
+          selectedDecimalHeight == null ||
+          selectedMainWeight == null ||
+          selectedDecimalWeight == null ||
+          selectedGender == null) {
+        throw Exception('Required values are missing');
+      }
+
+      // Update gender first
+      final genderValue = _convertGenderToEnglish(selectedGender!);
+      print('🔄 PersonalInfo - Updating gender: $genderValue');
+      await ref
+          .read(userProvider.notifier)
+          .updateCurrentUserProfile(UserUpdateRequest(gender: genderValue));
+
+      // Update height
+      final heightValue = double.tryParse(
+        '$selectedMainHeight.$selectedDecimalHeight',
+      );
+      if (heightValue != null) {
+        print('🔄 PersonalInfo - Updating height: $heightValue');
+        await ref
+            .read(userProvider.notifier)
+            .updateCurrentUserProfile(UserUpdateRequest(height: heightValue));
+      }
+
+      // Update weight
+      final weightValue = double.tryParse(
+        '$selectedMainWeight.$selectedDecimalWeight',
+      );
+      if (weightValue != null) {
+        print('🔄 PersonalInfo - Updating weight: $weightValue');
+        await ref
+            .read(userProvider.notifier)
+            .updateCurrentUserProfile(UserUpdateRequest(weight: weightValue));
+      }
+
+      print('✅ PersonalInfo - All data saved successfully');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('정보가 저장되었습니다!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        context.push('/phone-input');
+      }
+    } catch (e) {
+      print('❌ PersonalInfo - Error saving data: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('저장 중 오류가 발생했습니다: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
+
+  // Update individual save methods with better error handling
+  void _showGenderPicker() async {
+    await showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
         return ReusablePicker(
           title: '성별',
           items: genders,
-          selectedItem:
-              selectedGender ?? genders[0], // Default to first item if null
+          selectedItem: selectedGender ?? genders[0],
           showDot: false,
           showIndex: false,
-          onItemSelected: (String selected) {
-            setState(() {
-              selectedGender = selected;
-            });
+          onItemSelected: (String selected) async {
+            if (mounted) {
+              setState(() => selectedGender = selected);
+            }
+
+            try {
+              final gender = _convertGenderToEnglish(selected);
+              if (gender.isNotEmpty) {
+                print('🔄 PersonalInfo - Updating gender from picker: $gender');
+                await ref
+                    .read(userProvider.notifier)
+                    .updateCurrentUserProfile(
+                      UserUpdateRequest(gender: gender),
+                    );
+                print('✅ PersonalInfo - Gender updated from picker');
+              }
+            } catch (e) {
+              print('❌ PersonalInfo - Error updating gender from picker: $e');
+              // Don't show error snackbar for individual field updates
+              // as they're not critical and might confuse the user
+            }
           },
         );
       },
     );
   }
 
-  void _showHeightPicker() {
-    showModalBottomSheet(
+  void _showHeightPicker() async {
+    await showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
@@ -413,23 +388,38 @@ class _PersonalInfoInputScreenState
           title: '키 (cm)',
           mainItems: mainHeights,
           decimalItems: decimalHeights,
-          selectedMainItem:
-              selectedMainHeight ?? mainHeights[20], // Default to 170
-          selectedDecimalItem:
-              selectedDecimalHeight ?? decimalHeights[0], // Default to 0
-          onItemSelected: (String main, String decimal) {
-            setState(() {
-              selectedMainHeight = main;
-              selectedDecimalHeight = decimal;
-            });
+          selectedMainItem: selectedMainHeight ?? mainHeights[116],
+          selectedDecimalItem: selectedDecimalHeight ?? decimalHeights[0],
+          onItemSelected: (String main, String decimal) async {
+            if (mounted) {
+              setState(() {
+                selectedMainHeight = main;
+                selectedDecimalHeight = decimal;
+              });
+            }
+
+            try {
+              final height = double.tryParse('$main.$decimal');
+              if (height != null) {
+                print('🔄 PersonalInfo - Updating height from picker: $height');
+                await ref
+                    .read(userProvider.notifier)
+                    .updateCurrentUserProfile(
+                      UserUpdateRequest(height: height),
+                    );
+                print('✅ PersonalInfo - Height updated from picker');
+              }
+            } catch (e) {
+              print('❌ PersonalInfo - Error updating height from picker: $e');
+            }
           },
         );
       },
     );
   }
 
-  void _showWeightPicker() {
-    showModalBottomSheet(
+  void _showWeightPicker() async {
+    await showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
@@ -437,15 +427,29 @@ class _PersonalInfoInputScreenState
           title: '체중 (kg)',
           mainItems: mainWeights,
           decimalItems: decimalWeights,
-          selectedMainItem:
-              selectedMainWeight ?? mainWeights[39], // Default to 69
-          selectedDecimalItem:
-              selectedDecimalWeight ?? decimalWeights[0], // Default to 0
-          onItemSelected: (String main, String decimal) {
-            setState(() {
-              selectedMainWeight = main;
-              selectedDecimalWeight = decimal;
-            });
+          selectedMainItem: selectedMainWeight ?? mainWeights[67],
+          selectedDecimalItem: selectedDecimalWeight ?? decimalWeights[0],
+          onItemSelected: (String main, String decimal) async {
+            if (mounted) {
+              setState(() {
+                selectedMainWeight = main;
+                selectedDecimalWeight = decimal;
+              });
+            }
+            try {
+              final weight = double.tryParse('$main.$decimal');
+              if (weight != null) {
+                print('🔄 PersonalInfo - Updating weight from picker: $weight');
+                await ref
+                    .read(userProvider.notifier)
+                    .updateCurrentUserProfile(
+                      UserUpdateRequest(weight: weight),
+                    );
+                print('✅ PersonalInfo - Weight updated from picker');
+              }
+            } catch (e) {
+              print('❌ PersonalInfo - Error updating weight from picker: $e');
+            }
           },
         );
       },

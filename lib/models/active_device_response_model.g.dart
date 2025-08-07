@@ -9,9 +9,7 @@ part of 'active_device_response_model.dart';
 ActiveDeviceListResponse _$ActiveDeviceListResponseFromJson(
         Map<String, dynamic> json) =>
     ActiveDeviceListResponse(
-      devices: (json['data'] as List<dynamic>?)
-          ?.map((e) => ActiveDeviceListItem.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      data: json['data'],
       error: json['error'] as String?,
       code: (json['code'] as num).toInt(),
       msg: json['msg'] as String?,
@@ -20,7 +18,7 @@ ActiveDeviceListResponse _$ActiveDeviceListResponseFromJson(
 Map<String, dynamic> _$ActiveDeviceListResponseToJson(
         ActiveDeviceListResponse instance) =>
     <String, dynamic>{
-      'data': instance.devices,
+      'data': instance.data,
       'error': instance.error,
       'code': instance.code,
       'msg': instance.msg,
@@ -30,12 +28,15 @@ ActiveDeviceListItem _$ActiveDeviceListItemFromJson(
         Map<String, dynamic> json) =>
     ActiveDeviceListItem(
       deviceId: json['dId'] as String,
-      status: json['status'] as String,
-      deviceStrength: (json['deviceStrength'] as num).toInt(),
-      created: json['created'] as String,
-      updated: json['updated'] as String,
-      expiryDate: json['expiryDate'] as String,
-      battery: (json['battery'] as num).toInt(),
+      status: json['status'] as String? ?? 'unknown',
+      deviceStrength: (json['deviceStrength'] as num?)?.toInt() ?? 0,
+      created: json['created'] as String? ?? '',
+      updated: json['updated'] as String? ?? '',
+      expiryDate: json['expiryDate'] as String? ?? '',
+      battery: (json['battery'] as num?)?.toInt() ?? 0,
+      userId: json['uId'] as String?,
+      offset: (json['offset'] as num?)?.toInt() ?? 0,
+      location: json['location'] as Map<String, dynamic>?,
     );
 
 Map<String, dynamic> _$ActiveDeviceListItemToJson(
@@ -48,4 +49,7 @@ Map<String, dynamic> _$ActiveDeviceListItemToJson(
       'updated': instance.updated,
       'expiryDate': instance.expiryDate,
       'battery': instance.battery,
+      'uId': instance.userId,
+      'offset': instance.offset,
+      'location': instance.location,
     };

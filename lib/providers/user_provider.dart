@@ -1,13 +1,10 @@
-// lib/providers/user_provider.dart (Corrected type mismatch)
 import 'package:Wicore/models/user_response_model.dart';
 import 'package:Wicore/models/user_request_model.dart';
 import 'package:Wicore/models/user_update_request_model.dart';
 import 'package:Wicore/providers/authentication_provider.dart';
-import 'package:Wicore/providers/device_provider.dart';
 import 'package:Wicore/repository/user_repository.dart';
 import 'package:Wicore/services/user_api_client.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
 
@@ -17,7 +14,7 @@ final userApiClientProvider = Provider<UserApiClient>((ref) {
   return UserApiClient(dio);
 });
 
-// User state notifier - CORRECTED
+// User state notifier
 class UserNotifier extends StateNotifier<AsyncValue<UserResponse?>> {
   final UserRepository _repository;
   final Ref _ref;
@@ -63,7 +60,6 @@ class UserNotifier extends StateNotifier<AsyncValue<UserResponse?>> {
     }
   }
 
-  // FIXED: Changed from UserRequest to UserUpdateRequest
   Future<void> updateUser(String userId, UserUpdateRequest request) async {
     state = const AsyncValue.loading();
     try {
@@ -74,9 +70,17 @@ class UserNotifier extends StateNotifier<AsyncValue<UserResponse?>> {
       }
 
       final response = await _repository.updateUser(userId, request);
-      state = AsyncValue.data(response);
-
-      print('🔧 ✅ UserNotifier - User updated successfully');
+      // Handle null response.data safely
+      if (response != null) {
+        state = AsyncValue.data(response);
+        print('🔧 ✅ UserNotifier - User updated successfully');
+      } else {
+        // If response is null, refresh the current user profile
+        print(
+          '🔧 ⚠️ UserNotifier - Received null response, refreshing profile',
+        );
+        await getCurrentUserProfile();
+      }
     } catch (error, stackTrace) {
       print('🔧 ❌ UserNotifier - Error updating user: $error');
       state = AsyncValue.error(error, stackTrace);
@@ -101,94 +105,112 @@ class UserNotifier extends StateNotifier<AsyncValue<UserResponse?>> {
       state = AsyncValue.error(error, stackTrace);
     }
   }
+  // Replace your updateCurrentUserProfile method in UserNotifier with this:
 
-  Future<void> getCurrentUserProfile() async {
-    state = const AsyncValue.loading();
+  Future<void> updateCurrentUserProfile(UserUpdateRequest request) async {
     try {
-      final authState = _ref.read(authNotifierProvider);
-      final authNotifier = _ref.read(authNotifierProvider.notifier);
+      print(
+        '🔧 🔄 UserNotifier - Starting profile update with: ${request.toJson()}',
+      );
 
+      // Validate the request
+      if (request.isEmpty) {
+        print('🔧 ⚠️ UserNotifier - Update request is empty, skipping');
+        return;
+      }
+
+      final authNotifier = _ref.read(authNotifierProvider.notifier);
       final token = await authNotifier.getValidToken();
       if (token == null) {
         throw Exception('No valid authentication token available');
       }
 
+      final authState = _ref.read(authNotifierProvider);
       final userData = authState.userData;
+
+      final userId = userData?.id ?? userData?.username;
+      if (userId == null || userId.isEmpty) {
+        throw Exception('No user ID available for update');
+      }
+
+      print('🔧 🔍 UserNotifier - Updating user ID: $userId');
+
+      // Call repository - it will handle the generated client error
+      final response = await _repository.updateUser(userId, request);
+
+      if (response != null) {
+        if (response.code == 200 || response.code == 201) {
+          print(
+            '🔧 ✅ UserNotifier - Repository handled update successfully (code: ${response.code})',
+          );
+
+          // Always refresh user profile after successful update
+          print(
+            '🔧 🔄 UserNotifier - Refreshing user profile to get latest data',
+          );
+          await getCurrentUserProfile();
+
+          print(
+            '🔧 ✅ UserNotifier - Update and refresh completed successfully',
+          );
+          return; // ✅ Important: return here on success, don't set error state
+        } else {
+          throw Exception(
+            'Update failed with code: ${response.code}, message: ${response.msg}',
+          );
+        }
+      } else {
+        throw Exception('Received null response from repository');
+      }
+    } catch (error, stackTrace) {
+      print('🔧 ❌ UserNotifier - Error in updateCurrentUserProfile: $error');
+      print('🔧 📚 Stack trace: $stackTrace');
+
+      // Set error state and rethrow only for actual errors
+      state = AsyncValue.error(error, stackTrace);
+      rethrow;
+    }
+  }
+
+  // ✅ Also update getCurrentUserProfile to be more robust:
+  Future<void> getCurrentUserProfile() async {
+    try {
+      print('🔧 🔄 UserNotifier - Loading current user profile');
+      state = const AsyncValue.loading();
+
+      final authNotifier = _ref.read(authNotifierProvider.notifier);
+      final token = await authNotifier.getValidToken();
+      if (token == null) {
+        throw Exception('No valid authentication token available');
+      }
+
+      final authState = _ref.read(authNotifierProvider);
+      final userData = authState.userData;
+
       if (userData?.id == null && userData?.username == null) {
         throw Exception('No user ID available');
       }
 
       final userId = userData?.id ?? userData?.username ?? '';
-      final response = await _repository.getUser(userId);
-      state = AsyncValue.data(response);
+      print('🔧 🔍 UserNotifier - Fetching profile for user ID: $userId');
 
-      print('🔧 ✅ UserNotifier - Current user profile loaded');
+      final response = await _repository.getUser(userId);
+
+      if (response != null) {
+        state = AsyncValue.data(response);
+        print('🔧 ✅ UserNotifier - Current user profile loaded successfully');
+        print('🔧 📊 UserNotifier - User data: ${response.data?.toJson()}');
+      } else {
+        print('🔧 ⚠️ UserNotifier - Received null response for user profile');
+        state = const AsyncValue.data(null);
+      }
     } catch (error, stackTrace) {
       print('🔧 ❌ UserNotifier - Error getting current user profile: $error');
+      print('🔧 📚 Stack trace: $stackTrace');
       state = AsyncValue.error(error, stackTrace);
     }
   }
 
-  // Modified updateCurrentUserProfile method to use device ID instead of user ID
-  Future<void> updateCurrentUserProfile(UserUpdateRequest request) async {
-    state = const AsyncValue.loading();
-    try {
-      final authNotifier = _ref.read(authNotifierProvider.notifier);
-      final token = await authNotifier.getValidToken();
-      if (token == null) {
-        throw Exception('No valid authentication token available');
-      }
-
-      // Get device ID instead of user ID
-      String? deviceId;
-
-      // First try paired device
-      final pairedDevice = _ref.read(deviceDataProvider);
-      if (pairedDevice != null) {
-        deviceId = pairedDevice.deviceId;
-        print('🔧 Using paired device ID: $deviceId');
-      } else {
-        // Try device state
-        final deviceState = _ref.read(deviceNotifierProvider);
-        if (deviceState.pairedDevice != null) {
-          deviceId = deviceState.pairedDevice!.deviceId;
-          print('🔧 Using device from state: $deviceId');
-        }
-      }
-
-      // If no paired device, try active devices
-      if (deviceId == null) {
-        try {
-          final activeDevices = await _ref.read(
-            activeDeviceListProvider.future,
-          );
-          if (activeDevices.isNotEmpty) {
-            deviceId = activeDevices.first.deviceId;
-            print('🔧 Using first active device ID: $deviceId');
-          }
-        } catch (e) {
-          print('🔧 Warning: Could not get active device ID: $e');
-        }
-      }
-
-      if (deviceId == null) {
-        throw Exception('No device found to associate with user update');
-      }
-
-      // Use device ID instead of user ID in the repository call
-      final response = await _repository.updateUser(deviceId, request);
-      state = AsyncValue.data(response);
-
-      print(
-        '🔧 ✅ UserNotifier - Current user profile updated with device ID: $deviceId',
-      );
-    } catch (error, stackTrace) {
-      print('🔧 ❌ UserNotifier - Error updating current user profile: $error');
-      state = AsyncValue.error(error, stackTrace);
-    }
-  }
-
-  // NEW: Convenience method to update specific fields
   Future<void> updateCurrentUserFields({
     String? firstName,
     String? lastName,
@@ -205,21 +227,23 @@ class UserNotifier extends StateNotifier<AsyncValue<UserResponse?>> {
     await updateCurrentUserProfile(updateRequest);
   }
 
-  // NEW: Convenience method to update from existing UserItem
-  Future<void> updateFromUserItem(
-    UserItem userItem, {
-    int? deviceStrength,
-  }) async {
-    final updateRequest = UserUpdateRequest.fromUserItem(
-      userItem,
-      deviceStrength: deviceStrength,
-    );
-
-    await updateCurrentUserProfile(updateRequest);
-  }
-
   void clearState() {
     state = const AsyncValue.data(null);
+    print('🔧 🧹 UserNotifier - State cleared');
+  }
+
+  // Helper method to safely get current user data
+  UserItem? get currentUser {
+    return state.maybeWhen(
+      data: (response) => response?.data,
+      orElse: () => null,
+    );
+  }
+
+  // Helper method to check if user is onboarded
+  bool get isOnboarded {
+    final user = currentUser;
+    return user?.onboarded ?? false;
   }
 }
 
@@ -241,10 +265,12 @@ final autoFetchCurrentUserProvider = Provider<void>((ref) {
 
   ref.listen<bool>(isAuthenticatedProvider, (previous, next) {
     if (next && (previous == false)) {
+      print('🔧 🔄 Auto-fetching user profile on authentication');
       Future.microtask(() {
         ref.read(userProvider.notifier).getCurrentUserProfile();
       });
     } else if (!next && (previous == true)) {
+      print('🔧 🧹 Clearing user state on logout');
       ref.read(userProvider.notifier).clearState();
     }
   });
@@ -262,7 +288,7 @@ final autoFetchCurrentUserProvider = Provider<void>((ref) {
 final isCurrentUserProfileLoadedProvider = Provider<bool>((ref) {
   final userState = ref.watch(userProvider);
   return userState.maybeWhen(
-    data: (response) => response != null,
+    data: (response) => response?.data != null,
     orElse: () => false,
   );
 });

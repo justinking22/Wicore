@@ -54,6 +54,27 @@ class _PasswordConfirmationScreenState
     }
   }
 
+  bool _isPasswordValid(String password) {
+    if (password.length < 7) return false;
+
+    bool hasLetter = false;
+    bool hasNumber = false;
+
+    for (int i = 0; i < password.length; i++) {
+      String char = password[i];
+      if (RegExp(r'[a-zA-Z]').hasMatch(char)) {
+        hasLetter = true;
+      } else if (RegExp(r'[0-9]').hasMatch(char)) {
+        hasNumber = true;
+      }
+
+      if (hasLetter && hasNumber) break;
+    }
+
+    return hasLetter && hasNumber;
+  }
+
+  // Update your _validatePassword method
   void _validatePassword(String confirmPassword) {
     setState(() {
       if (confirmPassword.isEmpty) {
@@ -264,7 +285,10 @@ class _PasswordConfirmationScreenState
                       ),
                     ),
                     const SizedBox(height: 60),
-                  ] else ...[
+                  ] else if (!_isPasswordValid(
+                        _confirmPasswordController.text,
+                      ) &&
+                      _confirmPasswordController.text.isNotEmpty) ...[
                     const SizedBox(height: 24),
                     // Password criteria container
                     Container(
@@ -275,15 +299,16 @@ class _PasswordConfirmationScreenState
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        '영문과 숫자를 포함하여 7자 이상 입지 다시 확인해주세요.',
-                        style:
-                            TextStyles
-                                .kError, // You might want to create a new style for this
+                        '영문과 숫자를 포함하여 7자 이상 입력해주세요.',
+                        style: TextStyles.kError,
                       ),
                     ),
                     const SizedBox(height: 60),
+                  ] else ...[
+                    const SizedBox(
+                      height: 24 + 60,
+                    ), // Add spacing when criteria is met
                   ],
-
                   // Input field label
                   Text('비밀번호', style: TextStyles.kHeader),
                   const SizedBox(height: 8),

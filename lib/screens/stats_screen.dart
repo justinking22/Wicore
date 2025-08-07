@@ -1,13 +1,16 @@
 import 'package:Wicore/modals/records_screen_modal_bottom_sheet.dart';
 import 'package:Wicore/providers/stats_provider.dart';
 import 'package:Wicore/models/stats_request_model.dart';
+import 'package:Wicore/states/stats_state.dart';
 import 'package:Wicore/styles/colors.dart';
 import 'package:Wicore/styles/text_styles.dart';
 import 'package:Wicore/utilities/diagonal_stripes_painter.dart';
 import 'package:Wicore/widgets/reusable_app_bar.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 class RecordsScreen extends ConsumerStatefulWidget {
   const RecordsScreen({super.key});
@@ -22,7 +25,6 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen> {
   @override
   void initState() {
     super.initState();
-    // Load today's stats when screen initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadStatsForSelectedDate();
     });
@@ -57,15 +59,45 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen> {
   String _formatDuration(double minutes) {
     final hours = (minutes / 60).floor();
     final remainingMinutes = (minutes % 60).round();
+    return hours > 0 ? '$hours시간 $remainingMinutes분' : '$remainingMinutes분';
+  }
 
-    if (hours > 0) {
-      return '$hours시간 ${remainingMinutes}분';
-    } else {
-      return '${remainingMinutes}분';
+  String _formatTimeDifference(String? startTime, String? endTime) {
+    if (startTime == null ||
+        endTime == null ||
+        startTime.isEmpty ||
+        endTime.isEmpty) {
+      return '0분';
+    }
+    try {
+      final format = DateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+      final start = format.parse(startTime, true);
+      final end = format.parse(endTime, true);
+      final difference = end.difference(start);
+      final hours = difference.inHours;
+      final minutes = difference.inMinutes % 60;
+      return hours > 0 ? '$hours시간 $minutes분' : '$minutes분';
+    } catch (e) {
+      if (kDebugMode)
+        print('🔧 ❌ Error parsing time: $e, start: $startTime, end: $endTime');
+      return '0분';
     }
   }
 
-  String _getPostureGradeText(String grade, int score) {
+  String _formatBreathRange(double? mean, double? std) {
+    if (mean == null || std == null) return '0 ± 0';
+    final min = (mean - std).clamp(0.0, 40.0).round();
+    final max = (mean + std).clamp(0.0, 40.0).round();
+    return '$min ~ $max';
+  }
+
+  String _getPostureGradeText(String? grade, int score) {
+    if (grade == null || grade.isEmpty || grade == 'N/A') {
+      if (score >= 90) return '매우 좋음';
+      if (score >= 75) return '좋음';
+      if (score >= 60) return '보통';
+      return '나쁨';
+    }
     switch (grade.toLowerCase()) {
       case 'excellent':
         return '매우 좋음';
@@ -83,7 +115,13 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen> {
     }
   }
 
-  Color _getPostureGradeColor(String grade, int score) {
+  Color _getPostureGradeColor(String? grade, int score) {
+    if (grade == null || grade.isEmpty || grade == 'N/A') {
+      if (score >= 90) return CustomColors.limeGreen;
+      if (score >= 75) return Colors.green;
+      if (score >= 60) return Colors.orange;
+      return Colors.red;
+    }
     switch (grade.toLowerCase()) {
       case 'excellent':
         return CustomColors.limeGreen;
@@ -101,20 +139,30 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen> {
     }
   }
 
+  bool _isFutureDate() {
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+    final selectedDateOnly = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+    );
+    return selectedDateOnly.isAfter(todayDate);
+  }
+
   @override
   Widget build(BuildContext context) {
     final statsState = ref.watch(statsNotifierProvider);
-    final hasData = statsState.hasData && !statsState.isLoading;
+    final hasData = statsState.hasData;
 
     return Scaffold(
       backgroundColor: hasData ? CustomColors.opaqueLightGray : Colors.white,
       appBar: CustomAppBar(
         title: '나의 작업 기록',
+
         leadingAssetPath: 'assets/icons/calendar_icon.png',
         leadingIconSize: 24,
-        onLeadingPressed: () {
-          context.push('/calendar-screen');
-        },
+        onLeadingPressed: () => context.push('/calendar-screen'),
         trailingButtonIcon: Icons.info_outline,
         showTrailingButton: true,
         onTrailingPressed: () {
@@ -134,24 +182,28 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Date navigation section
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   GestureDetector(
                     onTap: _navigateToPreviousDay,
                     child: Container(
-                      width: 18,
-                      height: 18,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Color.fromRGBO(194, 194, 194, 1),
-                      ),
-                      child: const Center(
-                        child: Icon(
-                          Icons.chevron_left,
-                          color: Colors.white,
-                          size: 14,
+                      width: 44,
+                      height: 44,
+                      decoration: const BoxDecoration(shape: BoxShape.circle),
+                      child: Center(
+                        child: Container(
+                          width: 18,
+                          height: 18,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.black,
+                          ),
+                          child: const Icon(
+                            Icons.chevron_left,
+                            color: Colors.white,
+                            size: 14,
+                          ),
                         ),
                       ),
                     ),
@@ -163,19 +215,27 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen> {
                   ),
                   const SizedBox(width: 24),
                   GestureDetector(
-                    onTap: _navigateToNextDay,
+                    onTap: _isFutureDate() ? null : _navigateToNextDay,
                     child: Container(
-                      width: 18,
-                      height: 18,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Color.fromRGBO(194, 194, 194, 1),
-                      ),
-                      child: const Center(
-                        child: Icon(
-                          Icons.chevron_right,
-                          color: Colors.white,
-                          size: 14,
+                      width: 44,
+                      height: 44,
+                      decoration: const BoxDecoration(shape: BoxShape.circle),
+                      child: Center(
+                        child: Container(
+                          width: 18,
+                          height: 18,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color:
+                                _isFutureDate()
+                                    ? const Color.fromRGBO(194, 194, 194, 1)
+                                    : Colors.black,
+                          ),
+                          child: const Icon(
+                            Icons.chevron_right,
+                            color: Colors.white,
+                            size: 14,
+                          ),
                         ),
                       ),
                     ),
@@ -183,7 +243,6 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen> {
                 ],
               ),
               const SizedBox(height: 20),
-              // Content based on state
               Expanded(child: _buildContent(statsState)),
             ],
           ),
@@ -192,11 +251,10 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen> {
     );
   }
 
-  Widget _buildContent(statsState) {
+  Widget _buildContent(StatsState statsState) {
     if (statsState.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-
     if (statsState.hasError) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -215,7 +273,6 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen> {
         ],
       );
     }
-
     if (!statsState.hasData) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -228,97 +285,92 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen> {
         ],
       );
     }
-
     return _buildDataContent(statsState);
   }
 
-  Widget _buildDataContent(statsState) {
+  Widget _buildDataContent(StatsState statsState) {
     final stats = statsState.statsData;
-    if (stats == null) return const SizedBox();
-
     return SingleChildScrollView(
       child: Column(
         children: [
-          // Work time card - using bentMeanDuration
           _buildInfoCard(
-            title: '로봇 이동시간',
-            value: _formatDuration(stats.bentMeanDuration),
+            title: '로봇 이용 시간',
+            value: _formatTimeDifference(
+              stats?.dataStartTime,
+              stats?.dataEndTime,
+            ),
             unit: '',
           ),
           const SizedBox(height: 16),
-
-          // Total activity card - using totalCalories
           _buildInfoCard(
             title: '총 활동량',
-            value: stats.totalCalories.toString(),
+            value: (stats?.totalCalories ?? 0).toString(),
             unit: '칼로리',
             showProgressBar: true,
-            progressValue: (stats.totalCalories / 1200).clamp(
-              0.0,
-              1.0,
-            ), // Assuming 1200 as max
+            progressValue: 0.8,
+            progressColor: Colors.grey.shade800,
           ),
           const SizedBox(height: 16),
-
-          // Activity from robot card - using lmaCalories
           _buildInfoCard(
             title: '총 활동량에서 로봇이 도와준 활동량',
-            value: stats.lmaCalories.toString(),
+            value: (stats?.lmaCalories ?? 0).toString(),
             unit: '칼로리',
             showProgressBar: true,
-            progressValue:
-                stats.totalCalories > 0
-                    ? (stats.lmaCalories / stats.totalCalories).clamp(0.0, 1.0)
-                    : 0.0,
+            progressValue: 0.8,
             progressColor: Colors.grey.shade800,
             hasStripes: true,
+            stripeWidth: ((stats?.lmaCalories ?? 0) /
+                    (stats?.totalCalories ?? 1))
+                .clamp(0.0, 0.8),
+            stripeColor: CustomColors.limeGreen,
           ),
           const SizedBox(height: 16),
-
-          // Work score card - using postureScore
+          _buildInfoCard(
+            title: '호흡(분당)',
+            value: _formatBreathRange(stats?.breathMean, stats?.breathStd),
+            unit: '회',
+            showProgressBar: true,
+            progressValue:
+                (stats?.breathMean ?? 0.0 + (stats?.breathStd ?? 0.0)) / 40.0,
+            progressMinValue:
+                (stats?.breathMean ?? 0.0 - (stats?.breathStd ?? 0.0)) / 40.0,
+            progressColor: Colors.grey.shade800,
+          ),
+          const SizedBox(height: 16),
           _buildInfoCard(
             title: '작업자세 점수',
-            value: stats.postureScore.toString(),
+            value: (stats?.postureScore ?? 0).toString(),
             unit: '점',
             showButton: true,
             buttonText: _getPostureGradeText(
-              stats.postureGrade,
-              stats.postureScore,
+              stats?.postureGrade,
+              stats?.postureScore ?? 0,
             ),
             buttonColor: _getPostureGradeColor(
-              stats.postureGrade,
-              stats.postureScore,
+              stats?.postureGrade,
+              stats?.postureScore ?? 0,
             ),
           ),
           const SizedBox(height: 16),
-
-          // Effects card - using totalLmaCount
           _buildInfoCard(
             title: '효율(부담)',
             value:
-                '${(stats.totalLmaCount * 0.7).round()}~${stats.totalLmaCount}',
+                '${((stats?.totalLmaCount ?? 0) * 0.7).round()}~${stats?.totalLmaCount ?? 0}',
             unit: '회',
             showProgressBar: true,
-            progressValue: (stats.totalLmaCount / 1000).clamp(
-              0.0,
-              1.0,
-            ), // Assuming 1000 as max
+            progressValue: ((stats?.totalLmaCount ?? 0) / 1000).clamp(0.0, 1.0),
             progressColor: Colors.grey.shade800,
           ),
           const SizedBox(height: 16),
-
-          // Steps card - using totalSteps
           _buildInfoCard(
             title: '걸음',
-            value: stats.totalSteps.toStringAsFixed(0),
+            value: (stats?.totalSteps ?? 0).toStringAsFixed(0),
             unit: '걸음',
           ),
           const SizedBox(height: 16),
-
-          // Distance card - using totalDistance
           _buildInfoCard(
             title: '이동거리',
-            value: stats.totalDistance.toStringAsFixed(1),
+            value: (stats?.totalDistance ?? 0.0).toStringAsFixed(1),
             unit: '키로미터',
           ),
         ],
@@ -334,11 +386,14 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen> {
     String? subtitleUnit,
     bool showProgressBar = false,
     double progressValue = 0.0,
+    double progressMinValue = 0.0,
     Color? progressColor,
     bool showButton = false,
     String? buttonText,
     Color? buttonColor,
     bool hasStripes = false,
+    double stripeWidth = 0.0,
+    Color? stripeColor,
   }) {
     return Container(
       width: double.infinity,
@@ -359,8 +414,7 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen> {
                 text: TextSpan(
                   children: [
                     TextSpan(text: value, style: TextStyles.kBold),
-                    if (unit.isNotEmpty)
-                      TextSpan(text: ' $unit', style: TextStyles.kRegular),
+                    TextSpan(text: ' $unit', style: TextStyles.kRegular),
                     if (subtitle != null && subtitleUnit != null) ...[
                       TextSpan(text: ' $subtitle', style: TextStyles.kBold),
                       TextSpan(
@@ -383,36 +437,53 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen> {
                     ),
                     child: Stack(
                       children: [
-                        // Main progress bar
+                        // Main progress bar (80% fill for Total and Robot-Assisted)
                         FractionallySizedBox(
                           alignment: Alignment.centerLeft,
                           widthFactor: progressValue,
                           child: Container(
                             decoration: BoxDecoration(
                               color: progressColor ?? Colors.grey.shade800,
-                              borderRadius: const BorderRadius.only(
+                              borderRadius: BorderRadius.only(
                                 topLeft: Radius.circular(4),
                                 bottomLeft: Radius.circular(4),
                               ),
                             ),
                           ),
                         ),
-                        // Striped section (only if hasStripes is true)
-                        if (hasStripes)
+                        // Striped section for Robot-Assisted Activity
+                        if (hasStripes && stripeWidth > 0)
                           Positioned(
-                            left:
-                                progressValue *
-                                MediaQuery.of(context).size.width *
-                                0.4,
+                            left: (progressValue - stripeWidth) * 120,
                             child: Container(
-                              width: 120,
+                              width: stripeWidth * 120,
                               height: 20,
                               decoration: BoxDecoration(
-                                color: Colors.grey.shade800,
+                                color: stripeColor ?? Colors.grey.shade800,
                               ),
                               child: ClipRRect(
+                                borderRadius: BorderRadius.only(
+                                  topRight: Radius.circular(4),
+                                  bottomRight: Radius.circular(4),
+                                ),
                                 child: CustomPaint(
                                   painter: DiagonalStripesPainter(),
+                                ),
+                              ),
+                            ),
+                          ),
+                        // Breath range fill
+                        if (progressMinValue > 0.0)
+                          Positioned(
+                            left: progressMinValue * 120,
+                            child: Container(
+                              width: (progressValue - progressMinValue) * 120,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                color: progressColor ?? Colors.grey.shade800,
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(4),
+                                  bottomLeft: Radius.circular(4),
                                 ),
                               ),
                             ),
