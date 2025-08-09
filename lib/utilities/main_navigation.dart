@@ -110,15 +110,15 @@ class _MainNavigationState extends State<MainNavigation> {
       },
       behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
             Image.asset(
               isSelected ? selectedIconPath : unselectedIconPath,
-              width: 28,
-              height: 28,
+              width: 20,
+              height: 20,
             ),
             const SizedBox(height: 4),
             Text(

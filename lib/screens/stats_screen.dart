@@ -154,12 +154,13 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen> {
   Widget build(BuildContext context) {
     final statsState = ref.watch(statsNotifierProvider);
     final hasData = statsState.hasData;
+    final screenSize = MediaQuery.of(context).size;
+    final isSmallScreen = screenSize.width < 360 || screenSize.height < 600;
 
     return Scaffold(
       backgroundColor: hasData ? CustomColors.opaqueLightGray : Colors.white,
       appBar: CustomAppBar(
         title: '나의 작업 기록',
-
         leadingAssetPath: 'assets/icons/calendar_icon.png',
         leadingIconSize: 24,
         onLeadingPressed: () => context.push('/calendar-screen'),
@@ -177,81 +178,116 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen> {
         backgroundColor: Colors.white,
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24.0, 12.0, 24.0, 12.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final horizontalPadding = isSmallScreen ? 16.0 : 24.0;
+            final verticalPadding = isSmallScreen ? 8.0 : 12.0;
+
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                verticalPadding,
+                horizontalPadding,
+                verticalPadding,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  GestureDetector(
-                    onTap: _navigateToPreviousDay,
-                    child: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: const BoxDecoration(shape: BoxShape.circle),
-                      child: Center(
-                        child: Container(
-                          width: 18,
-                          height: 18,
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.black,
-                          ),
-                          child: const Icon(
-                            Icons.chevron_left,
-                            color: Colors.white,
-                            size: 14,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 24),
-                  Text(
-                    _getCurrentDateString(),
-                    style: TextStyles.kSemiBold.copyWith(fontSize: 20),
-                  ),
-                  const SizedBox(width: 24),
-                  GestureDetector(
-                    onTap: _isFutureDate() ? null : _navigateToNextDay,
-                    child: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: const BoxDecoration(shape: BoxShape.circle),
-                      child: Center(
-                        child: Container(
-                          width: 18,
-                          height: 18,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color:
-                                _isFutureDate()
-                                    ? const Color.fromRGBO(194, 194, 194, 1)
-                                    : Colors.black,
-                          ),
-                          child: const Icon(
-                            Icons.chevron_right,
-                            color: Colors.white,
-                            size: 14,
-                          ),
-                        ),
-                      ),
+                  // Date navigation - made more responsive
+                  _buildDateNavigation(isSmallScreen),
+                  SizedBox(height: isSmallScreen ? 16 : 20),
+                  Expanded(
+                    child: _buildContent(
+                      statsState,
+                      isSmallScreen,
+                      constraints,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
-              Expanded(child: _buildContent(statsState)),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _buildContent(StatsState statsState) {
+  Widget _buildDateNavigation(bool isSmallScreen) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        GestureDetector(
+          onTap: _navigateToPreviousDay,
+          child: Container(
+            width: isSmallScreen ? 36 : 44,
+            height: isSmallScreen ? 36 : 44,
+            decoration: const BoxDecoration(shape: BoxShape.circle),
+            child: Center(
+              child: Container(
+                width: isSmallScreen ? 16 : 18,
+                height: isSmallScreen ? 16 : 18,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.black,
+                ),
+                child: Icon(
+                  Icons.chevron_left,
+                  color: Colors.white,
+                  size: isSmallScreen ? 12 : 14,
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Flexible(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              _getCurrentDateString(),
+              style: TextStyles.kSemiBold.copyWith(
+                fontSize: isSmallScreen ? 16 : 20,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        GestureDetector(
+          onTap: _isFutureDate() ? null : _navigateToNextDay,
+          child: Container(
+            width: isSmallScreen ? 36 : 44,
+            height: isSmallScreen ? 36 : 44,
+            decoration: const BoxDecoration(shape: BoxShape.circle),
+            child: Center(
+              child: Container(
+                width: isSmallScreen ? 16 : 18,
+                height: isSmallScreen ? 16 : 18,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color:
+                      _isFutureDate()
+                          ? const Color.fromRGBO(194, 194, 194, 1)
+                          : Colors.black,
+                ),
+                child: Icon(
+                  Icons.chevron_right,
+                  color: Colors.white,
+                  size: isSmallScreen ? 12 : 14,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildContent(
+    StatsState statsState,
+    bool isSmallScreen,
+    BoxConstraints constraints,
+  ) {
     if (statsState.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -259,13 +295,26 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '오류가 발생했습니다',
-            style: TextStyles.kSemiBold.copyWith(fontSize: 32),
+          Flexible(
+            child: Text(
+              '오류가 발생했습니다',
+              style: TextStyles.kSemiBold.copyWith(
+                fontSize: isSmallScreen ? 24 : 32,
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
+            ),
           ),
-          const SizedBox(height: 16),
-          Text(statsState.error ?? '알 수 없는 오류', style: TextStyles.kRegular),
-          const SizedBox(height: 16),
+          SizedBox(height: isSmallScreen ? 12 : 16),
+          Flexible(
+            child: Text(
+              statsState.error ?? '알 수 없는 오류',
+              style: TextStyles.kRegular,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 3,
+            ),
+          ),
+          SizedBox(height: isSmallScreen ? 12 : 16),
           ElevatedButton(
             onPressed: _loadStatsForSelectedDate,
             child: const Text('다시 시도'),
@@ -277,19 +326,38 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('아직은', style: TextStyles.kSemiBold.copyWith(fontSize: 32)),
-          Text(
-            '기록된 내용이 없어요',
-            style: TextStyles.kSemiBold.copyWith(fontSize: 32),
+          Flexible(
+            child: Text(
+              '아직은',
+              style: TextStyles.kSemiBold.copyWith(
+                fontSize: isSmallScreen ? 24 : 32,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Flexible(
+            child: Text(
+              '기록된 내용이 없어요',
+              style: TextStyles.kSemiBold.copyWith(
+                fontSize: isSmallScreen ? 24 : 32,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       );
     }
-    return _buildDataContent(statsState);
+    return _buildDataContent(statsState, isSmallScreen, constraints);
   }
 
-  Widget _buildDataContent(StatsState statsState) {
+  Widget _buildDataContent(
+    StatsState statsState,
+    bool isSmallScreen,
+    BoxConstraints constraints,
+  ) {
     final stats = statsState.statsData;
+    final cardSpacing = isSmallScreen ? 12.0 : 16.0;
+
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -300,8 +368,9 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen> {
               stats?.dataEndTime,
             ),
             unit: '',
+            isSmallScreen: isSmallScreen,
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: cardSpacing),
           _buildInfoCard(
             title: '총 활동량',
             value: (stats?.totalCalories ?? 0).toString(),
@@ -309,44 +378,9 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen> {
             showProgressBar: true,
             progressValue: 0.8,
             progressColor: Colors.grey.shade800,
+            isSmallScreen: isSmallScreen,
           ),
-          const SizedBox(height: 16),
-          _buildInfoCard(
-            title: '총 활동량에서 로봇이 도와준 활동량',
-            value: (stats?.lmaCalories ?? 0).toString(),
-            unit: '칼로리',
-            showProgressBar: true,
-            progressValue: 0.8,
-            progressColor: Colors.grey.shade800,
-            hasStripes: true,
-            stripeWidth: ((stats?.lmaCalories ?? 0) /
-                    (stats?.totalCalories ?? 1))
-                .clamp(0.0, 0.8),
-            stripeColor: CustomColors.limeGreen,
-          ),
-          const SizedBox(height: 16),
-          _buildInfoCard(
-            title: '호흡(분당)',
-            value: _formatBreathRange(stats?.breathMean, stats?.breathStd),
-            unit: '회',
-            showProgressBar: true,
-            // Update these values to represent start and end points of range
-            progressMinValue:
-                ((stats?.breathMean ?? 0.0) - (stats?.breathStd ?? 0.0)).clamp(
-                  0.0,
-                  40.0,
-                ) /
-                40.0,
-            progressValue:
-                ((stats?.breathMean ?? 0.0) + (stats?.breathStd ?? 0.0)).clamp(
-                  0.0,
-                  40.0,
-                ) /
-                40.0,
-            progressColor: Colors.grey.shade800,
-          ),
-
-          const SizedBox(height: 16),
+          SizedBox(height: cardSpacing),
           _buildInfoCard(
             title: '작업자세 점수',
             value: (stats?.postureScore ?? 0).toString(),
@@ -360,20 +394,39 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen> {
               stats?.postureGrade,
               stats?.postureScore ?? 0,
             ),
+            isSmallScreen: isSmallScreen,
           ),
-
-          const SizedBox(height: 16),
+          SizedBox(height: cardSpacing),
+          _buildInfoCard(
+            title: '총 활동량에서 로봇이 도와준 활동량',
+            value: (stats?.lmaCalories ?? 0).toString(),
+            unit: '칼로리',
+            showProgressBar: true,
+            progressValue: 0.8,
+            progressColor: Colors.grey.shade800,
+            hasStripes: true,
+            stripeWidth: ((stats?.lmaCalories ?? 0) /
+                    (stats?.totalCalories ?? 1))
+                .clamp(0.0, 0.8),
+            stripeColor: CustomColors.limeGreen,
+            isSmallScreen: isSmallScreen,
+          ),
+          SizedBox(height: cardSpacing),
           _buildInfoCard(
             title: '걸음',
             value: (stats?.totalSteps ?? 0).toStringAsFixed(0),
             unit: '걸음',
+            isSmallScreen: isSmallScreen,
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: cardSpacing),
           _buildInfoCard(
             title: '이동거리',
             value: (stats?.totalDistance ?? 0.0).toStringAsFixed(1),
             unit: '키로미터',
+            isSmallScreen: isSmallScreen,
           ),
+          // Add bottom padding to ensure last item is not cut off
+          SizedBox(height: isSmallScreen ? 16 : 24),
         ],
       ),
     );
@@ -383,6 +436,7 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen> {
     required String title,
     required String value,
     required String unit,
+    required bool isSmallScreen,
     String? subtitle,
     String? subtitleUnit,
     bool showProgressBar = false,
@@ -396,151 +450,202 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen> {
     double stripeWidth = 0.0,
     Color? stripeColor,
   }) {
+    final cardHeight = isSmallScreen ? 110.0 : 125.0;
+    final cardPadding = isSmallScreen ? 16.0 : 20.0;
+    final titleStyle = TextStyles.kMedium.copyWith(
+      fontSize: isSmallScreen ? 13 : null,
+    );
+    final valueStyle = TextStyles.kBold.copyWith(
+      fontSize: isSmallScreen ? 18 : null,
+    );
+    final unitStyle = TextStyles.kRegular.copyWith(
+      fontSize: isSmallScreen ? 14 : null,
+    );
+
     return Container(
       width: double.infinity,
-      height: 125,
-      padding: const EdgeInsets.all(20),
+      constraints: BoxConstraints(minHeight: cardHeight),
+      padding: EdgeInsets.all(cardPadding),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(title, style: TextStyles.kMedium),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              RichText(
-                text: TextSpan(
-                  children: [
-                    TextSpan(text: value, style: TextStyles.kBold),
-                    TextSpan(text: ' $unit', style: TextStyles.kRegular),
-                    if (subtitle != null && subtitleUnit != null) ...[
-                      TextSpan(text: ' $subtitle', style: TextStyles.kBold),
-                      TextSpan(
-                        text: ' $subtitleUnit',
-                        style: TextStyles.kRegular,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              if (showProgressBar) ...[
-                const SizedBox(width: 16),
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final containerWidth = constraints.maxWidth;
-                      return Container(
-                        height: 20,
-                        width: 120,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade300,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Stack(
-                          children: [
-                            // Base background (gray)
-                            Container(
-                              height: 20,
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade300,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                            ),
-
-                            // Only show range bar if this is the breath card
-                            if (title == '호흡(분당)')
-                              Positioned(
-                                left: progressMinValue * containerWidth,
-                                child: Container(
-                                  width:
-                                      (progressValue - progressMinValue) *
-                                      containerWidth,
-                                  height: 20,
-                                  decoration: BoxDecoration(
-                                    color:
-                                        progressColor ?? Colors.grey.shade800,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                ),
-                              ),
-
-                            // Show normal progress bar for other cases
-                            if (title != '호흡(분당)')
-                              FractionallySizedBox(
-                                alignment: Alignment.centerLeft,
-                                widthFactor: progressValue,
-                                child: Container(
-                                  height: 20,
-                                  decoration: BoxDecoration(
-                                    color:
-                                        progressColor ?? Colors.grey.shade800,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                ),
-                              ),
-
-                            // Keep existing stripe logic for other progress bars
-                            if (hasStripes &&
-                                stripeWidth > 0 &&
-                                title != '호흡(분당)')
-                              Positioned(
-                                left:
-                                    (progressValue - stripeWidth).clamp(
-                                      0.0,
-                                      1.0,
-                                    ) *
-                                    containerWidth,
-                                child: Container(
-                                  width: stripeWidth * containerWidth,
-                                  height: 20,
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.only(
-                                      topRight: Radius.circular(4),
-                                      bottomRight: Radius.circular(4),
-                                    ),
-                                    child: Stack(
-                                      children: [
-                                        Container(
-                                          color: CustomColors.limeGreen,
-                                        ),
-                                        CustomPaint(
-                                          painter: DiagonalStripesPainter(
-                                            color: Colors.black,
-                                            strokeWidth: 1.0,
-                                            spacing: 6.0,
-                                            isReversed: true,
-                                          ),
-                                          size: Size.infinite,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
+          Flexible(
+            child: Text(
+              title,
+              style: titleStyle,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
+            ),
+          ),
+          SizedBox(height: isSmallScreen ? 6 : 8),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Flexible(
+                    flex: showProgressBar ? 2 : 3,
+                    child: RichText(
+                      text: TextSpan(
+                        children: [
+                          TextSpan(text: value, style: valueStyle),
+                          TextSpan(text: ' $unit', style: unitStyle),
+                          if (subtitle != null && subtitleUnit != null) ...[
+                            TextSpan(text: ' $subtitle', style: valueStyle),
+                            TextSpan(text: ' $subtitleUnit', style: unitStyle),
                           ],
+                        ],
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
+                    ),
+                  ),
+                  if (showProgressBar) ...[
+                    SizedBox(width: isSmallScreen ? 8 : 16),
+                    Flexible(
+                      flex: 2,
+                      child: _buildProgressBar(
+                        progressValue,
+                        progressMinValue,
+                        progressColor,
+                        hasStripes,
+                        stripeWidth,
+                        stripeColor,
+                        title,
+                        isSmallScreen,
+                      ),
+                    ),
+                  ],
+                  if (!showProgressBar) const Spacer(),
+                  if (showButton && buttonText != null)
+                    Flexible(
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isSmallScreen ? 12 : 16,
+                          vertical: isSmallScreen ? 6 : 7,
                         ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-              if (!showProgressBar) const Spacer(),
-              if (showButton && buttonText != null)
-                Container(
-                  padding: const EdgeInsets.fromLTRB(16, 7, 16, 7),
-                  decoration: BoxDecoration(
-                    color: buttonColor ?? CustomColors.limeGreen,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(buttonText, style: TextStyles.kRegular),
-                ),
-            ],
+                        decoration: BoxDecoration(
+                          color: buttonColor ?? CustomColors.limeGreen,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          buttonText,
+                          style: TextStyles.kRegular.copyWith(
+                            fontSize: isSmallScreen ? 12 : null,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildProgressBar(
+    double progressValue,
+    double progressMinValue,
+    Color? progressColor,
+    bool hasStripes,
+    double stripeWidth,
+    Color? stripeColor,
+    String title,
+    bool isSmallScreen,
+  ) {
+    final barHeight = isSmallScreen ? 16.0 : 20.0;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final containerWidth = constraints.maxWidth;
+        return Container(
+          height: barHeight,
+          decoration: BoxDecoration(
+            color: Colors.grey.shade300,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Stack(
+            children: [
+              // Base background (gray)
+              Container(
+                height: barHeight,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+
+              // Only show range bar if this is the breath card
+              if (title == '호흡(분당)')
+                Positioned(
+                  left: progressMinValue * containerWidth,
+                  child: Container(
+                    width: (progressValue - progressMinValue) * containerWidth,
+                    height: barHeight,
+                    decoration: BoxDecoration(
+                      color: progressColor ?? Colors.grey.shade800,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+
+              // Show normal progress bar for other cases
+              if (title != '호흡(분당)')
+                FractionallySizedBox(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: progressValue,
+                  child: Container(
+                    height: barHeight,
+                    decoration: BoxDecoration(
+                      color: progressColor ?? Colors.grey.shade800,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+
+              // Keep existing stripe logic for other progress bars
+              if (hasStripes && stripeWidth > 0 && title != '호흡(분당)')
+                Positioned(
+                  left:
+                      (progressValue - stripeWidth).clamp(0.0, 1.0) *
+                      containerWidth,
+                  child: Container(
+                    width: stripeWidth * containerWidth,
+                    height: barHeight,
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.only(
+                        topRight: Radius.circular(4),
+                        bottomRight: Radius.circular(4),
+                      ),
+                      child: Stack(
+                        children: [
+                          Container(color: CustomColors.limeGreen),
+                          CustomPaint(
+                            painter: DiagonalStripesPainter(
+                              color: Colors.black,
+                              strokeWidth: 1.0,
+                              spacing: 6.0,
+                              isReversed: true,
+                            ),
+                            size: Size.infinite,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
