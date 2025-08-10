@@ -1,8 +1,11 @@
+import 'package:Wicore/dialogs/settings_confirmation_dialog.dart';
 import 'package:Wicore/providers/authentication_provider.dart';
+import 'package:Wicore/providers/user_provider.dart'; // Add this import
 import 'package:Wicore/styles/colors.dart';
 import 'package:Wicore/styles/text_styles.dart';
 import 'package:Wicore/widgets/reusable_app_bar.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -15,6 +18,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _isLoggingOut = false;
+  bool _isDeletingAccount = false;
 
   @override
   void initState() {
@@ -28,27 +32,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _handleLogout() async {
     if (_isLoggingOut) return;
 
-    // Show confirmation dialog first
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('로그아웃'),
-            content: const Text('정말로 로그아웃하시겠습니까?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('취소'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('로그아웃'),
-              ),
-            ],
-          ),
-    );
+    // Show custom logout confirmation dialog
+    final confirmed = await LogoutConfirmationDialog.show(context);
 
-    if (confirmed != true) return;
+    if (confirmed != true) return; // User chose "아니요" (No)
 
     setState(() {
       _isLoggingOut = true;
@@ -89,39 +76,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _handleDeleteData() async {
-    // Show confirmation dialog first
-    final confirmed = await showDialog<bool>(
+    // Show iOS style confirmation dialog
+    final confirmed = await IOSConfirmationDialog.show(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('데이터 삭제'),
-            content: const Text(
-              '정말로 모든 데이터를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.\n\n삭제될 데이터:\n• 기기 사용 기록\n• 신체 정보\n• 앱 설정',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('취소'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('삭제', style: TextStyle(color: Colors.red)),
-              ),
-            ],
-          ),
+      title: '데이터 삭제',
+      content:
+          '정말로 모든 데이터를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.\n\n삭제될 데이터:\n• 기기 사용 기록\n• 신체 정보\n• 앱 설정',
+      confirmText: '삭제',
+      cancelText: '취소',
+      confirmTextColor: CupertinoColors.destructiveRed,
     );
 
     if (confirmed == true) {
       try {
         // Show loading dialog
-        showDialog(
+        showCupertinoDialog(
           context: context,
           barrierDismissible: false,
           builder:
-              (context) => const AlertDialog(
+              (context) => const CupertinoAlertDialog(
                 content: Row(
                   children: [
-                    CircularProgressIndicator(),
+                    CupertinoActivityIndicator(),
                     SizedBox(width: 16),
                     Text('데이터를 삭제하고 있습니다...'),
                   ],
@@ -158,140 +134,86 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _handleDeleteAccount() async {
-    // Show initial confirmation dialog
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text(
-              '회원 탈퇴',
-              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-            ),
-            content: const Text(
-              '정말로 회원 탈퇴를 하시겠습니까?\n\n계정과 모든 데이터가 영구적으로 삭제되며, 이 작업은 되돌릴 수 없습니다.\n\n삭제될 내용:\n• 계정 정보\n• 모든 사용 데이터\n• 기기 사용 기록\n• 신체 정보',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('취소'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text(
-                  '탈퇴하기',
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-    );
+    if (_isDeletingAccount) return;
 
-    if (confirmed != true) return;
+    // Show custom account deletion dialog
+    final confirmed = await AccountDeletionDialog.show(context);
 
-    // Show final confirmation with text input
-    final finalConfirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        final controller = TextEditingController();
-        return AlertDialog(
-          title: const Text('최종 확인', style: TextStyle(color: Colors.red)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '회원 탈퇴를 진행하려면 아래에 "탈퇴"를 입력해주세요.',
-                style: TextStyle(fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                decoration: const InputDecoration(
-                  hintText: '탈퇴',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('취소'),
-            ),
-            TextButton(
-              onPressed: () {
-                if (controller.text.trim() == '탈퇴') {
-                  Navigator.pop(context, true);
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('"탈퇴"를 정확히 입력해주세요.'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              },
-              child: const Text('탈퇴하기', style: TextStyle(color: Colors.red)),
-            ),
-          ],
-        );
-      },
-    );
+    if (confirmed != true) return; // User chose "아니요" (No)
 
-    if (finalConfirmed == true) {
-      try {
-        // Show loading dialog
-        showDialog(
+    setState(() {
+      _isDeletingAccount = true;
+    });
+
+    try {
+      // Show loading dialog
+      showCupertinoDialog(
+        context: context,
+        barrierDismissible: false,
+        builder:
+            (context) => const CupertinoAlertDialog(
+              content: Row(
+                children: [
+                  CupertinoActivityIndicator(),
+                  SizedBox(width: 16),
+                  Text('계정을 삭제하고 있습니다...'),
+                ],
+              ),
+            ),
+      );
+
+      // Get current user data from auth state
+      final authState = ref.read(authNotifierProvider);
+      final userData = authState.userData;
+      final userId = userData?.id ?? userData?.username;
+
+      if (userId == null || userId.isEmpty) {
+        throw Exception('사용자 ID를 찾을 수 없습니다.');
+      }
+
+      // Call delete user endpoint
+      final userNotifier = ref.read(userProvider.notifier);
+      await userNotifier.deleteUser(userId);
+
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+
+        // Clear auth state and navigate to welcome/login
+        await ref.read(authNotifierProvider.notifier).signOut();
+
+        // Clear user provider state
+        ref.read(userProvider.notifier).clearState();
+
+        // Navigate to welcome screen
+        context.go('/welcome');
+
+        // Show completion dialog
+        await IOSConfirmationDialog.show(
           context: context,
-          barrierDismissible: false,
-          builder:
-              (context) => const AlertDialog(
-                content: Row(
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(width: 16),
-                    Text('계정을 삭제하고 있습니다...'),
-                  ],
-                ),
-              ),
+          title: '회원 탈퇴 완료',
+          content: '회원님의 정보가 모두 삭제되었습니다.\n다시 이용하시려면 새로 가입해주세요.',
+          confirmText: '확인',
+          cancelText: '', // Hide cancel button
         );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
 
-        // Implement actual account deletion here
-        // final userNotifier = ref.read(userProvider.notifier);
-        // final success = await userNotifier.deleteProfile();
-
-        // Simulate account deletion
-        await Future.delayed(const Duration(seconds: 3));
-
-        if (mounted) {
-          Navigator.pop(context); // Close loading dialog
-
-          // Clear auth state and navigate to login
-          await ref.read(authNotifierProvider.notifier).signOut();
-          context.go('/welcome');
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('회원 탈퇴가 완료되었습니다. 그동안 이용해 주셔서 감사합니다.'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 4),
-            ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          Navigator.pop(context); // Close loading dialog
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('회원 탈퇴 중 오류가 발생했습니다.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        await IOSConfirmationDialog.show(
+          context: context,
+          title: '오류',
+          content: '회원 탈퇴 중 오류가 발생했습니다.\n잠시 후 다시 시도해주세요.',
+          confirmText: '확인',
+          cancelText: '', // Hide cancel button
+          confirmTextColor: CupertinoColors.destructiveRed,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isDeletingAccount = false;
+        });
       }
     }
   }
@@ -458,9 +380,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             ),
                             _buildDivider(),
                             _buildMenuItem(
-                              '회원 탈퇴',
-                              _handleDeleteAccount,
+                              _isDeletingAccount ? '탈퇴 처리 중...' : '회원 탈퇴',
+                              _isDeletingAccount ? () {} : _handleDeleteAccount,
                               Colors.red,
+                              isLoading: _isDeletingAccount,
                               showArrow: false,
                             ),
                           ],
@@ -488,7 +411,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     bool showArrow = true,
   }) {
     return InkWell(
-      onTap: onPressed,
+      onTap: isLoading ? null : onPressed,
       child: SizedBox(
         height: 80,
         child: Padding(
@@ -497,13 +420,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
-                // Added to handle long text properly
                 child: Text(
                   title,
-                  style: TextStyles.kMedium.copyWith(color: titleTextColor),
+                  style: TextStyles.kMedium.copyWith(
+                    color: isLoading ? Colors.grey : titleTextColor,
+                  ),
                 ),
               ),
-              if (showArrow)
+              if (isLoading)
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CupertinoActivityIndicator(),
+                )
+              else if (showArrow)
                 const Icon(Icons.chevron_right, color: Colors.black, size: 30),
             ],
           ),

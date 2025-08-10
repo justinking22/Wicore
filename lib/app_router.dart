@@ -2,6 +2,7 @@ import 'package:Wicore/providers/authentication_provider.dart';
 import 'package:Wicore/providers/user_provider.dart';
 
 import 'package:Wicore/screens/calendar_screen.dart';
+import 'package:Wicore/screens/date_stats_screen.dart';
 import 'package:Wicore/screens/device_history_screen.dart';
 import 'package:Wicore/screens/email_input_screen.dart';
 import 'package:Wicore/screens/email_verification_screen.dart';
@@ -23,6 +24,7 @@ import 'package:Wicore/screens/resave_phone_number_screen.dart';
 import 'package:Wicore/screens/sign_in_screen.dart';
 import 'package:Wicore/screens/sign_up_complete_screen.dart';
 import 'package:Wicore/screens/splash_screen.dart';
+import 'package:Wicore/screens/stats_screen.dart';
 import 'package:Wicore/screens/terms_and_conditions_screen.dart';
 import 'package:Wicore/screens/terms_of_use_screen.dart';
 import 'package:Wicore/screens/welcome_screen.dart';
@@ -278,7 +280,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/calendar-screen',
         name: 'calendar-screen',
-        builder: (context, state) => KoreanCalendar(),
+        builder: (context, state) => CalendarScreen(),
       ),
       GoRoute(
         path: '/device-history-screen',
@@ -309,6 +311,22 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/password-reset-confirmation-screen',
         name: 'password-reset-confirmation-screen',
         builder: (context, state) => PasswordResetConfirmationScreen(),
+      ),
+      GoRoute(
+        path: '/date-stats-screen',
+        name: 'date-stats-screen',
+        builder: (context, state) {
+          DateTime selectedDate;
+
+          if (state.extra != null && state.extra is DateTime) {
+            selectedDate = state.extra as DateTime;
+          } else {
+            // Fallback to current date if no date provided
+            selectedDate = DateTime.now();
+          }
+
+          return DateStatsScreen(selectedDate: selectedDate);
+        },
       ),
     ],
     errorBuilder:

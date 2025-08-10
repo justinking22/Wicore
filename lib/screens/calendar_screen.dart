@@ -4,13 +4,14 @@ import 'package:Wicore/providers/device_provider.dart';
 import 'package:Wicore/providers/authentication_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-class KoreanCalendar extends ConsumerStatefulWidget {
+class CalendarScreen extends ConsumerStatefulWidget {
   @override
   _KoreanCalendarState createState() => _KoreanCalendarState();
 }
 
-class _KoreanCalendarState extends ConsumerState<KoreanCalendar> {
+class _KoreanCalendarState extends ConsumerState<CalendarScreen> {
   DateTime today = DateTime.now();
   late int currentYear;
   late int currentMonth;
@@ -430,31 +431,43 @@ class _KoreanCalendarState extends ConsumerState<KoreanCalendar> {
 
     // Future dates should be faded out
     if (isFutureDate) {
-      textColor = textColor.withOpacity(
-        0.3,
-      ); // Fade out but keep blue for weekends
+      textColor = textColor.withOpacity(0.3);
     }
 
     return Container(
       height: 44,
       child: Center(
-        child: Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            color: isActiveDevice ? limeColor : null,
-            shape: BoxShape.circle,
-            border:
-                isExpiredDevice ? Border.all(color: limeColor, width: 2) : null,
-          ),
-          child: Center(
-            child: Text(
-              day.toString(),
-              style: TextStyle(
-                fontSize: 20,
-                fontFamily: 'Pretendard',
-                color: isActiveDevice ? Colors.black : textColor,
-                fontWeight: FontWeight.w500,
+        child: GestureDetector(
+          onTap:
+              hasDeviceUsage && !isFutureDate
+                  ? () {
+                    final selectedDate = DateTime(year, month, day);
+                    print('📅 Calendar: Navigating to date: $selectedDate');
+
+                    // Navigate to the separate DateStatsScreen
+                    context.push('/date-stats-screen', extra: selectedDate);
+                  }
+                  : null,
+          child: Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: isActiveDevice ? limeColor : null,
+              shape: BoxShape.circle,
+              border:
+                  isExpiredDevice
+                      ? Border.all(color: limeColor, width: 2)
+                      : null,
+            ),
+            child: Center(
+              child: Text(
+                day.toString(),
+                style: TextStyle(
+                  fontSize: 20,
+                  fontFamily: 'Pretendard',
+                  color: isActiveDevice ? Colors.black : textColor,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ),

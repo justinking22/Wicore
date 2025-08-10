@@ -9,6 +9,7 @@ import 'package:Wicore/styles/colors.dart';
 import 'package:Wicore/styles/text_styles.dart';
 import 'package:Wicore/models/device_request_model.dart';
 import 'package:Wicore/providers/device_provider.dart';
+import 'dart:math' as math;
 
 class QRScannerWidget extends ConsumerStatefulWidget {
   final Function(String)? onQRScanned;
@@ -146,175 +147,208 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget> {
       }
     });
 
-    return Container(
-      child: Stack(
-        children: [
-          // Mobile Scanner View (blurred background)
-          Positioned(
-            child: Center(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  width: 400,
-                  height: 400,
-                  child: MobileScanner(
-                    controller: controller,
-                    onDetect: _handleQRResult,
-                  ),
-                ),
-              ),
-            ),
-          ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableHeight = constraints.maxHeight;
+        final availableWidth = constraints.maxWidth;
+        final safePadding = MediaQuery.of(context).padding;
 
-          // Blurred overlay everywhere except the scanning area
-          BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
-            child: Container(
-              width: double.infinity,
-              height: double.infinity,
-              child: CustomPaint(
-                painter: QROverlayPainter(cutOutSize: 240, borderRadius: 20),
-              ),
-            ),
-          ),
+        // Calculate adaptive sizes to prevent overlapping
+        final topSectionHeight = math.max(160.0, availableHeight * 0.2);
+        final bottomSectionHeight = math.max(120.0, availableHeight * 0.15);
+        final scannerAreaHeight =
+            availableHeight - topSectionHeight - bottomSectionHeight;
 
-          // Clear scanning area (no blur)
-          Positioned(
-            top: MediaQuery.of(context).size.height * 0.3,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  width: 400,
-                  height: 400,
-                  child: MobileScanner(
-                    controller: controller,
-                    onDetect: _handleQRResult,
-                  ),
-                ),
-              ),
-            ),
-          ),
+        // Calculate scanner size based on available space
+        final maxScannerSize = math.min(
+          availableWidth * 0.8,
+          scannerAreaHeight * 0.8,
+        );
+        final scannerSize = math.min(400.0, maxScannerSize);
 
-          // Center QR Scanner Frame with rounded corners
-          Positioned(
-            top: MediaQuery.of(context).size.height * 0.3,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Container(
-                width: 400,
-                height: 400,
-                decoration: BoxDecoration(
-                  border: Border.all(color: const Color(0xFFB8FF00), width: 4),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-              ),
-            ),
-          ),
+        // Calculate scanner position
+        final scannerTop =
+            topSectionHeight + (scannerAreaHeight - scannerSize) / 2;
 
-          // Top section with WHITE background and title
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: EdgeInsets.only(
-                top: MediaQuery.of(context).padding.top + 20,
-                left: 24,
-                right: 24,
-                bottom: 20,
-              ),
-              decoration: const BoxDecoration(color: Colors.white),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const SizedBox(width: 32),
-                      // Back button (if callback provided)
-                      if (widget.onBackPressed != null)
-                        GestureDetector(
-                          onTap: widget.onBackPressed,
-                          child: Container(
-                            width: 32,
-                            height: 40,
-                            child: Icon(
-                              Icons.info_outline,
-                              color: Colors.black.withOpacity(0.9),
-                              size: 30,
-                            ),
-                          ),
-                        )
-                      else
-                        Container(
-                          width: 32,
-                          height: 40,
-                          child: Icon(
-                            Icons.info_outline,
-                            color: Colors.black.withOpacity(0.9),
-                            size: 30,
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    '기기의 QR을 스캔해서\n연결해주세요',
-                    style: TextStyles.kSemiBold.copyWith(
-                      fontSize: 28,
-                      color: Colors.black,
-                      height: 1.3,
+        return Container(
+          child: Stack(
+            children: [
+              // Mobile Scanner View (blurred background)
+              Positioned.fill(
+                child: Center(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      width: scannerSize,
+                      height: scannerSize,
+                      child: MobileScanner(
+                        controller: controller,
+                        onDetect: _handleQRResult,
+                      ),
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
-
-          // Bottom section with instruction text
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: EdgeInsets.only(
-                left: 24,
-                right: 24,
-                bottom: MediaQuery.of(context).padding.bottom + 40,
-                top: 40,
-              ),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Colors.black.withOpacity(0.6),
-                    Colors.black.withOpacity(0.8),
-                  ],
                 ),
               ),
-              child: Text(
-                '위 사각 테두리 안에\nQR코드를 인식시켜주세요',
-                textAlign: TextAlign.center,
-                style: TextStyles.kMedium.copyWith(
-                  fontSize: 16,
-                  color: const Color(0xFFB8FF00),
-                  height: 1.4,
+
+              // Blurred overlay everywhere except the scanning area
+              BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+                child: Container(
+                  width: double.infinity,
+                  height: double.infinity,
+                  child: CustomPaint(
+                    painter: QROverlayPainter(
+                      cutOutSize: scannerSize * 0.6,
+                      borderRadius: 20,
+                      cutOutTop: scannerTop + (scannerSize * 0.2),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
 
-          // Handle device pairing states
-          if (deviceState.isLoading) _buildLoadingOverlay(),
-          if (deviceState.error != null) _buildErrorOverlay(deviceState.error!),
-        ],
-      ),
+              // Clear scanning area (no blur)
+              Positioned(
+                top: scannerTop,
+                left: (availableWidth - scannerSize) / 2,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    width: scannerSize,
+                    height: scannerSize,
+                    child: MobileScanner(
+                      controller: controller,
+                      onDetect: _handleQRResult,
+                    ),
+                  ),
+                ),
+              ),
+
+              // Center QR Scanner Frame with rounded corners
+              Positioned(
+                top: scannerTop,
+                left: (availableWidth - scannerSize) / 2,
+                child: Container(
+                  width: scannerSize,
+                  height: scannerSize,
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: const Color(0xFFB8FF00),
+                      width: 4,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+              ),
+
+              // Top section with WHITE background and title
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  height: topSectionHeight,
+                  padding: EdgeInsets.only(
+                    top: safePadding.top + 20,
+                    left: 24,
+                    right: 24,
+                    bottom: 20,
+                  ),
+                  decoration: const BoxDecoration(color: Colors.white),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const SizedBox(width: 32),
+                          // Back button (if callback provided)
+                          if (widget.onBackPressed != null)
+                            GestureDetector(
+                              onTap: widget.onBackPressed,
+                              child: Container(
+                                width: 32,
+                                height: 40,
+                                child: Icon(
+                                  Icons.info_outline,
+                                  color: Colors.black.withOpacity(0.9),
+                                  size: 30,
+                                ),
+                              ),
+                            )
+                          else
+                            Container(
+                              width: 32,
+                              height: 40,
+                              child: Icon(
+                                Icons.info_outline,
+                                color: Colors.black.withOpacity(0.9),
+                                size: 30,
+                              ),
+                            ),
+                        ],
+                      ),
+                      Flexible(
+                        child: Text(
+                          '기기의 QR을 스캔해서\n연결해주세요',
+                          style: TextStyles.kSemiBold.copyWith(
+                            fontSize: availableWidth < 400 ? 24 : 28,
+                            color: Colors.black,
+                            height: 1.3,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Bottom section with instruction text
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  height: bottomSectionHeight,
+                  padding: EdgeInsets.only(
+                    left: 24,
+                    right: 24,
+                    bottom: safePadding.bottom + 20,
+                    top: 20,
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withOpacity(0.6),
+                        Colors.black.withOpacity(0.8),
+                      ],
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '위 사각 테두리 안에\nQR코드를 인식시켜주세요',
+                      textAlign: TextAlign.center,
+                      style: TextStyles.kMedium.copyWith(
+                        fontSize: availableWidth < 400 ? 14 : 16,
+                        color: const Color(0xFFB8FF00),
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Handle device pairing states
+              if (deviceState.isLoading) _buildLoadingOverlay(),
+              if (deviceState.error != null)
+                _buildErrorOverlay(deviceState.error!),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -382,8 +416,13 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget> {
 class QROverlayPainter extends CustomPainter {
   final double cutOutSize;
   final double borderRadius;
+  final double cutOutTop;
 
-  QROverlayPainter({required this.cutOutSize, required this.borderRadius});
+  QROverlayPainter({
+    required this.cutOutSize,
+    required this.borderRadius,
+    required this.cutOutTop,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -392,9 +431,8 @@ class QROverlayPainter extends CustomPainter {
           ..color = Colors.black.withOpacity(0.3)
           ..style = PaintingStyle.fill;
 
-    final center = Offset(size.width / 2, size.height / 2);
     final cutOutRect = Rect.fromCenter(
-      center: center,
+      center: Offset(size.width / 2, cutOutTop + cutOutSize / 2),
       width: cutOutSize,
       height: cutOutSize,
     );

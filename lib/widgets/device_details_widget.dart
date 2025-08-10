@@ -6,6 +6,8 @@ import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/device_provider.dart';
+import '../providers/device_list_provider.dart';
+import 'dart:async';
 
 class DeviceDetailsWidget extends ConsumerStatefulWidget {
   final String deviceId;
@@ -27,6 +29,7 @@ class DeviceDetailsWidget extends ConsumerStatefulWidget {
 class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
   int? selectedStrength;
   bool isUpdating = false;
+  Timer? _batteryUpdateTimer;
 
   @override
   void initState() {
@@ -34,8 +37,15 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
     print(
       '🔍 DeviceDetailsWidget initialized with deviceId: ${widget.deviceId}',
     );
+
     // Reset selected strength when widget initializes
     selectedStrength = null;
+
+    // Load active devices immediately when widget initializes
+    _loadActiveDevicesData();
+
+    // Set up periodic battery updates every 30 seconds
+    _startBatteryUpdateTimer();
   }
 
   @override
@@ -47,7 +57,37 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
       print(
         '🔍 DeviceDetailsWidget - Device changed, resetting selected strength',
       );
+
+      // Load new device data
+      _loadActiveDevicesData();
     }
+  }
+
+  @override
+  void dispose() {
+    _batteryUpdateTimer?.cancel();
+    super.dispose();
+  }
+
+  void _loadActiveDevicesData() {
+    print('🔋 Loading active devices data for battery info...');
+
+    // Load active devices using the notifier
+    ref
+        .read(deviceListNotifierProvider.notifier)
+        .loadActiveDevices(refresh: true);
+
+    // Also refresh the FutureProvider
+    ref.invalidate(activeDeviceListProvider);
+  }
+
+  void _startBatteryUpdateTimer() {
+    _batteryUpdateTimer = Timer.periodic(Duration(seconds: 30), (timer) {
+      if (mounted) {
+        print('🔋 Timer: Refreshing battery data...');
+        _loadActiveDevicesData();
+      }
+    });
   }
 
   String _getStrengthText(int strength) {
@@ -124,8 +164,8 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
       // Refresh device providers to get updated data
       ref.invalidate(userDeviceListProvider);
       ref.invalidate(activeDeviceListProvider);
+      _loadActiveDevicesData();
 
-      // Force a rebuild of this widget with updated data
       // Wait a moment for the providers to refresh
       await Future.delayed(const Duration(milliseconds: 100));
 
@@ -162,7 +202,6 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
     }
   }
 
-  // ✅ FIXED: Strength button logic
   Widget _buildStrengthButton(
     String text,
     bool isSelected,
@@ -185,10 +224,6 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
           decoration: BoxDecoration(
             color: isSelected ? Colors.black : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
-            border:
-                isCurrentlyUpdating
-                    ? Border.all(color: Colors.blue, width: 2)
-                    : null,
           ),
           child: Center(
             child:
@@ -223,6 +258,7 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
     required int? currentStrength,
     required int batteryLevel,
     required bool isNewlyPaired,
+    required bool isLoadingBattery,
   }) {
     // Convert API strength to display strength for UI
     final displayStrength =
@@ -239,6 +275,7 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
     print('  - Selected strength: $selectedStrength');
     print('  - Effective strength: $effectiveDisplayStrength');
     print('  - Battery: $batteryLevel');
+    print('  - Loading battery: $isLoadingBattery');
 
     return Container(
       color: Colors.white,
@@ -326,7 +363,7 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
 
                   const SizedBox(height: 40),
 
-                  // Battery Section
+                  // Battery Section with refresh button
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -340,38 +377,63 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Text(
-                            '$batteryLevel',
-                            style: TextStyles.kSemiBold.copyWith(
-                              fontSize: 32,
-                              color: Colors.black,
+                          if (isLoadingBattery)
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          else
+                            Text(
+                              '$batteryLevel',
+                              style: TextStyles.kSemiBold.copyWith(
+                                fontSize: 32,
+                                color: Colors.black,
+                              ),
+                            ),
+                          if (!isLoadingBattery)
+                            Text(
+                              ' %',
+                              style: TextStyles.kMedium.copyWith(
+                                fontSize: 16,
+                                color: Colors.black87,
+                              ),
+                            ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          // Refresh button for battery
+                          IconButton(
+                            onPressed:
+                                isLoadingBattery
+                                    ? null
+                                    : _loadActiveDevicesData,
+                            icon: Icon(
+                              Icons.refresh,
+                              color:
+                                  isLoadingBattery ? Colors.grey : Colors.blue,
+                              size: 20,
                             ),
                           ),
-                          Text(
-                            ' %',
-                            style: TextStyles.kMedium.copyWith(
-                              fontSize: 16,
-                              color: Colors.black87,
+                          Container(
+                            height: 36,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _getBatteryButtonColor(batteryLevel),
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                            child: Text(
+                              _getBatteryButtonText(batteryLevel),
+                              style: TextStyles.kRegular.copyWith(
+                                color: Colors.black,
+                              ),
                             ),
                           ),
                         ],
-                      ),
-                      Container(
-                        height: 36,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _getBatteryButtonColor(batteryLevel),
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: Text(
-                          _getBatteryButtonText(batteryLevel),
-                          style: TextStyles.kRegular.copyWith(
-                            color: Colors.black,
-                          ),
-                        ),
                       ),
                     ],
                   ),
@@ -422,7 +484,7 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
 
                   const SizedBox(height: 16),
 
-                  // ✅ FIXED: Signal Strength Buttons
+                  // Signal Strength Buttons
                   Container(
                     height: 48,
                     decoration: BoxDecoration(
@@ -452,7 +514,7 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
 
                   const SizedBox(height: 16),
 
-                  // Status info
+                  // Status info with last update time
                   Container(
                     padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
@@ -462,26 +524,16 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
                     child: Row(
                       children: [
                         Icon(
-                          isNewlyPaired
-                              ? Icons.check_circle_outline
-                              : Icons.info_outline,
+                          Icons.access_time,
                           size: 16,
-                          color:
-                              isNewlyPaired
-                                  ? Colors.green[700]
-                                  : Colors.blue[700],
+                          color: Colors.blue[700],
                         ),
                         SizedBox(width: 8),
                         Text(
-                          isNewlyPaired
-                              ? '기기가 성공적으로 연결되었습니다'
-                              : '강도: ${_getStrengthText(effectiveDisplayStrength)} (${selectedStrength ?? currentStrength}) | 배터리: $batteryLevel%',
+                          '마지막 업데이트: ${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}',
                           style: TextStyles.kRegular.copyWith(
                             fontSize: 12,
-                            color:
-                                isNewlyPaired
-                                    ? Colors.green[700]
-                                    : Colors.blue[700],
+                            color: Colors.blue[700],
                           ),
                         ),
                       ],
@@ -500,13 +552,18 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // Priority 2: Try to get device from activeDeviceListProvider (has battery info)
+    // Watch the device list state for loading indicators
+    final deviceListState = ref.watch(deviceListNotifierProvider);
+    final isLoadingBattery =
+        deviceListState.isLoading || deviceListState.isRefreshing;
+
+    // Priority 1: Try to get device from activeDeviceListProvider (has battery info)
     final activeDevicesAsync = ref.watch(activeDeviceListProvider);
 
     return activeDevicesAsync.when(
       data: (activeDevices) {
         print(
-          '  - Checking activeDeviceListProvider: ${activeDevices.length} devices',
+          '🔋 Checking activeDeviceListProvider: ${activeDevices.length} devices',
         );
 
         final activeDevice =
@@ -515,27 +572,28 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
                 .firstOrNull;
         if (activeDevice != null) {
           print(
-            '  - Found device in activeDeviceListProvider: ${activeDevice.deviceId}',
+            '🔋 Found device in activeDeviceListProvider: ${activeDevice.deviceId}',
           );
           print(
-            '  - Device battery: ${activeDevice.battery}, strength: ${activeDevice.deviceStrength}',
+            '🔋 Device battery: ${activeDevice.battery}, strength: ${activeDevice.deviceStrength}',
           );
           return _buildDeviceContent(
             deviceId: activeDevice.deviceId,
             currentStrength: activeDevice.deviceStrength,
             batteryLevel: activeDevice.battery, // ✅ Use real battery from API
             isNewlyPaired: false,
+            isLoadingBattery: isLoadingBattery,
           );
         }
 
-        // Priority 3: Fallback to userDeviceListProvider
-        print('  - Device not in active list, checking userDeviceListProvider');
+        // Priority 2: Fallback to userDeviceListProvider
+        print('🔋 Device not in active list, checking userDeviceListProvider');
         final userDevicesAsync = ref.watch(userDeviceListProvider);
 
         return userDevicesAsync.when(
           data: (userDevices) {
             print(
-              '  - userDeviceListProvider returned ${userDevices.length} devices',
+              '🔋 userDeviceListProvider returned ${userDevices.length} devices',
             );
 
             final userDevice =
@@ -544,7 +602,7 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
                     .firstOrNull;
             if (userDevice != null) {
               print(
-                '  - Found device in userDeviceListProvider: ${userDevice.deviceId}',
+                '🔋 Found device in userDeviceListProvider: ${userDevice.deviceId}',
               );
               return _buildDeviceContent(
                 deviceId: userDevice.deviceId,
@@ -553,23 +611,24 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
                     widget
                         .batteryPercentage, // Use widget default (user devices don't have battery info)
                 isNewlyPaired: false,
+                isLoadingBattery: isLoadingBattery,
               );
             }
 
             // Device not found anywhere
-            print('  - ❌ Device not found in any provider');
+            print('🔋 ❌ Device not found in any provider');
             return _buildNotFoundError(userDevices, activeDevices);
           },
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, stack) {
-            print('  - ❌ userDeviceListProvider error: $error');
+            print('🔋 ❌ userDeviceListProvider error: $error');
             return _buildErrorWidget(error);
           },
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stack) {
-        print('  - ❌ activeDeviceListProvider error: $error');
+        print('🔋 ❌ activeDeviceListProvider error: $error');
 
         // If active devices fail, try user devices as fallback
         final userDevicesAsync = ref.watch(userDeviceListProvider);
@@ -585,6 +644,7 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
                 currentStrength: userDevice.deviceStrength,
                 batteryLevel: widget.batteryPercentage,
                 isNewlyPaired: false,
+                isLoadingBattery: isLoadingBattery,
               );
             }
             return _buildErrorWidget(error);
@@ -624,6 +684,7 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
             onPressed: () {
               ref.invalidate(userDeviceListProvider);
               ref.invalidate(activeDeviceListProvider);
+              _loadActiveDevicesData();
             },
             child: Text('Refresh'),
           ),
@@ -645,6 +706,7 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
             onPressed: () {
               ref.invalidate(userDeviceListProvider);
               ref.invalidate(activeDeviceListProvider);
+              _loadActiveDevicesData();
             },
             child: Text('Retry'),
           ),

@@ -34,7 +34,7 @@ class _MainNavigationState extends State<MainNavigation> {
               : IndexedStack(
                 // Show normal tab content
                 index: _currentIndex,
-                children: [HomeScreen(), RecordsScreen(), SettingsScreen()],
+                children: [HomeScreen(), StatsScreen(), SettingsScreen()],
               ),
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
