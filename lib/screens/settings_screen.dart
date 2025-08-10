@@ -237,7 +237,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               backgroundColor: CustomColors.lighterGray,
               title: '설정',
               trailingButtonIcon: Icons.info_outline,
-              showTrailingButton: true,
+              showTrailingButton: false,
               onTrailingPressed: () {
                 // Handle info button press
                 context.push('/app-info');
