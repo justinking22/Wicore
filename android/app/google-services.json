@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "885847199352",
+    "project_id": "withforce-psa",
+    "storage_bucket": "withforce-psa.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:885847199352:android:e1e2c0078d1cec2a9ba78d",
+        "android_client_info": {
+          "package_name": "co.withforce.wicore"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "885847199352-o6bthcvuds3mhi0d9biehmd9s8va0joj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDTgVrw0JBG4ldbSmfqsuU6wjYUfJxWVB0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "885847199352-o6bthcvuds3mhi0d9biehmd9s8va0joj.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

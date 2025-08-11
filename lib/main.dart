@@ -11,8 +11,30 @@ import 'package:amplify_api/amplify_api.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 
 import 'services/config_service.dart';
-// ✅ Added missing imports
 import 'models/user_model.dart';
+
+// Firebase imports
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+// Global instance for local notifications
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
+
+// Background message handler (must be top-level function)
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  print('📱 Background message: ${message.messageId}');
+  print('📱 Title: ${message.notification?.title}');
+  print('📱 Body: ${message.notification?.body}');
+  
+  // You can process the message here or store it for later
+  await _showLocalNotification(message);
+}
+
+
 
 void main() async {
   // Ensure Flutter is initialized
@@ -22,11 +44,168 @@ void main() async {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+
   // Keep the native splash screen visible
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
+  // Initialize Firebase
+  await Firebase.initializeApp();
+
+  // Set up Firebase Messaging background handler
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  // Initialize local notifications
+  await _initializeLocalNotifications();
+
   runApp(ProviderScope(child: const Wicore()));
 }
+
+// Initialize local notifications
+Future<void> _initializeLocalNotifications() async {
+  const AndroidInitializationSettings initializationSettingsAndroid =
+      AndroidInitializationSettings('@mipmap/ic_launcher');
+
+  const DarwinInitializationSettings initializationSettingsDarwin =
+      DarwinInitializationSettings(
+    requestAlertPermission: true,
+    requestBadgePermission: true,
+    requestSoundPermission: true,
+  );
+
+  const InitializationSettings initializationSettings = InitializationSettings(
+    android: initializationSettingsAndroid,
+    iOS: initializationSettingsDarwin,
+  );
+
+  await flutterLocalNotificationsPlugin.initialize(
+    initializationSettings,
+    onDidReceiveNotificationResponse: (NotificationResponse response) {
+      // Handle notification tap
+      print('📱 Notification tapped: ${response.payload}');
+      // Navigate to specific screen based on payload if needed
+    },
+  );
+
+  // Create notification channel for Android
+  const AndroidNotificationChannel channel = AndroidNotificationChannel(
+    'default_channel',
+    'Default Channel',
+    description: 'Default notification channel',
+    importance: Importance.high,
+  );
+
+  await flutterLocalNotificationsPlugin
+      .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>()
+      ?.createNotificationChannel(channel);
+}
+
+// Firebase Messaging Provider
+final firebaseMessagingProvider = Provider<FirebaseMessaging>((ref) {
+  return FirebaseMessaging.instance;
+});
+
+// Notification service provider
+final notificationServiceProvider = Provider<NotificationService>((ref) {
+  return NotificationService(ref.read(firebaseMessagingProvider));
+});
+
+// class NotificationService {
+//   final FirebaseMessaging _messaging;
+  
+//   NotificationService(this._messaging);
+
+//   // Initialize messaging
+//   Future<void> initialize() async {
+//     // Request permission (iOS)
+//     NotificationSettings settings = await _messaging.requestPermission(
+//       alert: true,
+//       announcement: false,
+//       badge: true,
+//       carPlay: false,
+//       criticalAlert: false,
+//       provisional: false,
+//       sound: true,
+//     );
+
+//     print('📱 Permission granted: ${settings.authorizationStatus}');
+
+//     // Get FCM token
+//     String? token = await _messaging.getToken();
+//     print('📱 FCM Token: $token');
+    
+//     // TODO: Send token to your backend server
+//     // await _sendTokenToServer(token);
+
+//     // Listen to token refresh
+//     _messaging.onTokenRefresh.listen((String token) {
+//       print('📱 Token refreshed: $token');
+//       // TODO: Update token on your server
+//       // _sendTokenToServer(token);
+//     });
+
+//     // Handle foreground messages
+//     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+//       print('📱 Foreground message: ${message.messageId}');
+//       print('📱 Title: ${message.notification?.title}');
+//       print('📱 Body: ${message.notification?.body}');
+      
+//       // Show local notification when app is in foreground
+//       _showLocalNotification(message);
+//     });
+
+//     // Handle message when app is opened from notification
+//     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+//       print('📱 Message opened app: ${message.messageId}');
+//       // Handle navigation based on message data
+//       _handleMessageNavigation(message);
+//     });
+
+//     // Check for initial message (when app is opened from terminated state)
+//     RemoteMessage? initialMessage = await _messaging.getInitialMessage();
+//     if (initialMessage != null) {
+//       print('📱 Initial message: ${initialMessage.messageId}');
+//       _handleMessageNavigation(initialMessage);
+//     }
+//   }
+
+//   // Handle navigation when notification is tapped
+//   void _handleMessageNavigation(RemoteMessage message) {
+//     // Extract navigation data from message
+//     final data = message.data;
+    
+//     // Example navigation logic
+//     if (data.containsKey('route')) {
+//       final route = data['route'];
+//       print('📱 Navigating to: $route');
+//       // Use your app router to navigate
+//       // AppRouter.navigateTo(route);
+//     }
+    
+//     if (data.containsKey('user_id')) {
+//       final userId = data['user_id'];
+//       print('📱 Navigate to user profile: $userId');
+//       // Navigate to user profile
+//     }
+//   }
+
+//   // Subscribe to topic
+//   Future<void> subscribeToTopic(String topic) async {
+//     await _messaging.subscribeToTopic(topic);
+//     print('📱 Subscribed to topic: $topic');
+//   }
+
+//   // Unsubscribe from topic
+//   Future<void> unsubscribeFromTopic(String topic) async {
+//     await _messaging.unsubscribeFromTopic(topic);
+//     print('📱 Unsubscribed from topic: $topic');
+//   }
+
+//   // Get current token
+//   Future<String?> getToken() async {
+//     return await _messaging.getToken();
+//   }
+// }
 
 // App initialization state provider
 final appInitializationProvider =
@@ -62,6 +241,9 @@ class AppInitializationNotifier extends StateNotifier<AppInitializationState> {
 
       // Now configure Amplify
       await _configureAmplify();
+
+      // Initialize Firebase Messaging
+      await _initializeFirebaseMessaging();
 
       // Initialize auth state by checking stored tokens
       await _initializeAuthState();
@@ -109,6 +291,22 @@ class AppInitializationNotifier extends StateNotifier<AppInitializationState> {
     }
   }
 
+  Future<void> _initializeFirebaseMessaging() async {
+    try {
+      debugPrint('🔄 Initializing Firebase Messaging...');
+      final notificationService = ref.read(notificationServiceProvider);
+      await notificationService.initialize();
+      
+      // Subscribe to general topics if needed
+      await notificationService.subscribeToTopic('general');
+      
+      debugPrint('✅ Firebase Messaging initialized successfully');
+    } catch (e) {
+      debugPrint('❌ Error initializing Firebase Messaging: $e');
+      // Don't rethrow - messaging is not critical for app functionality
+    }
+  }
+
   Future<void> _initializeAuthState() async {
     try {
       debugPrint('🔄 Initializing auth state...');
@@ -129,7 +327,7 @@ class AppInitializationNotifier extends StateNotifier<AppInitializationState> {
           if (refreshResult.isSuccess && refreshResult.data != null) {
             debugPrint('✅ Token refreshed successfully');
 
-            // ✅ Fixed: Convert RefreshTokenData to UserData
+            // Convert RefreshTokenData to UserData
             final userData = UserData(
               accessToken: refreshResult.data!.accessToken,
               refreshToken: refreshResult.data!.refreshToken,
@@ -143,6 +341,12 @@ class AppInitializationNotifier extends StateNotifier<AppInitializationState> {
               userData: userData,
               token: refreshResult.data!.accessToken,
             );
+
+            // Subscribe to user-specific notifications
+            if (storedAuthData.id != null) {
+              await _subscribeToUserNotifications(storedAuthData.id!);
+            }
+
           } else {
             debugPrint('❌ Token refresh failed, using stored tokens if valid');
             // Check if stored token is still valid
@@ -155,6 +359,11 @@ class AppInitializationNotifier extends StateNotifier<AppInitializationState> {
                 userData: storedAuthData,
                 token: storedAuthData.accessToken,
               );
+              
+              // Subscribe to user-specific notifications
+              if (storedAuthData.id != null) {
+                await _subscribeToUserNotifications(storedAuthData.id!);
+              }
             } else {
               debugPrint('❌ Stored tokens expired, requiring login');
               await tokenStorage.clearTokens();
@@ -172,6 +381,11 @@ class AppInitializationNotifier extends StateNotifier<AppInitializationState> {
               userData: storedAuthData,
               token: storedAuthData.accessToken,
             );
+            
+            // Subscribe to user-specific notifications
+            if (storedAuthData.id != null) {
+              await _subscribeToUserNotifications(storedAuthData.id!);
+            }
           } else {
             debugPrint('❌ Stored tokens expired after refresh error');
             await tokenStorage.clearTokens();
@@ -189,6 +403,16 @@ class AppInitializationNotifier extends StateNotifier<AppInitializationState> {
       // Clear tokens and set to unauthenticated on error
       await ref.read(tokenStorageProvider).clearTokens();
       ref.read(authNotifierProvider.notifier).setUnauthenticated();
+    }
+  }
+
+  Future<void> _subscribeToUserNotifications(String userId) async {
+    try {
+      final notificationService = ref.read(notificationServiceProvider);
+      await notificationService.subscribeToTopic('user_$userId');
+      debugPrint('✅ Subscribed to user notifications: user_$userId');
+    } catch (e) {
+      debugPrint('❌ Failed to subscribe to user notifications: $e');
     }
   }
 
@@ -271,7 +495,7 @@ class WicoreApp extends ConsumerWidget {
   }
 }
 
-// ✅ Fixed extension to use UserData instead of AuthData
+// Extension for AuthNotifier
 extension AuthNotifierExtension on AuthNotifier {
   void setAuthenticatedWithStoredData(Map<String, dynamic> storedTokens) {
     // Convert stored tokens to UserData
@@ -288,5 +512,195 @@ extension AuthNotifierExtension on AuthNotifier {
       userData: userData,
       token: userData.accessToken,
     );
+  }
+}
+
+// Additional helper methods with proper null safety
+
+class NotificationService {
+  final FirebaseMessaging _messaging;
+  
+  NotificationService(this._messaging);
+
+  // Send token to server with null check
+  Future<void> _sendTokenToServer(String token) async {
+    try {
+      // Your API call to send token to backend
+      // Example:
+      // await apiService.updateFCMToken(token);
+      print('📱 Sending token to server: $token');
+    } catch (e) {
+      print('❌ Failed to send token to server: $e');
+    }
+  }
+
+  // Initialize messaging with proper null handling
+  Future<void> initialize() async {
+    try {
+      // Request permission (iOS)
+      NotificationSettings settings = await _messaging.requestPermission(
+        alert: true,
+        announcement: false,
+        badge: true,
+        carPlay: false,
+        criticalAlert: false,
+        provisional: false,
+        sound: true,
+      );
+
+      print('📱 Permission granted: ${settings.authorizationStatus}');
+
+      // Get FCM token with null check
+      String? token = await _messaging.getToken();
+      if (token != null) {
+        print('📱 FCM Token: $token');
+        await _sendTokenToServer(token);
+      } else {
+        print('📱 Failed to get FCM token');
+      }
+
+      // Listen to token refresh
+      _messaging.onTokenRefresh.listen((String token) {
+        print('📱 Token refreshed: $token');
+        _sendTokenToServer(token);
+      });
+
+      // Handle foreground messages
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        print('📱 Foreground message: ${message.messageId}');
+        print('📱 Title: ${message.notification?.title ?? "No title"}');
+        print('📱 Body: ${message.notification?.body ?? "No body"}');
+        
+        // Show local notification when app is in foreground
+        _showLocalNotification(message);
+      });
+
+      // Handle message when app is opened from notification
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+        print('📱 Message opened app: ${message.messageId}');
+        _handleMessageNavigation(message);
+      });
+
+      // Check for initial message (when app is opened from terminated state)
+      RemoteMessage? initialMessage = await _messaging.getInitialMessage();
+      if (initialMessage != null) {
+        print('📱 Initial message: ${initialMessage.messageId}');
+        _handleMessageNavigation(initialMessage);
+      }
+    } catch (e) {
+      print('❌ Error initializing Firebase Messaging: $e');
+      rethrow;
+    }
+  }
+
+  // Handle navigation when notification is tapped
+  void _handleMessageNavigation(RemoteMessage message) {
+    try {
+      // Extract navigation data from message
+      final data = message.data;
+      
+      // Example navigation logic
+      if (data.containsKey('route')) {
+        final route = data['route'];
+        if (route != null && route.isNotEmpty) {
+          print('📱 Navigating to: $route');
+          // Use your app router to navigate
+          // AppRouter.navigateTo(route);
+        }
+      }
+      
+      if (data.containsKey('user_id')) {
+        final userId = data['user_id'];
+        if (userId != null && userId.isNotEmpty) {
+          print('📱 Navigate to user profile: $userId');
+          // Navigate to user profile
+        }
+      }
+    } catch (e) {
+      print('❌ Error handling message navigation: $e');
+    }
+  }
+
+  // Subscribe to topic with error handling
+  Future<void> subscribeToTopic(String topic) async {
+    try {
+      if (topic.isNotEmpty) {
+        await _messaging.subscribeToTopic(topic);
+        print('📱 Subscribed to topic: $topic');
+      }
+    } catch (e) {
+      print('❌ Failed to subscribe to topic $topic: $e');
+    }
+  }
+
+  // Unsubscribe from topic with error handling
+  Future<void> unsubscribeFromTopic(String topic) async {
+    try {
+      if (topic.isNotEmpty) {
+        await _messaging.unsubscribeFromTopic(topic);
+        print('📱 Unsubscribed from topic: $topic');
+      }
+    } catch (e) {
+      print('❌ Failed to unsubscribe from topic $topic: $e');
+    }
+  }
+
+  // Get current token with null safety
+  Future<String?> getToken() async {
+    try {
+      return await _messaging.getToken();
+    } catch (e) {
+      print('❌ Failed to get FCM token: $e');
+      return null;
+    }
+  }
+
+  // Delete token
+  Future<void> deleteToken() async {
+    try {
+      await _messaging.deleteToken();
+      print('📱 FCM token deleted');
+    } catch (e) {
+      print('❌ Failed to delete FCM token: $e');
+    }
+  }
+}
+
+// Helper function to show local notifications with null safety
+Future<void> _showLocalNotification(RemoteMessage message) async {
+  try {
+    const AndroidNotificationDetails androidNotificationDetails =
+        AndroidNotificationDetails(
+      'default_channel', // channel ID
+      'Default Channel', // channel name
+      channelDescription: 'Default notification channel',
+      importance: Importance.max,
+      priority: Priority.high,
+      ticker: 'ticker',
+    );
+
+    const NotificationDetails notificationDetails = NotificationDetails(
+      android: androidNotificationDetails,
+      iOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      ),
+    );
+
+    // Use null-aware operators for title and body
+    final title = message.notification?.title ?? 'New Message';
+    final body = message.notification?.body ?? 'You have a new message';
+    final payload = message.data.isNotEmpty ? message.data.toString() : null;
+
+    await flutterLocalNotificationsPlugin.show(
+      message.hashCode,
+      title,
+      body,
+      notificationDetails,
+      payload: payload,
+    );
+  } catch (e) {
+    print('❌ Failed to show local notification: $e');
   }
 }
