@@ -21,7 +21,6 @@ class _NameInputScreenState extends ConsumerState<NameInputScreen> {
   final TextEditingController _nameController = TextEditingController();
   final FocusNode _nameFocusNode = FocusNode();
   bool _isButtonEnabled = false;
-  bool _isSaving = false;
 
   @override
   void initState() {
@@ -56,8 +55,8 @@ class _NameInputScreenState extends ConsumerState<NameInputScreen> {
     FocusScope.of(context).unfocus();
   }
 
-  // Save name via API and continue to email input
-  void _handleNext() async {
+  // Just store name locally and navigate to next step
+  void _handleNext() {
     if (!_isButtonEnabled) {
       ScaffoldMessenger.of(
         context,
@@ -65,55 +64,20 @@ class _NameInputScreenState extends ConsumerState<NameInputScreen> {
       return;
     }
 
-    setState(() => _isSaving = true);
+    final name = _nameController.text.trim();
+    print('👤 NameInput - Storing name locally: $name');
 
-    try {
-      final name = _nameController.text.trim();
-      print('👤 NameInput - Saving name: $name');
+    // Store in form state - will be used after successful sign up
+    ref.read(signUpFormProvider.notifier).setName(name);
 
-      // Store in form state first
-      ref.read(signUpFormProvider.notifier).setName(name);
+    print('✅ NameInput - Name stored in form state');
 
-      // Save name via API patch request
-      await ref
-          .read(userProvider.notifier)
-          .updateCurrentUserProfile(UserUpdateRequest(firstName: name));
-
-      print('✅ NameInput - Name saved successfully via API');
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('이름이 저장되었습니다!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-
-        // Navigate to email input
-        context.push('/email-input');
-      }
-    } catch (e) {
-      print('❌ NameInput - Error saving name: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('이름 저장 중 오류가 발생했습니다: $e')));
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isSaving = false);
-      }
-    }
+    // Navigate to email input
+    context.push('/email-input');
   }
 
   @override
   Widget build(BuildContext context) {
-    final userState = ref.watch(userProvider);
-    final isApiLoading = userState.maybeWhen(
-      loading: () => true,
-      orElse: () => false,
-    );
-
     final mediaQuery = MediaQuery.of(context);
     final screenHeight = mediaQuery.size.height;
     final keyboardHeight = mediaQuery.viewInsets.bottom;
@@ -214,19 +178,13 @@ class _NameInputScreenState extends ConsumerState<NameInputScreen> {
                                   400, // Adjust based on content height
                     ),
 
-                    // Loading indicator or Next button
-                    if (_isSaving || isApiLoading)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        child: Center(child: CircularProgressIndicator()),
-                      )
-                    else
-                      CustomButton(
-                        text: '다음',
-                        isEnabled: _isButtonEnabled,
-                        onPressed: _isButtonEnabled ? _handleNext : null,
-                        disabledBackgroundColor: Colors.grey,
-                      ),
+                    // Next button
+                    CustomButton(
+                      text: '다음',
+                      isEnabled: _isButtonEnabled,
+                      onPressed: _isButtonEnabled ? _handleNext : null,
+                      disabledBackgroundColor: Colors.grey,
+                    ),
 
                     // Bottom padding to ensure button is always visible
                     SizedBox(

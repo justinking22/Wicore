@@ -44,6 +44,10 @@ class _ResavePhoneNumberScreenState
     });
   }
 
+  void _dismissKeyboard() {
+    FocusScope.of(context).unfocus();
+  }
+
   void _loadPhoneNumber() async {
     setState(() => _isSaving = true);
     try {
@@ -109,129 +113,188 @@ class _ResavePhoneNumberScreenState
       orElse: () => false,
     );
 
+    final mediaQuery = MediaQuery.of(context);
+    final screenHeight = mediaQuery.size.height;
+    final keyboardHeight = mediaQuery.viewInsets.bottom;
+    final isKeyboardVisible = keyboardHeight > 0;
+
     return GestureDetector(
-      onTap: () {
-        FocusScope.of(context).unfocus();
-      },
+      onTap: _dismissKeyboard,
       child: Scaffold(
-        body: Container(
-          color: CustomColors.lighterGray,
+        backgroundColor: CustomColors.lighterGray,
+        // Prevent body resizing when keyboard appears
+        resizeToAvoidBottomInset: false,
+        body: SafeArea(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // App Bar
               CustomAppBar(
                 title: '보호자 연락처',
                 showBackButton: true,
                 onBackPressed: () => context.pop(),
                 backgroundColor: CustomColors.lighterGray,
               ),
-              const SizedBox(height: 20),
-              Container(
-                color: CustomColors.lighterGray,
-                child: Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(left: 20),
-                      child: Container(
-                        color: CustomColors.lighterGray,
-                        width: double.infinity,
-                        child: Text(
-                          '보호자의 전화번호를\n입력해주세요',
-                          style: TextStyles.kBody,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 20),
-                      child: Container(
-                        color: CustomColors.lighterGray,
-                        width: double.infinity,
-                        child: Text(
-                          '비상연락이 필요한 경우\n작성해주신 연락처로 연락이 갈 예정이에요.',
-                          style: TextStyles.kMedium.copyWith(
-                            color: CustomColors.lightGray,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 40),
+
+              // Scrollable Content
               Expanded(
-                child: Container(
-                  color: CustomColors.lighterGray,
-                  child: Padding(
-                    padding: const EdgeInsets.all(20.0),
+                child: SingleChildScrollView(
+                  physics: const ClampingScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight:
+                          screenHeight -
+                          (mediaQuery.padding.top +
+                              kToolbarHeight +
+                              keyboardHeight),
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SizedBox(height: 30),
-                        Text(
-                          '보호자 연락처',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black,
-                            fontFamily: TextStyles.kFontFamily,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 20),
+
+                        // Header Section
                         Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 10,
-                                offset: const Offset(0, 2),
+                          color: CustomColors.lighterGray,
+                          child: Column(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(left: 20),
+                                child: Container(
+                                  color: CustomColors.lighterGray,
+                                  width: double.infinity,
+                                  child: Text(
+                                    '보호자의 전화번호를\n입력해주세요',
+                                    style: TextStyles.kBody,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Padding(
+                                padding: const EdgeInsets.only(left: 20),
+                                child: Container(
+                                  color: CustomColors.lighterGray,
+                                  width: double.infinity,
+                                  child: Text(
+                                    '비상연락이 필요한 경우\n작성해주신 연락처로 연락이 갈 예정이에요.',
+                                    style: TextStyles.kMedium.copyWith(
+                                      color: CustomColors.lightGray,
+                                    ),
+                                  ),
+                                ),
                               ),
                             ],
                           ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 16,
-                            ),
-                            child: TextField(
-                              controller: _phoneController,
-                              keyboardType: TextInputType.phone,
-                              decoration: InputDecoration(
-                                hintText: '예) 010-0000-0000',
-                                hintStyle: TextStyle(
-                                  color: Colors.grey[500],
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w500,
+                        ),
+
+                        SizedBox(height: isKeyboardVisible ? 20 : 40),
+
+                        // Main Content
+                        Padding(
+                          padding: const EdgeInsets.all(20.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(height: isKeyboardVisible ? 10 : 30),
+
+                              Text(
+                                '보호자 연락처',
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black,
                                   fontFamily: TextStyles.kFontFamily,
                                 ),
-                                border: InputBorder.none,
-                                contentPadding: EdgeInsets.zero,
                               ),
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Colors.black,
-                                fontWeight: FontWeight.w500,
-                                fontFamily: TextStyles.kFontFamily,
+                              const SizedBox(height: 12),
+
+                              // Phone Input Container
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.05),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 16,
+                                  ),
+                                  child: TextField(
+                                    controller: _phoneController,
+                                    keyboardType: TextInputType.phone,
+                                    textInputAction: TextInputAction.done,
+                                    onSubmitted: (_) {
+                                      if (_isButtonEnabled) {
+                                        _savePhoneNumber();
+                                      } else {
+                                        _dismissKeyboard();
+                                      }
+                                    },
+                                    decoration: InputDecoration(
+                                      hintText: '예) 010-0000-0000',
+                                      hintStyle: TextStyle(
+                                        color: Colors.grey[500],
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w500,
+                                        fontFamily: TextStyles.kFontFamily,
+                                      ),
+                                      border: InputBorder.none,
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.w500,
+                                      fontFamily: TextStyles.kFontFamily,
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
+
+                              // Flexible spacing that adapts to keyboard
+                              SizedBox(
+                                height:
+                                    isKeyboardVisible
+                                        ? 40
+                                        : (screenHeight -
+                                            500), // Adjust based on content height
+                              ),
+
+                              // Loading indicator or Save button
+                              if (_isSaving || isApiLoading)
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 16),
+                                  child: Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                )
+                              else
+                                CustomButton(
+                                  text: '저장',
+                                  isEnabled: _isButtonEnabled,
+                                  onPressed:
+                                      _isButtonEnabled
+                                          ? _savePhoneNumber
+                                          : null,
+                                  disabledBackgroundColor: Colors.grey,
+                                ),
+
+                              // Bottom padding to ensure button is always visible above keyboard
+                              SizedBox(
+                                height:
+                                    isKeyboardVisible
+                                        ? keyboardHeight + 20
+                                        : 32,
+                              ),
+                            ],
                           ),
                         ),
-                        const Spacer(),
-                        if (_isSaving || isApiLoading)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 16),
-                            child: CircularProgressIndicator(),
-                          )
-                        else
-                          CustomButton(
-                            text: '저장',
-                            isEnabled: _isButtonEnabled,
-                            onPressed:
-                                _isButtonEnabled ? _savePhoneNumber : null,
-                            disabledBackgroundColor: Colors.grey,
-                          ),
                       ],
                     ),
                   ),

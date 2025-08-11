@@ -97,7 +97,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           if (shouldShowOnboarding) {
             // Allow staying in onboarding flow
             final onboardingPaths = [
-              '/personal-info-input',
+              '/onboarding',
               '/phone-input',
               '/prep-done',
             ];
@@ -112,7 +112,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             // Redirect to start of onboarding and mark as shown for today
             print('🔄 Router - Starting onboarding flow');
             await onboardingManager.markOnboardingPromptShown();
-            return '/personal-info-input';
+            return '/onboarding';
           } else {
             // Already showed onboarding today, skip for now
             print(
@@ -121,7 +121,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
             // If user is currently on onboarding screens but we're not showing today, redirect to main
             final onboardingPaths = [
-              '/personal-info-input',
+              '/onboarding',
               '/phone-input',
               '/prep-done',
             ];
@@ -258,8 +258,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       // ✅ Make sure this route exists and the widget is properly imported
       GoRoute(
-        path: '/personal-info-input',
-        name: 'personal-info-input',
+        path: '/onboarding',
+        name: 'onboarding',
         builder:
             (context, state) =>
                 PersonalInfoInputScreen(), // Ensure this widget exists

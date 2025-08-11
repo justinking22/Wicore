@@ -246,7 +246,7 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
         return Container(
           child: Stack(
             children: [
-              // Mobile Scanner View - EXACT same pattern as diagnox
+              // Mobile Scanner View - Full background
               Positioned.fill(
                 child: MobileScanner(
                   controller: controller,
@@ -256,18 +256,25 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
                 ),
               ),
 
-              BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
-                child: Container(
-                  width: double.infinity,
-                  height: double.infinity,
-                  child: CustomPaint(
-                    painter: QROverlayPainter(
-                      cutOutSize: scannerSize,
-                      borderRadius: 20,
-                      cutOutTop:
-                          scannerTop -
-                          topSectionHeight, // Adjust for the new positioned offset
+              // Blur effect ONLY for the scanning area (excluding top section)
+              Positioned(
+                top: topSectionHeight, // Start blur AFTER the top section
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+                  child: Container(
+                    width: double.infinity,
+                    height: double.infinity,
+                    child: CustomPaint(
+                      painter: QROverlayPainter(
+                        cutOutSize: scannerSize,
+                        borderRadius: 20,
+                        cutOutTop:
+                            scannerTop -
+                            topSectionHeight, // Adjust for the positioned offset
+                      ),
                     ),
                   ),
                 ),
@@ -307,7 +314,7 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
                 ),
               ),
 
-              // Top section with WHITE background and title
+              // Top section with WHITE background and title - This stays on top, unaffected by blur
               Positioned(
                 top: 0,
                 left: 0,
@@ -369,7 +376,7 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
                 ),
               ),
 
-              // Bottom section with instruction text and start button
+              // Bottom section with instruction text
               Positioned(
                 bottom: 0,
                 left: 0,
@@ -429,12 +436,6 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
                     ),
                   ),
                 ),
-
-              // // Error overlay for device pairing errors
-              // if (deviceState.error != null &&
-              //     !deviceState.error!.contains('already paired') &&
-              //     !deviceState.error!.contains('-106'))
-              //   _buildErrorOverlay(deviceState.error!),
             ],
           ),
         );

@@ -368,65 +368,98 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
 
                   const SizedBox(height: 40),
 
-                  // Battery Section with refresh button
+                  // Battery Section with improved centering
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment:
+                        CrossAxisAlignment
+                            .center, // Add this for better vertical alignment
                     children: [
-                      Row(
-                        children: [
-                          Text(
-                            '배터리',
-                            style: TextStyles.kMedium.copyWith(
-                              fontSize: 16,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          if (isLoadingBattery)
-                            SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          else
+                      Expanded(
+                        flex: 2,
+                        child: Row(
+                          crossAxisAlignment:
+                              CrossAxisAlignment
+                                  .center, // Center align all elements
+                          children: [
                             Text(
-                              '$batteryLevel',
-                              style: TextStyles.kSemiBold.copyWith(
-                                fontSize: 32,
-                                color: Colors.black,
-                              ),
-                            ),
-                          if (!isLoadingBattery)
-                            Text(
-                              ' %',
+                              '배터리',
                               style: TextStyles.kMedium.copyWith(
                                 fontSize: 16,
                                 color: Colors.black87,
                               ),
                             ),
-                        ],
-                      ),
-                      Row(
-                        children: [
-                          // Refresh button for battery
-                          Container(
-                            height: 36,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _getBatteryButtonColor(batteryLevel),
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            child: Text(
-                              _getBatteryButtonText(batteryLevel),
-                              style: TextStyles.kRegular.copyWith(
-                                color: Colors.black,
+                            const SizedBox(
+                              width: 12,
+                            ), // Slightly increased spacing
+                            if (isLoadingBattery)
+                              Container(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            else
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.baseline,
+                                textBaseline:
+                                    TextBaseline
+                                        .alphabetic, // Align baselines for better text alignment
+                                children: [
+                                  Text(
+                                    '$batteryLevel',
+                                    style: TextStyles.kSemiBold.copyWith(
+                                      fontSize: 32,
+                                      color: Colors.black,
+                                      height:
+                                          1.0, // Control line height for better alignment
+                                    ),
+                                  ),
+                                  Text(
+                                    ' %',
+                                    style: TextStyles.kMedium.copyWith(
+                                      fontSize: 16,
+                                      color: Colors.black87,
+                                      height: 1.0, // Match line height
+                                    ),
+                                  ),
+                                ],
                               ),
+                          ],
+                        ),
+                      ),
+                      // Battery status button with proper centering
+                      Container(
+                        height: 36,
+                        constraints: BoxConstraints(
+                          minWidth:
+                              80, // Ensure minimum width for consistent button size
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _getBatteryButtonColor(batteryLevel),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Center(
+                          // Explicitly center the text
+                          child: Text(
+                            _getBatteryButtonText(batteryLevel),
+                            style: TextStyles.kRegular.copyWith(
+                              color: Colors.black,
+                              height: 1.0, // Control line height
                             ),
+                            textAlign:
+                                TextAlign.center, // Center align the text
+                            overflow:
+                                TextOverflow
+                                    .ellipsis, // Handle overflow gracefully
+                            maxLines: 1,
                           ),
-                        ],
+                        ),
                       ),
                     ],
                   ),

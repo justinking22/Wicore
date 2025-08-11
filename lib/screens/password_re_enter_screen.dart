@@ -3,7 +3,8 @@ import 'package:Wicore/models/sign_up_response_model.dart';
 import 'package:Wicore/services/api_error_code_service.dart' show ApiErrorCode;
 import 'package:Wicore/utilities/sign_up_form_state.dart';
 import 'package:Wicore/providers/authentication_provider.dart';
-
+import 'package:Wicore/models/user_update_request_model.dart';
+import 'package:Wicore/providers/user_provider.dart';
 import 'package:Wicore/styles/colors.dart';
 import 'package:Wicore/styles/text_styles.dart';
 import 'package:Wicore/states/auth_status.dart';
@@ -87,6 +88,27 @@ class _PasswordConfirmationScreenState
     });
   }
 
+  // Update user profile with name after successful sign up
+  Future<void> _updateUserProfileAfterSignUp() async {
+    try {
+      final signUpForm = ref.read(signUpFormProvider);
+      if (signUpForm.name.isNotEmpty) {
+        print('🔄 Updating user profile with name: ${signUpForm.name}');
+
+        await ref
+            .read(userProvider.notifier)
+            .updateCurrentUserProfile(
+              UserUpdateRequest(firstName: signUpForm.name),
+            );
+
+        print('✅ User profile updated with name successfully');
+      }
+    } catch (e) {
+      print('⚠️ Warning: Failed to update user profile with name: $e');
+      // Don't throw error here - sign up was successful, profile update is secondary
+    }
+  }
+
   // Enhanced _handleNext method with better error handling
   Future<void> _handleNext() async {
     if (!_isButtonEnabled || _isSigningUp) return;
@@ -130,14 +152,19 @@ class _PasswordConfirmationScreenState
       );
 
       if (result.isSuccess) {
+        print('✅ Account created successfully');
+
+        // Update user profile with name after successful sign up
+        await _updateUserProfileAfterSignUp();
+
         if (result.requiresConfirmation) {
           if (mounted) {
-            print('✅ Account created, email verification required');
+            print('📧 Email verification required');
             context.push('/email-verification');
           }
         } else {
           if (mounted) {
-            print('✅ Account created and activated');
+            print('🎉 Account created and activated');
             context.push('/sign-up-complete');
           }
         }

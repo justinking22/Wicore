@@ -112,17 +112,25 @@ class _NotificationSettingsScreenState
   Widget _buildSettingItem(String title, bool value, Function(bool) onChanged) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+      height: 60, // Fixed height for consistent row sizes
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment:
+            CrossAxisAlignment.center, // Center content vertically
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 16,
-              color: Colors.black,
-              fontWeight: FontWeight.w400,
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                color: Colors.black,
+                fontWeight: FontWeight.w400,
+              ),
+              maxLines: 2, // Allow text to wrap to 2 lines if needed
+              overflow: TextOverflow.ellipsis,
             ),
           ),
+          const SizedBox(width: 16), // Add spacing between text and switch
           CupertinoSwitch(
             value: value,
             onChanged: onChanged,

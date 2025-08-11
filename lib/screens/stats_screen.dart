@@ -663,10 +663,10 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
           LayoutBuilder(
             builder: (context, constraints) {
               return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Flexible(
-                    flex: showProgressBar ? 2 : 3,
+                  Expanded(
+                    flex: showProgressBar ? 3 : 4,
                     child: RichText(
                       text: TextSpan(
                         children: [
@@ -683,8 +683,10 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                     ),
                   ),
                   if (showProgressBar) ...[
-                    SizedBox(width: isSmallScreen ? 8 : 16),
-                    Flexible(
+                    SizedBox(
+                      width: isSmallScreen ? 16 : 24,
+                    ), // Increased spacing to push progress bar more to the right
+                    Expanded(
                       flex: 2,
                       child: _buildProgressBar(
                         progressValue,
@@ -698,27 +700,47 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                       ),
                     ),
                   ],
-                  if (!showProgressBar) const Spacer(),
-                  if (showButton && buttonText != null)
-                    Flexible(
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: isSmallScreen ? 12 : 16,
-                          vertical: isSmallScreen ? 6 : 7,
-                        ),
-                        decoration: BoxDecoration(
-                          color: buttonColor ?? CustomColors.limeGreen,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          buttonText,
-                          style: TextStyles.kRegular.copyWith(
-                            fontSize: isSmallScreen ? 12 : null,
+                  if (showButton && buttonText != null) ...[
+                    SizedBox(width: isSmallScreen ? 8 : 12),
+                    Expanded(
+                      flex: 1,
+                      child: Center(
+                        // Center the button within its available space
+                        child: Container(
+                          constraints: BoxConstraints(
+                            minWidth:
+                                isSmallScreen
+                                    ? 60
+                                    : 70, // Minimum width for the button
+                            maxWidth: double.infinity,
                           ),
-                          overflow: TextOverflow.ellipsis,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isSmallScreen ? 8 : 12,
+                            vertical: isSmallScreen ? 6 : 7,
+                          ),
+                          decoration: BoxDecoration(
+                            color: buttonColor ?? CustomColors.limeGreen,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            buttonText,
+                            style: TextStyles.kRegular.copyWith(
+                              fontSize:
+                                  isSmallScreen
+                                      ? 11
+                                      : 12, // Slightly smaller font to fit better
+                            ),
+                            textAlign:
+                                TextAlign
+                                    .center, // Center the text within the button
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
                         ),
                       ),
                     ),
+                  ],
+                  if (!showProgressBar && !showButton) const Spacer(),
                 ],
               );
             },
