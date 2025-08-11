@@ -51,11 +51,11 @@ class _PersonalInfoInputScreenState
   @override
   void initState() {
     super.initState();
-    _checkOnboardingStatus(); // Add this for debugging
+    _initializeOnboardingStatus();
   }
 
-  // ✅ Add this method to check onboarding status for debugging
-  void _checkOnboardingStatus() async {
+  // ✅ Improved initialization with better onboarding status checking
+  void _initializeOnboardingStatus() async {
     final userState = ref.read(userProvider);
     final onboardingManager = ref.read(onboardingManagerProvider);
 
@@ -67,22 +67,38 @@ class _PersonalInfoInputScreenState
     final localOnboarded =
         await onboardingManager.hasCompletedOnboardingLocally();
     final daysSincePrompt = await onboardingManager.daysSinceLastPrompt();
+    final shouldShow = await onboardingManager.shouldShowOnboarding(
+      isUserOnboarded: apiOnboarded,
+    );
 
     print('🔍 PersonalInfo - API onboarded: $apiOnboarded');
     print('🔍 PersonalInfo - Local onboarded: $localOnboarded');
     print('🔍 PersonalInfo - Days since last prompt: $daysSincePrompt');
+    print('🔍 PersonalInfo - Should show onboarding: $shouldShow');
+
+    // If user shouldn't see onboarding anymore, redirect to main app
+    if (!shouldShow && apiOnboarded) {
+      print(
+        '🔄 PersonalInfo - User already onboarded, redirecting to main app',
+      );
+      if (mounted) {
+        context.go('/navigation');
+      }
+    }
   }
 
-  // ✅ Updated skip function with proper onboarding logic
+  // ✅ Improved skip function with proper onboarding state management
   void _skipAndContinue() async {
     try {
       print('⏭️ PersonalInfo - User chose to skip personal info');
 
-      // Mark that we've shown the onboarding today (so they don't see it again today)
       final onboardingManager = ref.read(onboardingManagerProvider);
+
+      // Mark that we've shown the onboarding today (so they don't see it again today)
       await onboardingManager.markOnboardingPromptShown();
 
-      print('📅 PersonalInfo - Marked onboarding as shown today');
+      // Don't mark as fully completed since they skipped - they might want to complete it later
+      print('📅 PersonalInfo - Marked onboarding prompt as shown for today');
 
       if (mounted) {
         context.push('/phone-input');
@@ -264,6 +280,7 @@ class _PersonalInfoInputScreenState
     );
   }
 
+  // ✅ Improved save function with proper onboarding completion tracking
   void _saveAndContinue() async {
     if (!_isFormComplete) {
       ScaffoldMessenger.of(
@@ -286,36 +303,36 @@ class _PersonalInfoInputScreenState
         throw Exception('Required values are missing');
       }
 
-      // Update gender first
-      final genderValue = _convertGenderToEnglish(selectedGender!);
-      print('🔄 PersonalInfo - Updating gender: $genderValue');
-      await ref
-          .read(userProvider.notifier)
-          .updateCurrentUserProfile(UserUpdateRequest(gender: genderValue));
-
-      // Update height
+      // Create a single update request with all data
       final heightValue = double.tryParse(
         '$selectedMainHeight.$selectedDecimalHeight',
       );
-      if (heightValue != null) {
-        print('🔄 PersonalInfo - Updating height: $heightValue');
-        await ref
-            .read(userProvider.notifier)
-            .updateCurrentUserProfile(UserUpdateRequest(height: heightValue));
-      }
-
-      // Update weight
       final weightValue = double.tryParse(
         '$selectedMainWeight.$selectedDecimalWeight',
       );
-      if (weightValue != null) {
-        print('🔄 PersonalInfo - Updating weight: $weightValue');
-        await ref
-            .read(userProvider.notifier)
-            .updateCurrentUserProfile(UserUpdateRequest(weight: weightValue));
+      final genderValue = _convertGenderToEnglish(selectedGender!);
+
+      if (heightValue == null || weightValue == null) {
+        throw Exception('Invalid height or weight values');
       }
 
-      print('✅ PersonalInfo - All data saved successfully');
+      print('🔄 PersonalInfo - Updating all personal info at once');
+      await ref
+          .read(userProvider.notifier)
+          .updateCurrentUserProfile(
+            UserUpdateRequest(
+              gender: genderValue,
+              height: heightValue,
+              weight: weightValue,
+            ),
+          );
+
+      print('✅ PersonalInfo - All personal info saved successfully');
+
+      // ✅ Mark this step as completed in onboarding flow
+      final onboardingManager = ref.read(onboardingManagerProvider);
+      await onboardingManager.markPersonalInfoCompleted();
+      print('✅ PersonalInfo - Marked personal info step as completed');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -340,7 +357,7 @@ class _PersonalInfoInputScreenState
     }
   }
 
-  // Update individual save methods with better error handling
+  // ✅ Simplified picker methods - remove individual API calls to avoid conflicts
   void _showGenderPicker() async {
     await showModalBottomSheet(
       context: context,
@@ -352,27 +369,11 @@ class _PersonalInfoInputScreenState
           selectedItem: selectedGender ?? genders[0],
           showDot: false,
           showIndex: false,
-          onItemSelected: (String selected) async {
+          onItemSelected: (String selected) {
             if (mounted) {
               setState(() => selectedGender = selected);
             }
-
-            try {
-              final gender = _convertGenderToEnglish(selected);
-              if (gender.isNotEmpty) {
-                print('🔄 PersonalInfo - Updating gender from picker: $gender');
-                await ref
-                    .read(userProvider.notifier)
-                    .updateCurrentUserProfile(
-                      UserUpdateRequest(gender: gender),
-                    );
-                print('✅ PersonalInfo - Gender updated from picker');
-              }
-            } catch (e) {
-              print('❌ PersonalInfo - Error updating gender from picker: $e');
-              // Don't show error snackbar for individual field updates
-              // as they're not critical and might confuse the user
-            }
+            print('🔄 PersonalInfo - Gender selected: $selected');
           },
         );
       },
@@ -390,28 +391,14 @@ class _PersonalInfoInputScreenState
           decimalItems: decimalHeights,
           selectedMainItem: selectedMainHeight ?? mainHeights[116],
           selectedDecimalItem: selectedDecimalHeight ?? decimalHeights[0],
-          onItemSelected: (String main, String decimal) async {
+          onItemSelected: (String main, String decimal) {
             if (mounted) {
               setState(() {
                 selectedMainHeight = main;
                 selectedDecimalHeight = decimal;
               });
             }
-
-            try {
-              final height = double.tryParse('$main.$decimal');
-              if (height != null) {
-                print('🔄 PersonalInfo - Updating height from picker: $height');
-                await ref
-                    .read(userProvider.notifier)
-                    .updateCurrentUserProfile(
-                      UserUpdateRequest(height: height),
-                    );
-                print('✅ PersonalInfo - Height updated from picker');
-              }
-            } catch (e) {
-              print('❌ PersonalInfo - Error updating height from picker: $e');
-            }
+            print('🔄 PersonalInfo - Height selected: $main.$decimal cm');
           },
         );
       },
@@ -429,27 +416,14 @@ class _PersonalInfoInputScreenState
           decimalItems: decimalWeights,
           selectedMainItem: selectedMainWeight ?? mainWeights[67],
           selectedDecimalItem: selectedDecimalWeight ?? decimalWeights[0],
-          onItemSelected: (String main, String decimal) async {
+          onItemSelected: (String main, String decimal) {
             if (mounted) {
               setState(() {
                 selectedMainWeight = main;
                 selectedDecimalWeight = decimal;
               });
             }
-            try {
-              final weight = double.tryParse('$main.$decimal');
-              if (weight != null) {
-                print('🔄 PersonalInfo - Updating weight from picker: $weight');
-                await ref
-                    .read(userProvider.notifier)
-                    .updateCurrentUserProfile(
-                      UserUpdateRequest(weight: weight),
-                    );
-                print('✅ PersonalInfo - Weight updated from picker');
-              }
-            } catch (e) {
-              print('❌ PersonalInfo - Error updating weight from picker: $e');
-            }
+            print('🔄 PersonalInfo - Weight selected: $main.$decimal kg');
           },
         );
       },

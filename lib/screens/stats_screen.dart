@@ -567,6 +567,29 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
           ),
           SizedBox(height: cardSpacing),
           _buildInfoCard(
+            isSmallScreen: isSmallScreen,
+            title: '호흡(분당)',
+            value: _formatBreathRange(stats?.breathMean, stats?.breathStd),
+            unit: '회',
+            showProgressBar: true,
+            // Update these values to represent start and end points of range
+            progressMinValue:
+                ((stats?.breathMean ?? 0.0) - (stats?.breathStd ?? 0.0)).clamp(
+                  0.0,
+                  40.0,
+                ) /
+                40.0,
+            progressValue:
+                ((stats?.breathMean ?? 0.0) + (stats?.breathStd ?? 0.0)).clamp(
+                  0.0,
+                  40.0,
+                ) /
+                40.0,
+            progressColor: Colors.grey.shade800,
+          ),
+
+          const SizedBox(height: 16),
+          _buildInfoCard(
             title: '걸음',
             value: (stats?.totalSteps ?? 0).toStringAsFixed(0),
             unit: '걸음',

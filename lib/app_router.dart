@@ -16,7 +16,7 @@ import 'package:Wicore/screens/password_reset_confirmation_screen.dart';
 import 'package:Wicore/screens/password_reset_screen.dart';
 import 'package:Wicore/screens/password_reset_succes_screen.dart';
 import 'package:Wicore/screens/personal_info_display_screen.dart';
-import 'package:Wicore/screens/personal_info_input_screen.dart';
+import 'package:Wicore/screens/personal_info_input_screen.dart'; // ✅ Make sure this import exists
 import 'package:Wicore/screens/phone_input_screen.dart';
 import 'package:Wicore/screens/prep_done_screen.dart';
 import 'package:Wicore/screens/qr_acanner_screen.dart';
@@ -24,7 +24,6 @@ import 'package:Wicore/screens/resave_phone_number_screen.dart';
 import 'package:Wicore/screens/sign_in_screen.dart';
 import 'package:Wicore/screens/sign_up_complete_screen.dart';
 import 'package:Wicore/screens/splash_screen.dart';
-import 'package:Wicore/screens/stats_screen.dart';
 import 'package:Wicore/screens/terms_and_conditions_screen.dart';
 import 'package:Wicore/screens/terms_of_use_screen.dart';
 import 'package:Wicore/screens/welcome_screen.dart';
@@ -38,8 +37,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final authNotifier = ref.read(authNotifierProvider.notifier);
-
   return GoRouter(
     initialLocation: '/splash',
     refreshListenable: RouterRefreshStream(ref),
@@ -51,7 +48,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isInitialized = authState.status != AuthStatus.unknown;
       final isAuthenticated = authState.isAuthenticated;
 
-      // ✅ Safe way to get onboarded status from API
+      // Get onboarded status from API
       final isUserOnboarded = userState.when(
         data: (response) {
           final onboarded = response?.data?.onboarded ?? false;
@@ -89,52 +86,64 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Handle authenticated users
       if (isAuthenticated) {
-        // ✅ IMPROVED: Check if we should show onboarding screens
+        // ✅ FIXED: Better onboarding logic
         if (!isUserOnboarded) {
-          // Check if we should show onboarding today
+          // Check if we should show onboarding today (once per day until completed)
           final shouldShowOnboarding = await onboardingManager
               .shouldShowOnboarding(isUserOnboarded: isUserOnboarded);
 
           print('🔄 Router - Should show onboarding: $shouldShowOnboarding');
 
           if (shouldShowOnboarding) {
-            // Allow onboarding flow paths
-            if (currentPath == '/personal-info-input' ||
-                currentPath == '/phone-input' ||
-                currentPath == '/prep-done') {
-              print('🔄 Router - User in onboarding flow, allowing');
-              return null; // Stay on current onboarding screen
+            // Allow staying in onboarding flow
+            final onboardingPaths = [
+              '/personal-info-input',
+              '/phone-input',
+              '/prep-done',
+            ];
+
+            if (onboardingPaths.contains(currentPath)) {
+              print(
+                '🔄 Router - User in onboarding flow, staying on current screen',
+              );
+              return null;
             }
 
-            // Redirect to start of onboarding
-            print(
-              '🔄 Router - Redirecting to onboarding (not completed, should show today)',
-            );
+            // Redirect to start of onboarding and mark as shown for today
+            print('🔄 Router - Starting onboarding flow');
             await onboardingManager.markOnboardingPromptShown();
             return '/personal-info-input';
           } else {
-            // Don't show onboarding today, go to main app
+            // Already showed onboarding today, skip for now
             print(
-              '🔄 Router - Not showing onboarding today, going to main app',
+              '🔄 Router - Skipping onboarding for today, going to main app',
             );
-            if (currentPath == '/personal-info-input' ||
-                currentPath == '/phone-input' ||
-                currentPath == '/prep-done') {
+
+            // If user is currently on onboarding screens but we're not showing today, redirect to main
+            final onboardingPaths = [
+              '/personal-info-input',
+              '/phone-input',
+              '/prep-done',
+            ];
+            if (onboardingPaths.contains(currentPath)) {
               return '/navigation';
             }
           }
         }
 
-        // ✅ User is onboarded or we're not showing onboarding today
-        // Redirect from auth screens to navigation
-        if (currentPath == '/login' ||
-            currentPath == '/register' ||
-            currentPath == '/welcome' ||
-            currentPath == '/name-input' ||
-            currentPath == '/email-input' ||
-            currentPath == '/password-input' ||
-            currentPath == '/password-re-enter' ||
-            currentPath == '/forgot-password') {
+        // User is fully onboarded - redirect from auth screens to main app
+        final authScreens = [
+          '/login',
+          '/register',
+          '/welcome',
+          '/name-input',
+          '/email-input',
+          '/password-input',
+          '/password-re-enter',
+          '/forgot-password',
+        ];
+
+        if (authScreens.contains(currentPath)) {
           print(
             '🔄 Router - Redirecting authenticated user from auth screen to navigation',
           );
@@ -148,16 +157,27 @@ final routerProvider = Provider<GoRouter>((ref) {
         }
       }
 
-      // Handle unauthenticated users
+      // Handle unauthenticated users - redirect protected routes to login
       if (!isAuthenticated && isInitialized) {
-        if (currentPath == '/navigation' ||
-            currentPath == '/home' ||
-            currentPath.startsWith('/device-') ||
-            currentPath.startsWith('/personal-info-') ||
-            currentPath.startsWith('/calendar-') ||
-            currentPath.startsWith('/notifications-') ||
-            currentPath.startsWith('/terms-of-use') ||
-            currentPath.startsWith('/qr-scan-')) {
+        final protectedPaths = [
+          '/navigation',
+          '/home',
+          '/personal-info-input',
+          '/phone-input',
+          '/prep-done',
+          '/calendar-screen',
+          '/device-history-screen',
+          '/personal-info-display-screen',
+          '/notifications-settings',
+          '/terms-of-use',
+          '/qr-scan-screen',
+        ];
+
+        final isProtectedPath = protectedPaths.any(
+          (path) => currentPath == path || currentPath.startsWith('${path}/'),
+        );
+
+        if (isProtectedPath) {
           print('🔄 Router - Redirecting unauthenticated user to login');
           return '/login';
         }
@@ -236,10 +256,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'password-reset-success',
         builder: (context, state) => const PasswordResetSuccessScreen(),
       ),
+      // ✅ Make sure this route exists and the widget is properly imported
       GoRoute(
         path: '/personal-info-input',
         name: 'personal-info-input',
-        builder: (context, state) => PersonalInfoInputScreen(),
+        builder:
+            (context, state) =>
+                PersonalInfoInputScreen(), // Ensure this widget exists
       ),
       GoRoute(
         path: '/phone-input',
@@ -321,7 +344,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           if (state.extra != null && state.extra is DateTime) {
             selectedDate = state.extra as DateTime;
           } else {
-            // Fallback to current date if no date provided
             selectedDate = DateTime.now();
           }
 
@@ -350,7 +372,6 @@ final routerProvider = Provider<GoRouter>((ref) {
   );
 });
 
-// ✅ RouterRefreshStream remains the same
 class RouterRefreshStream extends ChangeNotifier {
   final Ref _ref;
   late final ProviderSubscription _authSubscription;

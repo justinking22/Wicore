@@ -6,8 +6,8 @@ import 'package:Wicore/modals/qr_scan_info_modal_bottom_sheet.dart';
 import 'package:Wicore/widgets/reusable_app_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
+// REMOVED: import 'package:permission_handler/permission_handler.dart';
+// REMOVED: import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:Wicore/providers/device_provider.dart';
 import 'package:Wicore/states/device_state.dart';
@@ -123,10 +123,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
   }
 
-  Future<void> _requestCameraPermission() async {
-    print('🏠 _requestCameraPermission called');
+  // SIMPLIFIED: Just navigate to QR scanner, let mobile_scanner handle permissions
+  void _startQRScanning() async {
+    print('🏠 _startQRScanning called');
 
-    // Check if device is already paired before requesting permissions
+    // Check if device is already paired before showing QR scanner
     final deviceState = ref.read(deviceNotifierProvider);
     final pairedDevice = ref.read(deviceDataProvider);
     print('🏠 Device state check:');
@@ -140,168 +141,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       // Device already paired, go directly to device details
       setState(() {
         _showDeviceDetails = true;
-        _showQRScanner = false; // Ensure QR scanner is not shown
+        _showQRScanner = false;
       });
       return;
     }
 
-    print('🏠 No device paired, proceeding with permissions');
-    // No device paired, proceed with permissions and QR scanner
-    await _requestPermissions();
-  }
-
-  Future<void> _requestPermissions() async {
-    print('🏠 _requestPermissions called');
-
-    Map<Permission, PermissionStatus> statuses =
-        await [
-          Permission.camera,
-          Permission.bluetoothConnect,
-          Permission.bluetoothScan,
-          Permission.location,
-        ].request();
-
-    bool allGranted = statuses.values.every((status) => status.isGranted);
-    print('🏠 Permissions result: allGranted = $allGranted');
-
-    if (allGranted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('모든 권한이 허용되었습니다. QR 스캔을 시작합니다.'),
-          backgroundColor: Colors.green,
-        ),
-      );
-
-      // Double-check device state before showing QR scanner
-      final deviceState = ref.read(deviceNotifierProvider);
-      final pairedDevice = ref.read(deviceDataProvider);
-      print('🏠 Double-check before QR scanner:');
-      print(
-        '  - deviceState.pairedDevice: ${deviceState.pairedDevice?.deviceId}',
-      );
-      print('  - pairedDevice: ${pairedDevice?.deviceId}');
-
-      if (deviceState.pairedDevice != null || pairedDevice != null) {
-        print(
-          '🏠 Device was paired during permissions, going to device details',
-        );
-        // Device was paired while requesting permissions, go to device details
-        setState(() {
-          _showDeviceDetails = true;
-          _showQRScanner = false;
-        });
-      } else {
-        print('🏠 No device paired, showing QR scanner');
-        // No device paired, show QR scanner
-        setState(() {
-          _showQRScanner = true;
-        });
-      }
-    } else {
-      _handlePermissionDenied(statuses);
-    }
-  }
-
-  void _handlePermissionDenied(Map<Permission, PermissionStatus> statuses) {
-    List<String> deniedPermissions = [];
-
-    if (statuses[Permission.camera]?.isDenied == true) {
-      deniedPermissions.add('카메라');
-    }
-    if (statuses[Permission.bluetoothConnect]?.isDenied == true) {
-      deniedPermissions.add('블루투스 연결');
-    }
-    if (statuses[Permission.bluetoothScan]?.isDenied == true) {
-      deniedPermissions.add('블루투스 스캔');
-    }
-    if (statuses[Permission.location]?.isDenied == true) {
-      deniedPermissions.add('위치');
-    }
-
-    if (deniedPermissions.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('다음 권한이 필요합니다: ${deniedPermissions.join(', ')}'),
-          backgroundColor: Colors.orange,
-          duration: const Duration(seconds: 4),
-        ),
-      );
-    }
-
-    bool anyPermanentlyDenied = statuses.values.any(
-      (status) => status.isPermanentlyDenied,
-    );
-
-    if (anyPermanentlyDenied) {
-      _showSettingsDialog();
-    }
-  }
-
-  void _showSettingsDialog() {
-    if (Platform.isIOS) {
-      showCupertinoDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext context) {
-          return CupertinoAlertDialog(
-            title: const Text('권한 필요'),
-            content: const Text(
-              'WICORE에서 근처 기기를 찾아 연결하고 기기 간 상대적 위치를 파악하도록 허용하시겠습니까?\n\n설정에서 카메라, 블루투스, 위치 권한을 허용해주세요.',
-            ),
-            actions: <CupertinoDialogAction>[
-              CupertinoDialogAction(
-                child: const Text('설정으로 이동'),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  openAppSettings();
-                },
-              ),
-              CupertinoDialogAction(
-                child: const Text('취소'),
-                isDestructiveAction: true,
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ],
-          );
-        },
-      );
-    } else {
-      showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-            title: Row(
-              children: [
-                Icon(Icons.info_outline, color: Colors.blue[600]),
-                const SizedBox(width: 8),
-                const Text('권한 필요'),
-              ],
-            ),
-            content: const Text(
-              'WICORE에서 근처 기기를 찾아 연결하고 기기 간 상대적 위치를 파악하도록 허용하시겠습니까?\n\n설정에서 필요한 권한들을 허용해주세요.',
-              style: TextStyle(height: 1.4),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('취소'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  openAppSettings();
-                },
-                child: const Text('설정으로 이동'),
-              ),
-            ],
-          );
-        },
-      );
-    }
+    print('🏠 No device paired, showing QR scanner');
+    // No device paired, show QR scanner - mobile_scanner will handle permissions
+    setState(() {
+      _showQRScanner = true;
+    });
   }
 
   void _disconnectDevice() {
@@ -472,7 +321,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       width: double.infinity,
                       height: 56,
                       child: OutlinedButton(
-                        onPressed: _requestCameraPermission,
+                        onPressed: _startQRScanning,
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.black,
                           side: const BorderSide(color: Colors.black),
@@ -566,7 +415,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           onTrailingPressed: _disconnectDevice,
           showTrailingButton: true,
           trailingButtonColor: Colors.red,
-          showBackButton: true,
+          showBackButton: false,
           onBackPressed: _backFromDeviceDetails,
         ),
         Expanded(

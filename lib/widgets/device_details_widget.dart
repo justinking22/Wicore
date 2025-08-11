@@ -41,11 +41,14 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
     // Reset selected strength when widget initializes
     selectedStrength = null;
 
-    // Load active devices immediately when widget initializes
-    _loadActiveDevicesData();
+    // FIXED: Move provider calls to addPostFrameCallback
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Load active devices immediately when widget initializes
+      _loadActiveDevicesData();
 
-    // Set up periodic battery updates every 30 seconds
-    _startBatteryUpdateTimer();
+      // Set up periodic battery updates every 30 seconds
+      _startBatteryUpdateTimer();
+    });
   }
 
   @override
@@ -59,7 +62,9 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
       );
 
       // Load new device data
-      _loadActiveDevicesData();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadActiveDevicesData();
+      });
     }
   }
 
@@ -404,18 +409,6 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
                       Row(
                         children: [
                           // Refresh button for battery
-                          IconButton(
-                            onPressed:
-                                isLoadingBattery
-                                    ? null
-                                    : _loadActiveDevicesData,
-                            icon: Icon(
-                              Icons.refresh,
-                              color:
-                                  isLoadingBattery ? Colors.grey : Colors.blue,
-                              size: 20,
-                            ),
-                          ),
                           Container(
                             height: 36,
                             padding: const EdgeInsets.symmetric(
@@ -453,32 +446,6 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
                           color: Colors.black87,
                         ),
                       ),
-                      if (isUpdating)
-                        Row(
-                          children: [
-                            SizedBox(
-                              width: 12,
-                              height: 12,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              '업데이트 중...',
-                              style: TextStyles.kRegular.copyWith(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        )
-                      else
-                        Text(
-                          '현재: ${_getStrengthText(displayStrength)}',
-                          style: TextStyles.kRegular.copyWith(
-                            fontSize: 12,
-                            color: Colors.blue[600],
-                          ),
-                        ),
                     ],
                   ),
 
@@ -515,31 +482,6 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
                   const SizedBox(height: 16),
 
                   // Status info with last update time
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isNewlyPaired ? Colors.green[50] : Colors.blue[50],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.access_time,
-                          size: 16,
-                          color: Colors.blue[700],
-                        ),
-                        SizedBox(width: 8),
-                        Text(
-                          '마지막 업데이트: ${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}',
-                          style: TextStyles.kRegular.copyWith(
-                            fontSize: 12,
-                            color: Colors.blue[700],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
                   const SizedBox(height: 40),
                 ],
               ),

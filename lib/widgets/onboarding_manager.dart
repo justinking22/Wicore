@@ -89,6 +89,12 @@ class OnboardingManager {
     final now = DateTime.now();
     return now.difference(lastPromptDate).inDays;
   }
+
+  // Mark personal info step as completed (for tracking progress)
+  Future<void> markPersonalInfoCompleted() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('personal_info_completed', true);
+  }
 }
 
 // Provider for OnboardingManager

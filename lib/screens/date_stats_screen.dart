@@ -5,6 +5,7 @@ import 'package:Wicore/states/stats_state.dart';
 import 'package:Wicore/styles/colors.dart';
 import 'package:Wicore/styles/text_styles.dart';
 import 'package:Wicore/utilities/diagonal_stripes_painter.dart';
+import 'package:Wicore/widgets/reusable_app_bar.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -59,6 +60,12 @@ class _DateStatsScreenState extends ConsumerState<DateStatsScreen> {
     return '${selectedDate.year.toString().substring(2)}.${selectedDate.month.toString().padLeft(2, '0')}.${selectedDate.day.toString().padLeft(2, '0')} / $weekday';
   }
 
+  String _formatDuration(double minutes) {
+    final hours = (minutes / 60).floor();
+    final remainingMinutes = (minutes % 60).round();
+    return hours > 0 ? '$hours시간 $remainingMinutes분' : '$remainingMinutes분';
+  }
+
   String _formatTimeDifference(String? startTime, String? endTime) {
     if (startTime == null ||
         endTime == null ||
@@ -79,6 +86,13 @@ class _DateStatsScreenState extends ConsumerState<DateStatsScreen> {
         print('🔧 ❌ Error parsing time: $e, start: $startTime, end: $endTime');
       return '0분';
     }
+  }
+
+  String _formatBreathRange(double? mean, double? std) {
+    if (mean == null || std == null) return '0 ± 0';
+    final min = (mean - std).clamp(0.0, 40.0).round();
+    final max = (mean + std).clamp(0.0, 40.0).round();
+    return '$min ~ $max';
   }
 
   String _getPostureGradeText(String? grade, int score) {
@@ -195,7 +209,7 @@ class _DateStatsScreenState extends ConsumerState<DateStatsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Date navigation
+                  // Date navigation - made more responsive
                   _buildDateNavigation(isSmallScreen),
                   SizedBox(height: isSmallScreen ? 16 : 20),
                   Expanded(
@@ -285,10 +299,6 @@ class _DateStatsScreenState extends ConsumerState<DateStatsScreen> {
     );
   }
 
-  // Copy all the other helper methods from your StatsScreen
-  // _buildContent, _buildDataContent, _buildInfoCard, _buildProgressBar, etc.
-  // (Same implementation as in your original StatsScreen)
-
   Widget _buildContent(
     StatsState statsState,
     bool isSmallScreen,
@@ -297,37 +307,190 @@ class _DateStatsScreenState extends ConsumerState<DateStatsScreen> {
     if (statsState.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
+
+    // Handle errors
     if (statsState.hasError) {
+      final errorMessage = statsState.error?.toLowerCase() ?? '';
+
+      // Check if it's a "no data available" type error
+      if (errorMessage.contains('no data') ||
+          errorMessage.contains('not found') ||
+          errorMessage.contains('no stats available') ||
+          errorMessage.contains('404') ||
+          errorMessage.contains('데이터가 없') ||
+          errorMessage.contains('기록이 없') ||
+          errorMessage.contains('no records') ||
+          errorMessage.contains('empty') ||
+          errorMessage.contains('null')) {
+        // Show the "no data" widget for data-related errors
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Flexible(
+              child: Text(
+                '아직은',
+                style: TextStyles.kSemiBold.copyWith(
+                  fontSize: isSmallScreen ? 24 : 32,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Flexible(
+              child: Text(
+                '기록된 내용이 없어요',
+                style: TextStyles.kSemiBold.copyWith(
+                  fontSize: isSmallScreen ? 24 : 32,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        );
+      }
+
+      // Check for network/connection errors
+      if (errorMessage.contains('network') ||
+          errorMessage.contains('connection') ||
+          errorMessage.contains('timeout') ||
+          errorMessage.contains('네트워크') ||
+          errorMessage.contains('연결') ||
+          errorMessage.contains('인터넷')) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Flexible(
+              child: Text(
+                '네트워크 오류',
+                style: TextStyles.kSemiBold.copyWith(
+                  fontSize: isSmallScreen ? 24 : 32,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
+              ),
+            ),
+            SizedBox(height: isSmallScreen ? 12 : 16),
+            Flexible(
+              child: Text(
+                '인터넷 연결을 확인해주세요',
+                style: TextStyles.kRegular,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 3,
+              ),
+            ),
+            SizedBox(height: isSmallScreen ? 12 : 16),
+            ElevatedButton(
+              onPressed: _loadStatsForSelectedDate,
+              child: const Text('다시 시도'),
+            ),
+          ],
+        );
+      }
+
+      // Check for authentication errors
+      if (errorMessage.contains('unauthorized') ||
+          errorMessage.contains('auth') ||
+          errorMessage.contains('login') ||
+          errorMessage.contains('401') ||
+          errorMessage.contains('403') ||
+          errorMessage.contains('권한') ||
+          errorMessage.contains('인증')) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Flexible(
+              child: Text(
+                '인증 오류',
+                style: TextStyles.kSemiBold.copyWith(
+                  fontSize: isSmallScreen ? 24 : 32,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
+              ),
+            ),
+            SizedBox(height: isSmallScreen ? 12 : 16),
+            Flexible(
+              child: Text(
+                '다시 로그인해주세요',
+                style: TextStyles.kRegular,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 3,
+              ),
+            ),
+            SizedBox(height: isSmallScreen ? 12 : 16),
+            ElevatedButton(
+              onPressed: () {
+                // Navigate to login or refresh auth
+                context.go('/login');
+              },
+              child: const Text('로그인'),
+            ),
+          ],
+        );
+      }
+
+      // Check for server errors
+      if (errorMessage.contains('500') ||
+          errorMessage.contains('server') ||
+          errorMessage.contains('internal') ||
+          errorMessage.contains('서버')) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Flexible(
+              child: Text(
+                '서버 오류',
+                style: TextStyles.kSemiBold.copyWith(
+                  fontSize: isSmallScreen ? 24 : 32,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
+              ),
+            ),
+            SizedBox(height: isSmallScreen ? 12 : 16),
+            Flexible(
+              child: Text(
+                '잠시 후 다시 시도해주세요',
+                style: TextStyles.kRegular,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 3,
+              ),
+            ),
+            SizedBox(height: isSmallScreen ? 12 : 16),
+            ElevatedButton(
+              onPressed: _loadStatsForSelectedDate,
+              child: const Text('다시 시도'),
+            ),
+          ],
+        );
+      }
+
+      // For any other error, show the "no data" widget as fallback
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Flexible(
             child: Text(
-              '오류가 발생했습니다',
+              '아직은',
               style: TextStyles.kSemiBold.copyWith(
                 fontSize: isSmallScreen ? 24 : 32,
               ),
               overflow: TextOverflow.ellipsis,
-              maxLines: 2,
             ),
           ),
-          SizedBox(height: isSmallScreen ? 12 : 16),
           Flexible(
             child: Text(
-              statsState.error ?? '알 수 없는 오류',
-              style: TextStyles.kRegular,
+              '기록된 내용이 없어요',
+              style: TextStyles.kSemiBold.copyWith(
+                fontSize: isSmallScreen ? 24 : 32,
+              ),
               overflow: TextOverflow.ellipsis,
-              maxLines: 3,
             ),
-          ),
-          SizedBox(height: isSmallScreen ? 12 : 16),
-          ElevatedButton(
-            onPressed: _loadStatsForSelectedDate,
-            child: const Text('다시 시도'),
           ),
         ],
       );
     }
+
+    // Handle no data case (when API succeeds but returns empty/null data)
     if (!statsState.hasData) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -353,6 +516,7 @@ class _DateStatsScreenState extends ConsumerState<DateStatsScreen> {
         ],
       );
     }
+
     return _buildDataContent(statsState, isSmallScreen, constraints);
   }
 
@@ -387,6 +551,22 @@ class _DateStatsScreenState extends ConsumerState<DateStatsScreen> {
             isSmallScreen: isSmallScreen,
           ),
           SizedBox(height: cardSpacing),
+
+          _buildInfoCard(
+            title: '총 활동량에서 로봇이 도와준 활동량',
+            value: (stats?.lmaCalories ?? 0).toString(),
+            unit: '칼로리',
+            showProgressBar: true,
+            progressValue: 0.8,
+            progressColor: Colors.grey.shade800,
+            hasStripes: true,
+            stripeWidth: ((stats?.lmaCalories ?? 0) /
+                    (stats?.totalCalories ?? 1))
+                .clamp(0.0, 0.8),
+            stripeColor: CustomColors.limeGreen,
+            isSmallScreen: isSmallScreen,
+          ),
+          SizedBox(height: cardSpacing),
           _buildInfoCard(
             title: '작업자세 점수',
             value: (stats?.postureScore ?? 0).toString(),
@@ -404,20 +584,28 @@ class _DateStatsScreenState extends ConsumerState<DateStatsScreen> {
           ),
           SizedBox(height: cardSpacing),
           _buildInfoCard(
-            title: '총 활동량에서 로봇이 도와준 활동량',
-            value: (stats?.lmaCalories ?? 0).toString(),
-            unit: '칼로리',
-            showProgressBar: true,
-            progressValue: 0.8,
-            progressColor: Colors.grey.shade800,
-            hasStripes: true,
-            stripeWidth: ((stats?.lmaCalories ?? 0) /
-                    (stats?.totalCalories ?? 1))
-                .clamp(0.0, 0.8),
-            stripeColor: CustomColors.limeGreen,
             isSmallScreen: isSmallScreen,
+            title: '호흡(분당)',
+            value: _formatBreathRange(stats?.breathMean, stats?.breathStd),
+            unit: '회',
+            showProgressBar: true,
+            // Update these values to represent start and end points of range
+            progressMinValue:
+                ((stats?.breathMean ?? 0.0) - (stats?.breathStd ?? 0.0)).clamp(
+                  0.0,
+                  40.0,
+                ) /
+                40.0,
+            progressValue:
+                ((stats?.breathMean ?? 0.0) + (stats?.breathStd ?? 0.0)).clamp(
+                  0.0,
+                  40.0,
+                ) /
+                40.0,
+            progressColor: Colors.grey.shade800,
           ),
-          SizedBox(height: cardSpacing),
+
+          const SizedBox(height: 16),
           _buildInfoCard(
             title: '걸음',
             value: (stats?.totalSteps ?? 0).toStringAsFixed(0),
@@ -431,6 +619,7 @@ class _DateStatsScreenState extends ConsumerState<DateStatsScreen> {
             unit: '키로미터',
             isSmallScreen: isSmallScreen,
           ),
+          // Add bottom padding to ensure last item is not cut off
           SizedBox(height: isSmallScreen ? 16 : 24),
         ],
       ),
@@ -510,13 +699,21 @@ class _DateStatsScreenState extends ConsumerState<DateStatsScreen> {
                       maxLines: 2,
                     ),
                   ),
+
                   if (showProgressBar) ...[
                     SizedBox(width: isSmallScreen ? 8 : 16),
                     Flexible(
                       flex: 2,
-                      child: Container(
-                        height: 20,
-                      ), // Placeholder for progress bar
+                      child: _buildProgressBar(
+                        progressValue,
+                        progressMinValue,
+                        progressColor,
+                        hasStripes,
+                        stripeWidth,
+                        stripeColor,
+                        title,
+                        isSmallScreen,
+                      ),
                     ),
                   ],
                   if (!showProgressBar) const Spacer(),
@@ -546,6 +743,104 @@ class _DateStatsScreenState extends ConsumerState<DateStatsScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildProgressBar(
+    double progressValue,
+    double progressMinValue,
+    Color? progressColor,
+    bool hasStripes,
+    double stripeWidth,
+    Color? stripeColor,
+    String title,
+    bool isSmallScreen,
+  ) {
+    final barHeight = isSmallScreen ? 16.0 : 20.0;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final containerWidth = constraints.maxWidth;
+        return Container(
+          height: barHeight,
+          decoration: BoxDecoration(
+            color: Colors.grey.shade300,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Stack(
+            children: [
+              // Base background (gray)
+              Container(
+                height: barHeight,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+
+              // Only show range bar if this is the breath card
+              if (title == '호흡(분당)')
+                Positioned(
+                  left: progressMinValue * containerWidth,
+                  child: Container(
+                    width: (progressValue - progressMinValue) * containerWidth,
+                    height: barHeight,
+                    decoration: BoxDecoration(
+                      color: progressColor ?? Colors.grey.shade800,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+
+              // Show normal progress bar for other cases
+              if (title != '호흡(분당)')
+                FractionallySizedBox(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: progressValue,
+                  child: Container(
+                    height: barHeight,
+                    decoration: BoxDecoration(
+                      color: progressColor ?? Colors.grey.shade800,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+
+              // Keep existing stripe logic for other progress bars
+              if (hasStripes && stripeWidth > 0 && title != '호흡(분당)')
+                Positioned(
+                  left:
+                      (progressValue - stripeWidth).clamp(0.0, 1.0) *
+                      containerWidth,
+                  child: Container(
+                    width: stripeWidth * containerWidth,
+                    height: barHeight,
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.only(
+                        topRight: Radius.circular(4),
+                        bottomRight: Radius.circular(4),
+                      ),
+                      child: Stack(
+                        children: [
+                          Container(color: CustomColors.limeGreen),
+                          CustomPaint(
+                            painter: DiagonalStripesPainter(
+                              color: Colors.black,
+                              strokeWidth: 1.0,
+                              spacing: 6.0,
+                              isReversed: true,
+                            ),
+                            size: Size.infinite,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
