@@ -4,6 +4,7 @@ import 'package:Wicore/models/user_update_request_model.dart';
 import 'package:Wicore/providers/authentication_provider.dart';
 import 'package:Wicore/repository/user_repository.dart';
 import 'package:Wicore/services/user_api_client.dart';
+import 'package:Wicore/states/auth_status.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
@@ -105,8 +106,8 @@ class UserNotifier extends StateNotifier<AsyncValue<UserResponse?>> {
       state = AsyncValue.error(error, stackTrace);
     }
   }
-  // Replace your updateCurrentUserProfile method in UserNotifier with this:
 
+  // ✅ ENHANCED: Replace your updateCurrentUserProfile method with this:
   Future<void> updateCurrentUserProfile(UserUpdateRequest request) async {
     try {
       print(
@@ -172,11 +173,20 @@ class UserNotifier extends StateNotifier<AsyncValue<UserResponse?>> {
     }
   }
 
-  // ✅ Also update getCurrentUserProfile to be more robust:
+  // ✅ ENHANCED: Better error handling in getCurrentUserProfile
   Future<void> getCurrentUserProfile() async {
     try {
       print('🔧 🔄 UserNotifier - Loading current user profile');
-      state = const AsyncValue.loading();
+
+      // Don't set loading state if we already have data (prevents UI flicker)
+      final hasExistingData = state.maybeWhen(
+        data: (response) => response?.data != null,
+        orElse: () => false,
+      );
+
+      if (!hasExistingData) {
+        state = const AsyncValue.loading();
+      }
 
       final authNotifier = _ref.read(authNotifierProvider.notifier);
       final token = await authNotifier.getValidToken();
@@ -188,18 +198,24 @@ class UserNotifier extends StateNotifier<AsyncValue<UserResponse?>> {
       final userData = authState.userData;
 
       if (userData?.id == null && userData?.username == null) {
-        throw Exception('No user ID available');
+        throw Exception('No user ID available in auth state');
       }
 
       final userId = userData?.id ?? userData?.username ?? '';
       print('🔧 🔍 UserNotifier - Fetching profile for user ID: $userId');
+      print('🔧 🔍 UserNotifier - Auth user data: ${userData!}');
 
       final response = await _repository.getUser(userId);
 
       if (response != null) {
         state = AsyncValue.data(response);
         print('🔧 ✅ UserNotifier - Current user profile loaded successfully');
-        print('🔧 📊 UserNotifier - User data: ${response.data?.toJson()}');
+        print(
+          '🔧 📊 UserNotifier - Onboarded status: ${response.data?.onboarded}',
+        );
+        print(
+          '🔧 📊 UserNotifier - Full user data: ${response.data?.toJson()}',
+        );
       } else {
         print('🔧 ⚠️ UserNotifier - Received null response for user profile');
         state = const AsyncValue.data(null);
@@ -207,7 +223,18 @@ class UserNotifier extends StateNotifier<AsyncValue<UserResponse?>> {
     } catch (error, stackTrace) {
       print('🔧 ❌ UserNotifier - Error getting current user profile: $error');
       print('🔧 📚 Stack trace: $stackTrace');
-      state = AsyncValue.error(error, stackTrace);
+
+      // Don't overwrite existing data with error state unless it's a critical error
+      final hasExistingData = state.maybeWhen(
+        data: (response) => response?.data != null,
+        orElse: () => false,
+      );
+
+      if (!hasExistingData) {
+        state = AsyncValue.error(error, stackTrace);
+      } else {
+        print('🔧 ⚠️ UserNotifier - Keeping existing data, error logged');
+      }
     }
   }
 
@@ -243,7 +270,9 @@ class UserNotifier extends StateNotifier<AsyncValue<UserResponse?>> {
   // Helper method to check if user is onboarded
   bool get isOnboarded {
     final user = currentUser;
-    return user?.onboarded ?? false;
+    final onboarded = user?.onboarded ?? false;
+    print('🔧 📊 UserNotifier - isOnboarded getter: $onboarded');
+    return onboarded;
   }
 }
 
@@ -259,26 +288,80 @@ final currentUserProfileProvider = Provider<AsyncValue<UserResponse?>>((ref) {
   return ref.watch(userProvider);
 });
 
-// Provider to automatically fetch current user profile when authenticated
+// ✅ ENHANCED: Improved auto-fetch provider with better timing and error handling
 final autoFetchCurrentUserProvider = Provider<void>((ref) {
   final isAuthenticated = ref.watch(isAuthenticatedProvider);
+  final authState = ref.watch(authNotifierProvider);
 
-  ref.listen<bool>(isAuthenticatedProvider, (previous, next) {
+  // Listen for authentication changes
+  ref.listen<bool>(isAuthenticatedProvider, (previous, next) async {
+    print('🔧 📡 Auto-fetch - Auth state changed: $previous -> $next');
+
     if (next && (previous == false)) {
-      print('🔧 🔄 Auto-fetching user profile on authentication');
-      Future.microtask(() {
-        ref.read(userProvider.notifier).getCurrentUserProfile();
-      });
+      print('🔧 📡 Auto-fetch - User just authenticated, fetching profile');
+
+      // Small delay to ensure auth state is fully settled
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      try {
+        await ref.read(userProvider.notifier).getCurrentUserProfile();
+        print('🔧 ✅ Auto-fetch - User profile loaded successfully');
+      } catch (error) {
+        print('🔧 ❌ Auto-fetch - Error loading user profile: $error');
+
+        // Retry once after a delay
+        await Future.delayed(const Duration(seconds: 1));
+        try {
+          await ref.read(userProvider.notifier).getCurrentUserProfile();
+          print('🔧 ✅ Auto-fetch - User profile loaded on retry');
+        } catch (retryError) {
+          print('🔧 ❌ Auto-fetch - Retry failed: $retryError');
+        }
+      }
     } else if (!next && (previous == true)) {
-      print('🔧 🧹 Clearing user state on logout');
+      print('🔧 🧹 Auto-fetch - User logged out, clearing user state');
       ref.read(userProvider.notifier).clearState();
     }
   });
 
-  if (isAuthenticated) {
-    Future.microtask(() {
-      ref.read(userProvider.notifier).getCurrentUserProfile();
-    });
+  // Initial fetch if already authenticated
+  if (isAuthenticated && authState.status == AuthStatus.authenticated) {
+    final currentUserState = ref.read(userProvider);
+
+    // Only fetch if we don't already have user data
+    currentUserState.whenOrNull(
+      data: (response) {
+        if (response?.data == null) {
+          print(
+            '🔧 📡 Auto-fetch - No user data found, fetching initial profile',
+          );
+          Future.microtask(() async {
+            try {
+              await ref.read(userProvider.notifier).getCurrentUserProfile();
+              print('🔧 ✅ Auto-fetch - Initial user profile loaded');
+            } catch (error) {
+              print('🔧 ❌ Auto-fetch - Error loading initial profile: $error');
+            }
+          });
+        } else {
+          print('🔧 ✅ Auto-fetch - User data already available');
+          print('🔧 📊 Auto-fetch - Onboarded: ${response?.data?.onboarded}');
+        }
+      },
+    );
+
+    // If state is loading or error, try to fetch
+    if (currentUserState is AsyncLoading || currentUserState is AsyncError) {
+      print('🔧 📡 Auto-fetch - User state is loading/error, fetching profile');
+      Future.microtask(() async {
+        try {
+          await ref.read(userProvider.notifier).getCurrentUserProfile();
+          print('🔧 ✅ Auto-fetch - User profile refreshed');
+        } catch (error) {
+          print('🔧 ❌ Auto-fetch - Error refreshing profile: $error');
+        }
+      });
+    }
   }
 
   return;
@@ -287,25 +370,38 @@ final autoFetchCurrentUserProvider = Provider<void>((ref) {
 // Helper provider to check if current user profile is loaded
 final isCurrentUserProfileLoadedProvider = Provider<bool>((ref) {
   final userState = ref.watch(userProvider);
-  return userState.maybeWhen(
+  final isLoaded = userState.maybeWhen(
     data: (response) => response?.data != null,
     orElse: () => false,
   );
+  print('🔧 📊 isCurrentUserProfileLoadedProvider - $isLoaded');
+  return isLoaded;
 });
 
 // Helper provider to get current user data from profile
 final currentUserDataProvider = Provider<UserItem?>((ref) {
   final userState = ref.watch(userProvider);
-  return userState.maybeWhen(
+  final userData = userState.maybeWhen(
     data: (response) => response?.data,
     orElse: () => null,
   );
+  print('🔧 📊 currentUserDataProvider - onboarded: ${userData?.onboarded}');
+  return userData;
+});
+
+// ✅ ENHANCED: Helper provider to get onboarded status specifically
+final isUserOnboardedProvider = Provider<bool>((ref) {
+  final userData = ref.watch(currentUserDataProvider);
+  final isOnboarded = userData?.onboarded ?? false;
+  print('🔧 📊 isUserOnboardedProvider - $isOnboarded');
+  return isOnboarded;
 });
 
 // Helper provider to clear user data when signing out
 final userAuthStateListener = Provider<void>((ref) {
   ref.listen<bool>(isAuthenticatedProvider, (previous, next) {
     if (!next && (previous == true)) {
+      print('🔧 🧹 userAuthStateListener - Clearing user state on logout');
       ref.read(userProvider.notifier).clearState();
     }
   });

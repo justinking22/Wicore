@@ -18,20 +18,31 @@ class UserRepository {
   Future<UserResponse> createUser(UserRequest request) async {
     try {
       print('🔧 Repository - Creating user');
-      return await _apiClient.createUser(request);
+      final response = await _apiClient.createUser(request);
+      print('🔧 ✅ Repository - User created successfully');
+      return response;
     } on DioException catch (e) {
       print('🔧 ❌ Repository - Error creating user: $e');
       throw _handleDioError(e);
+    } catch (error) {
+      print('🔧 ❌ Repository - Unexpected error creating user: $error');
+      rethrow;
     }
   }
 
   Future<UserResponse> getUser(String userId) async {
     try {
       print('🔧 Repository - Getting user: $userId');
-      return await _apiClient.getUser(userId);
+      final response = await _apiClient.getUser(userId);
+      print('🔧 ✅ Repository - User retrieved successfully');
+      print('🔧 📊 Repository - User onboarded: ${response.data?.onboarded}');
+      return response;
     } on DioException catch (e) {
       print('🔧 ❌ Repository - Error getting user: $e');
       throw _handleDioError(e);
+    } catch (error) {
+      print('🔧 ❌ Repository - Unexpected error getting user: $error');
+      rethrow;
     }
   }
 
@@ -51,6 +62,7 @@ class UserRepository {
       // Try the generated client method
       final response = await _apiClient.updateUser(userId, request);
       print('🔧 ✅ Repository - Generated client update successful');
+      print('🔧 📊 Repository - Update response code: ${response.code}');
       return response;
     } catch (error) {
       print('🔧 🔍 Repository - Caught error from generated client: $error');
@@ -93,15 +105,24 @@ class UserRepository {
   Future<UserResponse> deleteUser(String userId) async {
     try {
       print('🔧 Repository - Deleting user: $userId');
-      return await _apiClient.deleteUser(userId);
+      final response = await _apiClient.deleteUser(userId);
+      print('🔧 ✅ Repository - User deleted successfully');
+      return response;
     } on DioException catch (e) {
       print('🔧 ❌ Repository - Error deleting user: $e');
       throw _handleDioError(e);
+    } catch (error) {
+      print('🔧 ❌ Repository - Unexpected error deleting user: $error');
+      rethrow;
     }
   }
 
-  // Enhanced error handling
+  // ✅ ENHANCED: Enhanced error handling with better logging
   Exception _handleDioError(DioException e) {
+    print('🔧 🔍 Repository - Handling DioException: ${e.type}');
+    print('🔧 🔍 Repository - Status code: ${e.response?.statusCode}');
+    print('🔧 🔍 Repository - Response data: ${e.response?.data}');
+
     switch (e.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
@@ -111,10 +132,12 @@ class UserRepository {
         );
       case DioExceptionType.badResponse:
         if (e.response?.statusCode == 401) {
+          print('🔧 🔐 Repository - 401 Unauthorized, clearing auth state');
           try {
             _ref.read(authNotifierProvider.notifier).setUnauthenticated();
           } catch (authError) {
-            if (kDebugMode) print('Error setting unauthenticated: $authError');
+            if (kDebugMode)
+              print('🔧 ❌ Error setting unauthenticated: $authError');
           }
           return Exception('Authentication failed. Please sign in again.');
         }
@@ -137,7 +160,10 @@ class UserRepository {
           try {
             final errorResponse = UserErrorResponse.fromJson(e.response!.data);
             return Exception('API Error: ${errorResponse.msg}');
-          } catch (_) {
+          } catch (parseError) {
+            print(
+              '🔧 ⚠️ Repository - Could not parse error response: $parseError',
+            );
             // If we can't parse the error response, return generic error
             return Exception('Server error: ${e.response?.statusCode}');
           }
@@ -159,15 +185,20 @@ class UserRepository {
     }
   }
 
-  // Optional: Helper method to validate UserUpdateRequest
+  // ✅ ENHANCED: Helper method to validate UserUpdateRequest
   bool _isValidUpdateRequest(UserUpdateRequest request) {
     // Add any custom validation logic here
-    if (request.isEmpty) return false;
+    if (request.isEmpty) {
+      print('🔧 ⚠️ Repository - Update request is empty');
+      return false;
+    }
 
+    // Add more validation as needed
+    print('🔧 ✅ Repository - Update request is valid');
     return true;
   }
 
-  // Optional: Enhanced update method with validation
+  // ✅ ENHANCED: Enhanced update method with validation
   Future<UserResponse> updateUserWithValidation(
     String userId,
     UserUpdateRequest request,
@@ -177,6 +208,32 @@ class UserRepository {
     }
 
     return updateUser(userId, request);
+  }
+
+  // ✅ NEW: Helper method to refresh user data after operations
+  Future<UserResponse> refreshUserData(String userId) async {
+    try {
+      print('🔧 🔄 Repository - Refreshing user data for: $userId');
+      final response = await getUser(userId);
+      print('🔧 ✅ Repository - User data refreshed successfully');
+      return response;
+    } catch (error) {
+      print('🔧 ❌ Repository - Error refreshing user data: $error');
+      rethrow;
+    }
+  }
+
+  // ✅ NEW: Helper method to check if user exists
+  Future<bool> userExists(String userId) async {
+    try {
+      await getUser(userId);
+      return true;
+    } catch (error) {
+      print(
+        '🔧 🔍 Repository - User $userId does not exist or error occurred: $error',
+      );
+      return false;
+    }
   }
 }
 

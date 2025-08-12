@@ -35,8 +35,19 @@ class _DateStatsScreenState extends ConsumerState<DateStatsScreen> {
   }
 
   void _loadStatsForSelectedDate() {
+    // Format date as YYYY-MM-DD with zero-padding
     final dateString =
-        '${selectedDate.year}-${selectedDate.month}-${selectedDate.day}';
+        '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}';
+
+    print('🔧 Loading stats for date: $dateString'); // Debug log
+    ref.read(statsNotifierProvider.notifier).loadStatsForDate(dateString);
+  }
+
+  // Alternative using DateFormat (more robust)
+  void _loadStatsForSelectedDateAlternative() {
+    final dateString = DateFormat('yyyy-MM-dd').format(selectedDate);
+
+    print('🔧 Loading stats for date: $dateString'); // Debug log
     ref.read(statsNotifierProvider.notifier).loadStatsForDate(dateString);
   }
 

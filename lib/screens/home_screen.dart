@@ -6,12 +6,11 @@ import 'package:Wicore/modals/qr_scan_info_modal_bottom_sheet.dart';
 import 'package:Wicore/widgets/reusable_app_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-// REMOVED: import 'package:permission_handler/permission_handler.dart';
-// REMOVED: import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:Wicore/providers/device_provider.dart';
 import 'package:Wicore/states/device_state.dart';
 import 'dart:io';
+import 'dart:math' as math;
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -247,98 +246,157 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     print('  - pairedDevice: ${pairedDevice?.deviceId}');
     print('  - _showDeviceDetails: $_showDeviceDetails');
 
-    return Container(
-      color: Colors.white,
-      child: SingleChildScrollView(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            minHeight: MediaQuery.of(context).size.height,
-          ),
-          child: IntrinsicHeight(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(height: 140),
-                  Text(
-                    '기기를 연결하려면\n접근 허용이 필요해요',
-                    style: TextStyles.kSemiBold.copyWith(
-                      fontSize: 32,
-                      height: 1.3,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    '블루투스(기기연결)와 카메라(QR촬영)가\n필요하며 그 외에는 사용되지 않습니다.',
-                    style: TextStyles.kMedium.copyWith(
-                      color: CustomColors.lightGray,
-                    ),
-                  ),
-                  RichText(
-                    text: TextSpan(
-                      style: TextStyles.kMedium,
-                      children: [
-                        TextSpan(
-                          text: Platform.isIOS ? '설정에서 ' : '알림창의 ',
-                          style: TextStyles.kMedium.copyWith(color: Colors.red),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableHeight = constraints.maxHeight;
+        final availableWidth = constraints.maxWidth;
+        final safePadding = MediaQuery.of(context).padding;
+
+        // Calculate responsive dimensions
+        final topPadding =
+            math.max(safePadding.top + 40, availableHeight * 0.15).toDouble();
+        final bottomPadding =
+            math.max(safePadding.bottom + 24, 60.0).toDouble();
+        final horizontalPadding =
+            math.max(24.0, availableWidth * 0.06).toDouble();
+
+        // Calculate available space for content
+        final contentHeight =
+            availableHeight -
+            topPadding -
+            bottomPadding -
+            80; // 80 for button + spacing
+
+        // Responsive font sizes
+        final titleFontSize =
+            math.min(32, math.max(24, availableWidth * 0.08)).toDouble();
+        final bodyFontSize =
+            math.min(16, math.max(14, availableWidth * 0.04)).toDouble();
+
+        return Container(
+          color: Colors.white,
+          height: availableHeight,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(height: topPadding),
+
+                // Main content area - flexible
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '기기를 연결하려면\n접근 허용이 필요해요',
+                        style: TextStyles.kSemiBold.copyWith(
+                          fontSize: titleFontSize,
+                          height: 1.3,
                         ),
-                        TextSpan(
-                          text: Platform.isIOS ? '【권한 허용】' : '【허용】',
-                          style: TextStyle(
-                            color: Colors.red,
-                            fontWeight: FontWeight.bold,
+                      ),
+                      SizedBox(
+                        height:
+                            math.max(20, availableHeight * 0.025).toDouble(),
+                      ),
+
+                      Text(
+                        '블루투스(기기연결)와 카메라(QR촬영)가\n필요하며 그 외에는 사용되지 않습니다.',
+                        style: TextStyles.kMedium.copyWith(
+                          color: CustomColors.lightGray,
+                          fontSize: bodyFontSize,
+                        ),
+                      ),
+                      SizedBox(
+                        height:
+                            math.max(12, availableHeight * 0.015).toDouble(),
+                      ),
+
+                      RichText(
+                        text: TextSpan(
+                          style: TextStyles.kMedium.copyWith(
+                            fontSize: bodyFontSize,
                           ),
-                        ),
-                        if (!Platform.isIOS) ...[
-                          TextSpan(
-                            text: ' 또는 ',
-                            style: TextStyles.kMedium.copyWith(
-                              color: Colors.red,
+                          children: [
+                            TextSpan(
+                              text: Platform.isIOS ? '설정에서 ' : '알림창의 ',
+                              style: TextStyles.kMedium.copyWith(
+                                color: Colors.red,
+                                fontSize: bodyFontSize,
+                              ),
                             ),
-                          ),
-                          TextSpan(
-                            text: '【허가】',
-                            style: TextStyle(
-                              color: Colors.red,
-                              fontWeight: FontWeight.bold,
+                            TextSpan(
+                              text: Platform.isIOS ? '【권한 허용】' : '【허용】',
+                              style: TextStyle(
+                                color: Colors.red,
+                                fontWeight: FontWeight.bold,
+                                fontSize: bodyFontSize,
+                              ),
                             ),
-                          ),
-                        ],
-                        TextSpan(
-                          text: ' 을 눌러주세요.',
-                          style: TextStyles.kMedium.copyWith(color: Colors.red),
+                            if (!Platform.isIOS) ...[
+                              TextSpan(
+                                text: ' 또는 ',
+                                style: TextStyles.kMedium.copyWith(
+                                  color: Colors.red,
+                                  fontSize: bodyFontSize,
+                                ),
+                              ),
+                              TextSpan(
+                                text: '【허가】',
+                                style: TextStyle(
+                                  color: Colors.red,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: bodyFontSize,
+                                ),
+                              ),
+                            ],
+                            TextSpan(
+                              text: ' 을 눌러주세요.',
+                              style: TextStyles.kMedium.copyWith(
+                                color: Colors.red,
+                                fontSize: bodyFontSize,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 40),
-                  // Add more content here if needed - it will all be scrollable
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.only(bottom: 24.0),
-                    child: SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: OutlinedButton(
-                        onPressed: _startQRScanning,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.black,
-                          side: const BorderSide(color: Colors.black),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                ),
+
+                // Bottom button - fixed position
+                Container(
+                  padding: EdgeInsets.only(bottom: bottomPadding),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: math.max(56, availableHeight * 0.07).toDouble(),
+                    child: OutlinedButton(
+                      onPressed: _startQRScanning,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.black,
+                        side: const BorderSide(color: Colors.black),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text('확인했습니다', style: TextStyles.kSemiBold),
+                      ),
+                      child: Text(
+                        '확인했습니다',
+                        style: TextStyles.kSemiBold.copyWith(
+                          fontSize:
+                              math
+                                  .min(16, math.max(14, availableWidth * 0.04))
+                                  .toDouble(),
+                        ),
                       ),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 

@@ -284,43 +284,39 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
 
     return Container(
       color: Colors.white,
-      child: SingleChildScrollView(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            minHeight:
-                MediaQuery.of(context).size.height -
-                MediaQuery.of(context).padding.top -
-                kToolbarHeight,
-          ),
-          child: IntrinsicHeight(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 60),
+
+              // Device ID Section
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const SizedBox(height: 60),
-
-                  // Device ID Section
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '기기번호',
-                        style: TextStyles.kMedium.copyWith(fontSize: 18),
-                      ),
-                      Text(
-                        deviceId,
-                        style: TextStyles.kRegular.copyWith(
-                          color: Color(0xFF666666),
-                        ),
-                      ),
-                    ],
+                  Text(
+                    '기기번호',
+                    style: TextStyles.kMedium.copyWith(fontSize: 18),
                   ),
+                  Text(
+                    deviceId,
+                    style: TextStyles.kRegular.copyWith(
+                      color: Color(0xFF666666),
+                    ),
+                  ),
+                ],
+              ),
 
-                  const SizedBox(height: 10),
+              const SizedBox(height: 10),
 
-                  // Device Image Area
-                  DottedBorder(
+              // Device Image Area - Flexible to take available space
+              Flexible(
+                flex: 3,
+                child: Container(
+                  width: double.infinity,
+                  child: DottedBorder(
                     options: RoundedRectDottedBorderOptions(
                       color: Colors.grey[400]!,
                       strokeWidth: 2,
@@ -330,7 +326,6 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
                     ),
                     child: Container(
                       width: double.infinity,
-                      height: 320,
                       child: Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -365,160 +360,155 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
                       ),
                     ),
                   ),
+                ),
+              ),
 
-                  const SizedBox(height: 40),
+              const SizedBox(height: 40),
 
-                  // Battery Section with improved centering
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment:
-                        CrossAxisAlignment
-                            .center, // Add this for better vertical alignment
-                    children: [
-                      Expanded(
-                        flex: 2,
-                        child: Row(
-                          crossAxisAlignment:
-                              CrossAxisAlignment
-                                  .center, // Center align all elements
-                          children: [
-                            Text(
-                              '배터리',
-                              style: TextStyles.kMedium.copyWith(
-                                fontSize: 16,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            const SizedBox(
-                              width: 12,
-                            ), // Slightly increased spacing
-                            if (isLoadingBattery)
-                              Container(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            else
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.baseline,
-                                textBaseline:
-                                    TextBaseline
-                                        .alphabetic, // Align baselines for better text alignment
-                                children: [
-                                  Text(
-                                    '$batteryLevel',
-                                    style: TextStyles.kSemiBold.copyWith(
-                                      fontSize: 32,
-                                      color: Colors.black,
-                                      height:
-                                          1.0, // Control line height for better alignment
-                                    ),
-                                  ),
-                                  Text(
-                                    ' %',
-                                    style: TextStyles.kMedium.copyWith(
-                                      fontSize: 16,
-                                      color: Colors.black87,
-                                      height: 1.0, // Match line height
-                                    ),
-                                  ),
-                                ],
-                              ),
-                          ],
-                        ),
-                      ),
-                      // Battery status button with proper centering
-                      Container(
-                        height: 36,
-                        constraints: BoxConstraints(
-                          minWidth:
-                              80, // Ensure minimum width for consistent button size
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _getBatteryButtonColor(batteryLevel),
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: Center(
-                          // Explicitly center the text
-                          child: Text(
-                            _getBatteryButtonText(batteryLevel),
-                            style: TextStyles.kRegular.copyWith(
-                              color: Colors.black,
-                              height: 1.0, // Control line height
-                            ),
-                            textAlign:
-                                TextAlign.center, // Center align the text
-                            overflow:
-                                TextOverflow
-                                    .ellipsis, // Handle overflow gracefully
-                            maxLines: 1,
+              // Battery Section with improved centering
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment:
+                    CrossAxisAlignment
+                        .center, // Add this for better vertical alignment
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: Row(
+                      crossAxisAlignment:
+                          CrossAxisAlignment
+                              .center, // Center align all elements
+                      children: [
+                        Text(
+                          '배터리',
+                          style: TextStyles.kMedium.copyWith(
+                            fontSize: 16,
+                            color: Colors.black87,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 16),
-                  Divider(),
-                  const SizedBox(height: 16),
-
-                  // Signal Strength Section
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '출력값(강도)',
-                        style: TextStyles.kMedium.copyWith(
-                          fontSize: 16,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Signal Strength Buttons
-                  Container(
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        _buildStrengthButton(
-                          "약",
-                          effectiveDisplayStrength == 0,
-                          effectiveDisplayStrength,
-                        ),
-                        _buildStrengthButton(
-                          "중",
-                          effectiveDisplayStrength == 1,
-                          effectiveDisplayStrength,
-                        ),
-                        _buildStrengthButton(
-                          "강",
-                          effectiveDisplayStrength == 2,
-                          effectiveDisplayStrength,
-                        ),
+                        const SizedBox(width: 12), // Slightly increased spacing
+                        if (isLoadingBattery)
+                          Container(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        else
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline:
+                                TextBaseline
+                                    .alphabetic, // Align baselines for better text alignment
+                            children: [
+                              Text(
+                                '$batteryLevel',
+                                style: TextStyles.kSemiBold.copyWith(
+                                  fontSize: 32,
+                                  color: Colors.black,
+                                  height:
+                                      1.0, // Control line height for better alignment
+                                ),
+                              ),
+                              Text(
+                                ' %',
+                                style: TextStyles.kMedium.copyWith(
+                                  fontSize: 16,
+                                  color: Colors.black87,
+                                  height: 1.0, // Match line height
+                                ),
+                              ),
+                            ],
+                          ),
                       ],
                     ),
                   ),
-
-                  const SizedBox(height: 16),
-
-                  // Status info with last update time
-                  const SizedBox(height: 40),
+                  // Battery status button with proper centering
+                  Container(
+                    height: 36,
+                    constraints: BoxConstraints(
+                      minWidth:
+                          80, // Ensure minimum width for consistent button size
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _getBatteryButtonColor(batteryLevel),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Center(
+                      // Explicitly center the text
+                      child: Text(
+                        _getBatteryButtonText(batteryLevel),
+                        style: TextStyles.kRegular.copyWith(
+                          color: Colors.black,
+                          height: 1.0, // Control line height
+                        ),
+                        textAlign: TextAlign.center, // Center align the text
+                        overflow:
+                            TextOverflow.ellipsis, // Handle overflow gracefully
+                        maxLines: 1,
+                      ),
+                    ),
+                  ),
                 ],
               ),
-            ),
+
+              const SizedBox(height: 16),
+              Divider(),
+              const SizedBox(height: 16),
+
+              // Signal Strength Section
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '출력값(강도)',
+                    style: TextStyles.kMedium.copyWith(
+                      fontSize: 16,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              // Signal Strength Buttons
+              Container(
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    _buildStrengthButton(
+                      "약",
+                      effectiveDisplayStrength == 0,
+                      effectiveDisplayStrength,
+                    ),
+                    _buildStrengthButton(
+                      "중",
+                      effectiveDisplayStrength == 1,
+                      effectiveDisplayStrength,
+                    ),
+                    _buildStrengthButton(
+                      "강",
+                      effectiveDisplayStrength == 2,
+                      effectiveDisplayStrength,
+                    ),
+                  ],
+                ),
+              ),
+
+              // Bottom spacing - flexible to push content up if needed
+              Flexible(
+                flex: 1,
+                child: Container(constraints: BoxConstraints(minHeight: 40)),
+              ),
+            ],
           ),
         ),
       ),

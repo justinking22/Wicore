@@ -1,5 +1,6 @@
 import 'package:Wicore/app_router.dart';
 import 'package:Wicore/providers/authentication_provider.dart';
+import 'package:Wicore/providers/user_provider.dart'; // ✅ Added this import
 import 'package:Wicore/states/auth_status.dart';
 import 'package:Wicore/states/app_initialization_state.dart';
 import 'package:flutter/material.dart';
@@ -11,7 +12,6 @@ import 'package:amplify_api/amplify_api.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 
 import 'services/config_service.dart';
-// ✅ Added missing imports
 import 'models/user_model.dart';
 
 void main() async {
@@ -46,7 +46,7 @@ class AppInitializationNotifier extends StateNotifier<AppInitializationState> {
 
   Future<void> _initializeApp() async {
     try {
-      debugPrint('🔄 Starting app initialization...');
+      print('🔄 Starting app initialization...');
 
       // First load the configuration
       await _configService.loadConfig();
@@ -58,7 +58,7 @@ class AppInitializationNotifier extends StateNotifier<AppInitializationState> {
         throw Exception('No API endpoint found in configuration');
       }
 
-      debugPrint('✅ Configuration loaded, API URL: $apiBaseUrl');
+      print('✅ Configuration loaded, API URL: $apiBaseUrl');
 
       // Now configure Amplify
       await _configureAmplify();
@@ -66,7 +66,7 @@ class AppInitializationNotifier extends StateNotifier<AppInitializationState> {
       // Initialize auth state by checking stored tokens
       await _initializeAuthState();
 
-      debugPrint('✅ App initialization completed successfully');
+      print('✅ App initialization completed successfully');
 
       state = state.copyWith(
         isInitialized: true,
@@ -74,7 +74,7 @@ class AppInitializationNotifier extends StateNotifier<AppInitializationState> {
         apiBaseUrl: apiBaseUrl,
       );
     } catch (e) {
-      debugPrint('❌ Error initializing app: $e');
+      print('❌ Error initializing app: $e');
       state = state.copyWith(
         isInitialized: true,
         initializationSuccess: false,
@@ -102,16 +102,16 @@ class AppInitializationNotifier extends StateNotifier<AppInitializationState> {
       // Configure Amplify
       await Amplify.configure(jsonString);
 
-      debugPrint('✅ Amplify configured successfully');
+      print('✅ Amplify configured successfully');
     } catch (e) {
-      debugPrint('❌ Error configuring Amplify: $e');
+      print('❌ Error configuring Amplify: $e');
       rethrow;
     }
   }
 
   Future<void> _initializeAuthState() async {
     try {
-      debugPrint('🔄 Initializing auth state...');
+      print('🔄 Initializing auth state...');
       final tokenStorage = ref.read(tokenStorageProvider);
       final authNotifier = ref.read(authNotifierProvider.notifier);
 
@@ -119,7 +119,7 @@ class AppInitializationNotifier extends StateNotifier<AppInitializationState> {
       final storedAuthData = await tokenStorage.getStoredTokens();
 
       if (storedAuthData != null) {
-        debugPrint('📱 Found stored tokens');
+        print('📱 Found stored tokens');
 
         // Always attempt token refresh for security
         try {
@@ -127,7 +127,7 @@ class AppInitializationNotifier extends StateNotifier<AppInitializationState> {
               await ref.read(authRepositoryProvider).refreshToken();
 
           if (refreshResult.isSuccess && refreshResult.data != null) {
-            debugPrint('✅ Token refreshed successfully');
+            print('✅ Token refreshed successfully');
 
             // ✅ Fixed: Convert RefreshTokenData to UserData
             final userData = UserData(
@@ -143,49 +143,67 @@ class AppInitializationNotifier extends StateNotifier<AppInitializationState> {
               userData: userData,
               token: refreshResult.data!.accessToken,
             );
+
+            // ✅ CRITICAL: Trigger user data fetch after successful auth
+            print('🔄 Triggering user data fetch after auth initialization...');
+            Future.microtask(() {
+              ref.read(userProvider.notifier).getCurrentUserProfile();
+            });
           } else {
-            debugPrint('❌ Token refresh failed, using stored tokens if valid');
+            print('❌ Token refresh failed, using stored tokens if valid');
             // Check if stored token is still valid
             final isExpired = await tokenStorage.isTokenExpired();
 
             if (!isExpired) {
-              debugPrint('✅ Using valid stored tokens');
+              print('✅ Using valid stored tokens');
               authNotifier.state = AuthState(
                 status: AuthStatus.authenticated,
                 userData: storedAuthData,
                 token: storedAuthData.accessToken,
               );
+
+              // ✅ CRITICAL: Trigger user data fetch for stored tokens too
+              print('🔄 Triggering user data fetch with stored tokens...');
+              Future.microtask(() {
+                ref.read(userProvider.notifier).getCurrentUserProfile();
+              });
             } else {
-              debugPrint('❌ Stored tokens expired, requiring login');
+              print('❌ Stored tokens expired, requiring login');
               await tokenStorage.clearTokens();
               authNotifier.setUnauthenticated();
             }
           }
         } catch (e) {
-          debugPrint('❌ Token refresh error: $e');
+          print('❌ Token refresh error: $e');
           // Fall back to stored tokens if valid
           final isExpired = await tokenStorage.isTokenExpired();
           if (!isExpired) {
-            debugPrint('✅ Using valid stored tokens after refresh error');
+            print('✅ Using valid stored tokens after refresh error');
             authNotifier.state = AuthState(
               status: AuthStatus.authenticated,
               userData: storedAuthData,
               token: storedAuthData.accessToken,
             );
+
+            // ✅ CRITICAL: Trigger user data fetch even after refresh error
+            print('🔄 Triggering user data fetch after refresh error...');
+            Future.microtask(() {
+              ref.read(userProvider.notifier).getCurrentUserProfile();
+            });
           } else {
-            debugPrint('❌ Stored tokens expired after refresh error');
+            print('❌ Stored tokens expired after refresh error');
             await tokenStorage.clearTokens();
             authNotifier.setUnauthenticated();
           }
         }
       } else {
-        debugPrint('ℹ️ No stored tokens found');
+        print('ℹ️ No stored tokens found');
         authNotifier.setUnauthenticated();
       }
 
-      debugPrint('✅ Auth state initialization completed');
+      print('✅ Auth state initialization completed');
     } catch (e, st) {
-      debugPrint('❌ Error initializing auth state: $e\n$st');
+      print('❌ Error initializing auth state: $e\n$st');
       // Clear tokens and set to unauthenticated on error
       await ref.read(tokenStorageProvider).clearTokens();
       ref.read(authNotifierProvider.notifier).setUnauthenticated();
@@ -260,6 +278,47 @@ class WicoreApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // ✅ CRITICAL: Watch the auto-fetch provider to ensure it's triggered
+    print('🔄 WicoreApp - Watching autoFetchCurrentUserProvider...');
+    ref.watch(autoFetchCurrentUserProvider);
+
+    // ✅ Add debug logging for user state changes
+    ref.listen(userProvider, (previous, next) {
+      print('🐛 WicoreApp - User provider state changed');
+      print('  Previous: ${previous?.toString()}');
+      print('  Current: ${next.toString()}');
+
+      next.when(
+        data: (response) {
+          final onboarded = response?.data?.onboarded;
+          final userId = response?.data?.id;
+          final firstName = response?.data?.firstName;
+          print('🐛 WicoreApp - ✅ User data loaded');
+          print('  User ID: $userId');
+          print('  First Name: $firstName');
+          print('  Onboarded: $onboarded');
+          print('  Full response code: ${response?.code}');
+          if (response?.data != null) {
+            print('  Full user data: ${response!.data!.toJson()}');
+          }
+        },
+        loading: () => print('🐛 WicoreApp - ⏳ User data loading...'),
+        error: (error, stack) {
+          print('🐛 WicoreApp - ❌ User data error: $error');
+        },
+      );
+    });
+
+    // ✅ Add debug logging for auth state changes
+    ref.listen(authNotifierProvider, (previous, next) {
+      print('🐛 WicoreApp - Auth state changed');
+      print('  Previous status: ${previous?.status}');
+      print('  Current status: ${next.status}');
+      print('  Is Authenticated: ${next.isAuthenticated}');
+      print('  User ID: ${next.userData?.id}');
+      print('  Username: ${next.userData?.username}');
+    });
+
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
@@ -288,5 +347,7 @@ extension AuthNotifierExtension on AuthNotifier {
       userData: userData,
       token: userData.accessToken,
     );
+
+    print('✅ Auth state set with stored data - User ID: ${userData.id}');
   }
 }

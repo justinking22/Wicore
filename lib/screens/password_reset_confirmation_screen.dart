@@ -82,6 +82,7 @@ class _PasswordResetConfirmationScreenState
                         onPressed: () {
                           // Handle next button press
                           print('Password reset confirmed');
+                          context.push('/password-reset');
                           // You can add navigation or reset logic here
                         },
                         disabledBackgroundColor: Colors.grey,

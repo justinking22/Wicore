@@ -51,7 +51,6 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
   void _initializeController() {
     if (_isDisposed) return;
 
-    // Initialize controller and start immediately (like diagnox after user action)
     controller = MobileScannerController(
       detectionSpeed: DetectionSpeed.noDuplicates,
       autoStart: false,
@@ -60,10 +59,8 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
       returnImage: false,
     );
 
-    // Start listening to barcode events
     _subscription = controller!.barcodes.listen(_onDetect);
 
-    // Start camera immediately after controller is ready
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startScanning();
     });
@@ -71,7 +68,6 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // EXACT same lifecycle handling as diagnox
     if (controller == null || !controller!.value.hasCameraPermission) {
       return;
     }
@@ -100,7 +96,6 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
   }
 
   void _onDetect(BarcodeCapture capture) async {
-    // EXACT same detection logic as diagnox
     if (_isDisposed || _isProcessing) return;
 
     final List<Barcode> barcodes = capture.barcodes;
@@ -123,7 +118,6 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
         print('📱 QR Code detected: $code');
 
         try {
-          // Check if device is already paired first
           final deviceState = ref.read(deviceNotifierProvider);
           final pairedDevice = ref.read(deviceDataProvider);
 
@@ -133,7 +127,6 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
             return;
           }
 
-          // Process the QR code
           await _processQRCode(code);
         } catch (e) {
           print('📱 Error processing QR code: $e');
@@ -172,8 +165,6 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
       _isProcessing = false;
     });
     _lastScannedCode = null;
-
-    // Try to restart camera
     controller?.start();
   }
 
@@ -183,7 +174,6 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
     }
   }
 
-  // Manual start method - now called automatically
   void _startScanning() {
     print('📱 Starting camera scanning...');
     controller?.start();
@@ -193,7 +183,6 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
   Widget build(BuildContext context) {
     final deviceState = ref.watch(deviceNotifierProvider);
 
-    // Listen for device pairing state changes
     ref.listen<DeviceState>(deviceNotifierProvider, (previous, next) {
       if (next.pairedDevice != null && previous?.pairedDevice == null) {
         print('📱 Device just paired: ${next.pairedDevice?.deviceId}');
@@ -207,13 +196,11 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
           print('📱 Device already paired error detected, attempting redirect');
           _navigateToDeviceDetails();
         } else {
-          // Reset scanner for other errors
           _resetScanning();
         }
       }
     });
 
-    // Show loading while controller initializes
     if (controller == null) {
       return Container(
         color: Colors.black,
@@ -229,19 +216,16 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
         final availableWidth = constraints.maxWidth;
         final safePadding = MediaQuery.of(context).padding;
 
+        // Calculate top section height dynamically
         final topSectionHeight = math.max(160.0, availableHeight * 0.2);
         final bottomSectionHeight = math.max(120.0, availableHeight * 0.15);
-        final scannerAreaHeight =
-            availableHeight - topSectionHeight - bottomSectionHeight;
 
+        // Calculate scanner size based on available space
         final maxScannerSize = math.min(
-          availableWidth * 0.9,
-          scannerAreaHeight * 0.9,
+          availableWidth * 0.7,
+          (availableHeight - topSectionHeight - bottomSectionHeight) * 0.8,
         );
-        final scannerSize = maxScannerSize;
-
-        final scannerTop =
-            topSectionHeight + (scannerAreaHeight - scannerSize) * 0.6;
+        final scannerSize = math.max(250.0, maxScannerSize);
 
         return Container(
           child: Stack(
@@ -250,40 +234,28 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
               Positioned.fill(
                 child: MobileScanner(
                   controller: controller,
-                  onDetect: (capture) {
-                    // Handle detection - redundant since we use stream
-                  },
+                  onDetect: (capture) {},
                 ),
               ),
 
-              // Blur effect ONLY for the scanning area (excluding top section)
-              Positioned(
-                top: topSectionHeight, // Start blur AFTER the top section
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
-                  child: Container(
-                    width: double.infinity,
-                    height: double.infinity,
-                    child: CustomPaint(
-                      painter: QROverlayPainter(
-                        cutOutSize: scannerSize,
-                        borderRadius: 20,
-                        cutOutTop:
-                            scannerTop -
-                            topSectionHeight, // Adjust for the positioned offset
-                      ),
+              // Blur effect with proper overlay - using approach from second code
+              BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+                child: Container(
+                  width: double.infinity,
+                  height: double.infinity,
+                  child: CustomPaint(
+                    painter: QROverlayPainter(
+                      cutOutSize: scannerSize,
+                      borderRadius: 20,
+                      topSectionHeight: topSectionHeight,
                     ),
                   ),
                 ),
               ),
 
-              // Clear scanning area (no blur)
-              Positioned(
-                top: scannerTop,
-                left: (availableWidth - scannerSize) / 2,
+              // Clear scanning area (no blur) - centered
+              Center(
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
                   child: Container(
@@ -298,9 +270,7 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
               ),
 
               // Center QR Scanner Frame with rounded corners
-              Positioned(
-                top: scannerTop,
-                left: (availableWidth - scannerSize) / 2,
+              Center(
                 child: Container(
                   width: scannerSize,
                   height: scannerSize,
@@ -314,7 +284,7 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
                 ),
               ),
 
-              // Top section with WHITE background and title - This stays on top, unaffected by blur
+              // Top section with WHITE background - positioned above blur
               Positioned(
                 top: 0,
                 left: 0,
@@ -394,8 +364,8 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
                       end: Alignment.bottomCenter,
                       colors: [
                         Colors.transparent,
-                        Colors.transparent,
-                        Colors.transparent,
+                        Colors.black.withOpacity(0.6),
+                        Colors.black.withOpacity(0.8),
                       ],
                     ),
                   ),
@@ -442,85 +412,64 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
       },
     );
   }
-
-  // Widget _buildErrorOverlay(String error) {
-  //   return Container(
-  //     color: Colors.black54,
-  //     child: Center(
-  //       child: Column(
-  //         mainAxisAlignment: MainAxisAlignment.center,
-  //         children: [
-  //           Icon(Icons.error, color: Colors.red, size: 64),
-  //           const SizedBox(height: 16),
-  //           Text('연결 실패', style: TextStyle(fontSize: 20, color: Colors.white)),
-  //           const SizedBox(height: 8),
-  //           Text(
-  //             error,
-  //             style: TextStyle(color: Colors.white70),
-  //             textAlign: TextAlign.center,
-  //           ),
-  //           const SizedBox(height: 24),
-  //           ElevatedButton(
-  //             style: ElevatedButton.styleFrom(
-  //               backgroundColor: CustomColors.splashLimeColor,
-  //               foregroundColor: Colors.black,
-  //               padding: const EdgeInsets.symmetric(
-  //                 horizontal: 24,
-  //                 vertical: 12,
-  //               ),
-  //             ),
-  //             onPressed: _resetScanning,
-  //             child: const Text('다시 시도'),
-  //           ),
-  //         ],
-  //       ),
-  //     ),
-  //   );
-  // }
 }
 
-// Add this helper function for async operations
 void unawaited(Future<void>? future) {
   // Explicitly ignore the future
 }
 
-// Custom painter for the QR overlay (same as before)
+// Updated Custom painter that respects the top section
 class QROverlayPainter extends CustomPainter {
   final double cutOutSize;
   final double borderRadius;
-  final double cutOutTop;
+  final double topSectionHeight;
 
   QROverlayPainter({
     required this.cutOutSize,
     required this.borderRadius,
-    required this.cutOutTop,
+    required this.topSectionHeight,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint =
         Paint()
-          ..color = Colors.black.withOpacity(0.0)
+          ..color = Colors.black.withOpacity(0.3) // Lighter since we have blur
           ..style = PaintingStyle.fill;
 
+    // Calculate center position, but avoid the top section
+    final availableHeight = size.height - topSectionHeight;
+    final center = Offset(
+      size.width / 2,
+      topSectionHeight + (availableHeight / 2),
+    );
+
     final cutOutRect = Rect.fromCenter(
-      center: Offset(size.width / 2, cutOutTop + cutOutSize / 2),
+      center: center,
       width: cutOutSize,
       height: cutOutSize,
     );
 
+    // Create paths for the overlay
     final outerPath =
         Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
+
+    // Exclude the top section from the overlay
+    final topSectionPath =
+        Path()..addRect(Rect.fromLTWH(0, 0, size.width, topSectionHeight));
+
     final innerPath =
         Path()..addRRect(
           RRect.fromRectAndRadius(cutOutRect, Radius.circular(borderRadius)),
         );
 
+    // Combine paths: outer - top section - scanner area
     final overlayPath = Path.combine(
       PathOperation.difference,
-      outerPath,
+      Path.combine(PathOperation.difference, outerPath, topSectionPath),
       innerPath,
     );
+
     canvas.drawPath(overlayPath, paint);
   }
 

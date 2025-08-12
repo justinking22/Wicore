@@ -237,10 +237,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               backgroundColor: CustomColors.lighterGray,
               title: '설정',
               trailingButtonIcon: Icons.info_outline,
-              showTrailingButton: false,
+              showTrailingButton: true,
               onTrailingPressed: () {
                 // Handle info button press
-                context.push('/app-info');
+                context.push('/onboarding');
               },
               showBackButton: false,
             ),
@@ -361,7 +361,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             _buildMenuItem('비밀번호 재설정', () {
-                              context.push('/password-reset');
+                              context.push(
+                                '/password-reset-confirmation-screen',
+                              );
                             }, Colors.black),
                             _buildDivider(),
                             _buildMenuItem(

@@ -13,14 +13,17 @@ import 'package:Wicore/screens/notifications_settings_screen.dart';
 import 'package:Wicore/screens/password_input_screen.dart';
 import 'package:Wicore/screens/password_re_enter_screen.dart';
 import 'package:Wicore/screens/password_reset_confirmation_screen.dart';
+import 'package:Wicore/screens/password_reset_otp_screen.dart';
 import 'package:Wicore/screens/password_reset_screen.dart';
 import 'package:Wicore/screens/password_reset_succes_screen.dart';
 import 'package:Wicore/screens/personal_info_display_screen.dart';
-import 'package:Wicore/screens/personal_info_input_screen.dart'; // ✅ Make sure this import exists
+import 'package:Wicore/screens/personal_info_input_screen.dart';
 import 'package:Wicore/screens/phone_input_screen.dart';
 import 'package:Wicore/screens/prep_done_screen.dart';
 import 'package:Wicore/screens/qr_acanner_screen.dart';
 import 'package:Wicore/screens/resave_phone_number_screen.dart';
+import 'package:Wicore/screens/reset_password_new_input_screen.dart';
+import 'package:Wicore/screens/reset_password_reenter_screen.dart';
 import 'package:Wicore/screens/sign_in_screen.dart';
 import 'package:Wicore/screens/sign_up_complete_screen.dart';
 import 'package:Wicore/screens/splash_screen.dart';
@@ -36,42 +39,73 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+// ✅ Helper method for onboarding flow handling
+Future<String?> _handleOnboardingFlow(
+  String currentPath,
+  dynamic onboardingManager,
+  bool isUserOnboarded,
+  Ref ref,
+) async {
+  try {
+    // Check if we should show onboarding today
+    final shouldShowOnboarding = await onboardingManager.shouldShowOnboarding(
+      isUserOnboarded: isUserOnboarded,
+    );
+
+    print('🔄 Router - Should show onboarding: $shouldShowOnboarding');
+
+    if (shouldShowOnboarding) {
+      // Allow staying in onboarding flow
+      final onboardingPaths = ['/onboarding', '/phone-input', '/prep-done'];
+
+      if (onboardingPaths.contains(currentPath)) {
+        print('🔄 Router - User in onboarding flow, staying on current screen');
+        return null;
+      }
+
+      // Redirect to start of onboarding and mark as shown for today
+      print('🔄 Router - Starting onboarding flow');
+      await onboardingManager.markOnboardingPromptShown();
+      return '/onboarding';
+    } else {
+      // Already showed onboarding today, skip for now
+      print('🔄 Router - Skipping onboarding for today, going to main app');
+
+      // If user is currently on onboarding screens but we're not showing today, redirect to main
+      final onboardingPaths = ['/onboarding', '/phone-input', '/prep-done'];
+      if (onboardingPaths.contains(currentPath)) {
+        return '/navigation';
+      }
+    }
+
+    return null;
+  } catch (error) {
+    print('🔄 Router - Error in onboarding flow: $error');
+    // On error, default to showing onboarding
+    return '/onboarding';
+  }
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
+  // ✅ CRITICAL: Watch the auto-fetch provider to ensure it's triggered
+  ref.watch(autoFetchCurrentUserProvider);
+
   return GoRouter(
     initialLocation: '/splash',
     refreshListenable: RouterRefreshStream(ref),
     redirect: (context, state) async {
       final authState = ref.read(authNotifierProvider);
-      final userState = ref.read(userProvider);
+      final userAsyncValue = ref.read(userProvider);
       final onboardingManager = ref.read(onboardingManagerProvider);
 
       final isInitialized = authState.status != AuthStatus.unknown;
       final isAuthenticated = authState.isAuthenticated;
-
-      // Get onboarded status from API
-      final isUserOnboarded = userState.when(
-        data: (response) {
-          final onboarded = response?.data?.onboarded ?? false;
-          print('🔄 Router - User API onboarded status: $onboarded');
-          return onboarded;
-        },
-        loading: () {
-          print('🔄 Router - User provider loading, assuming not onboarded');
-          return false;
-        },
-        error: (error, stackTrace) {
-          print(
-            '🔄 Router - User provider error, assuming not onboarded: $error',
-          );
-          return false;
-        },
-      );
-
       final currentPath = state.matchedLocation;
 
       print(
-        '🔄 Router - Path: $currentPath, Auth: $isAuthenticated, Onboarded: $isUserOnboarded',
+        '🔄 Router - Path: $currentPath, Auth: $isAuthenticated, Initialized: $isInitialized',
       );
+      print('🔄 Router - User state: ${userAsyncValue.toString()}');
 
       // Never redirect away from splash screen
       if (currentPath == '/splash') {
@@ -86,75 +120,94 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Handle authenticated users
       if (isAuthenticated) {
-        // ✅ FIXED: Better onboarding logic
-        if (!isUserOnboarded) {
-          // Check if we should show onboarding today (once per day until completed)
-          final shouldShowOnboarding = await onboardingManager
-              .shouldShowOnboarding(isUserOnboarded: isUserOnboarded);
+        // ✅ IMPROVED: Better handling of user data loading states
+        return userAsyncValue.when(
+          data: (userResponse) {
+            final isUserOnboarded = userResponse?.data?.onboarded ?? false;
+            print('🔄 Router - User API onboarded status: $isUserOnboarded');
+            print(
+              '🔄 Router - Full user data: ${userResponse?.data?.toJson()}',
+            );
 
-          print('🔄 Router - Should show onboarding: $shouldShowOnboarding');
+            if (!isUserOnboarded) {
+              return _handleOnboardingFlow(
+                currentPath,
+                onboardingManager,
+                isUserOnboarded,
+                ref,
+              );
+            }
 
-          if (shouldShowOnboarding) {
-            // Allow staying in onboarding flow
-            final onboardingPaths = [
+            // User is fully onboarded - redirect from auth screens to main app
+            final authScreens = [
+              '/login',
+              '/register',
+              '/welcome',
+              '/name-input',
+              '/email-input',
+              '/password-input',
+              '/password-re-enter',
+              '/forgot-password',
+            ];
+
+            if (authScreens.contains(currentPath)) {
+              print(
+                '🔄 Router - Redirecting authenticated user from auth screen to navigation',
+              );
+              return '/navigation';
+            }
+
+            // Redirect /home to /navigation
+            if (currentPath == '/home') {
+              print('🔄 Router - Redirecting /home to /navigation');
+              return '/navigation';
+            }
+
+            return null;
+          },
+          loading: () {
+            print('🔄 Router - User data still loading...');
+
+            // If we're authenticated but user data is loading, stay on splash
+            // unless we're already in the app flow
+            final appPaths = [
+              '/navigation',
+              '/home',
               '/onboarding',
               '/phone-input',
               '/prep-done',
             ];
-
-            if (onboardingPaths.contains(currentPath)) {
-              print(
-                '🔄 Router - User in onboarding flow, staying on current screen',
-              );
+            if (appPaths.contains(currentPath)) {
+              print('🔄 Router - User in app flow while loading, staying put');
               return null;
             }
 
-            // Redirect to start of onboarding and mark as shown for today
-            print('🔄 Router - Starting onboarding flow');
-            await onboardingManager.markOnboardingPromptShown();
-            return '/onboarding';
-          } else {
-            // Already showed onboarding today, skip for now
-            print(
-              '🔄 Router - Skipping onboarding for today, going to main app',
-            );
-
-            // If user is currently on onboarding screens but we're not showing today, redirect to main
-            final onboardingPaths = [
-              '/onboarding',
-              '/phone-input',
-              '/prep-done',
-            ];
-            if (onboardingPaths.contains(currentPath)) {
-              return '/navigation';
+            // For auth screens while loading, redirect to splash to wait
+            final authScreens = ['/login', '/register', '/welcome'];
+            if (authScreens.contains(currentPath)) {
+              print('🔄 Router - User data loading, staying on splash');
+              return '/splash';
             }
-          }
-        }
 
-        // User is fully onboarded - redirect from auth screens to main app
-        final authScreens = [
-          '/login',
-          '/register',
-          '/welcome',
-          '/name-input',
-          '/email-input',
-          '/password-input',
-          '/password-re-enter',
-          '/forgot-password',
-        ];
+            return null;
+          },
+          error: (error, stackTrace) {
+            print('🔄 Router - User provider error: $error');
+            // On error fetching user data, try to refresh
+            Future.microtask(() {
+              print('🔄 Router - Attempting to refresh user data after error');
+              ref.read(userProvider.notifier).getCurrentUserProfile();
+            });
 
-        if (authScreens.contains(currentPath)) {
-          print(
-            '🔄 Router - Redirecting authenticated user from auth screen to navigation',
-          );
-          return '/navigation';
-        }
-
-        // Redirect /home to /navigation
-        if (currentPath == '/home') {
-          print('🔄 Router - Redirecting /home to /navigation');
-          return '/navigation';
-        }
+            // For now, assume not onboarded and handle accordingly
+            return _handleOnboardingFlow(
+              currentPath,
+              onboardingManager,
+              false, // Assume not onboarded on error
+              ref,
+            );
+          },
+        );
       }
 
       // Handle unauthenticated users - redirect protected routes to login
@@ -163,6 +216,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           '/navigation',
           '/home',
           '/personal-info-input',
+          '/onboarding',
           '/phone-input',
           '/prep-done',
           '/calendar-screen',
@@ -174,7 +228,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         ];
 
         final isProtectedPath = protectedPaths.any(
-          (path) => currentPath == path || currentPath.startsWith('${path}/'),
+          (path) => currentPath == path || currentPath.startsWith('$path/'),
         );
 
         if (isProtectedPath) {
@@ -246,23 +300,51 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'sign-up-complete',
         builder: (context, state) => const SignupCompleteScreen(),
       ),
+
+      // ✅ FIXED: Password Reset Flow Routes (removed duplicates)
       GoRoute(
         path: '/password-reset',
         name: 'password-reset',
         builder: (context, state) => const PasswordResetScreen(),
       ),
       GoRoute(
+        path: '/password-reset-new',
+        name: 'password-reset-new',
+        builder: (context, state) {
+          final email = state.extra as String;
+          return PasswordResetNewPasswordScreen(email: email);
+        },
+      ),
+      GoRoute(
+        path: '/password-reset-confirm',
+        name: 'password-reset-confirm',
+        builder: (context, state) {
+          final resetData = state.extra as Map<String, String>;
+          return PasswordResetConfirmScreen(resetData: resetData);
+        },
+      ),
+      GoRoute(
+        path: '/password-reset-otp',
+        name: 'password-reset-otp',
+        builder: (context, state) {
+          final resetData = state.extra as Map<String, String>;
+          return PasswordResetOTPScreen(resetData: resetData);
+        },
+      ),
+      // ✅ FIXED: Corrected success screen route (was pointing to wrong widget)
+      GoRoute(
         path: '/password-reset-success',
         name: 'password-reset-success',
-        builder: (context, state) => const PasswordResetSuccessScreen(),
+        builder: (context, state) {
+          return PasswordResetSuccessScreen();
+        },
       ),
+
       // ✅ Make sure this route exists and the widget is properly imported
       GoRoute(
         path: '/onboarding',
         name: 'onboarding',
-        builder:
-            (context, state) =>
-                PersonalInfoInputScreen(), // Ensure this widget exists
+        builder: (context, state) => PersonalInfoInputScreen(),
       ),
       GoRoute(
         path: '/phone-input',
@@ -378,6 +460,7 @@ class RouterRefreshStream extends ChangeNotifier {
   late final ProviderSubscription _userSubscription;
 
   RouterRefreshStream(this._ref) {
+    // Listen to auth state changes
     _authSubscription = _ref.listen<AuthState>(authNotifierProvider, (
       previous,
       next,
@@ -388,18 +471,51 @@ class RouterRefreshStream extends ChangeNotifier {
         );
         notifyListeners();
       }
+
+      // Also trigger on authentication state changes
+      if (previous?.isAuthenticated != next.isAuthenticated) {
+        print(
+          '🔄 Router - Auth authenticated changed: ${previous?.isAuthenticated} -> ${next.isAuthenticated}',
+        );
+        notifyListeners();
+      }
     });
 
+    // Listen to user provider changes
     _userSubscription = _ref.listen<AsyncValue<UserResponse?>>(userProvider, (
       previous,
       next,
     ) {
+      print('🔄 Router - User provider state changed');
+      print('  Previous: ${previous?.toString()}');
+      print('  Next: ${next?.toString()}');
+
       final previousOnboarded = _safeGetOnboardedStatus(previous);
       final nextOnboarded = _safeGetOnboardedStatus(next);
 
       if (previousOnboarded != nextOnboarded) {
         print(
           '🔄 Router - User onboarded status changed: $previousOnboarded -> $nextOnboarded',
+        );
+        notifyListeners();
+      }
+
+      // Also trigger on state type changes (loading -> data, error -> data, etc.)
+      final previousHasData =
+          previous?.maybeWhen(
+            data: (response) => response?.data != null,
+            orElse: () => false,
+          ) ??
+          false;
+
+      final nextHasData = next.maybeWhen(
+        data: (response) => response?.data != null,
+        orElse: () => false,
+      );
+
+      if (previousHasData != nextHasData) {
+        print(
+          '🔄 Router - User data availability changed: $previousHasData -> $nextHasData',
         );
         notifyListeners();
       }
@@ -410,11 +526,18 @@ class RouterRefreshStream extends ChangeNotifier {
     if (asyncValue == null) return null;
 
     return asyncValue.when(
-      data: (response) => response?.data?.onboarded,
-      loading: () => null,
+      data: (response) {
+        final onboarded = response?.data?.onboarded;
+        print('🔄 Router - Extracted onboarded status: $onboarded');
+        return onboarded;
+      },
+      loading: () {
+        print('🔄 Router - User state is loading, onboarded status unknown');
+        return null;
+      },
       error: (error, stackTrace) {
         print(
-          '🔄 Router - Error state detected, returning null for onboarded status',
+          '🔄 Router - User state error, returning null for onboarded status: $error',
         );
         return null;
       },
