@@ -1,26 +1,74 @@
+import 'package:Wicore/models/notification_preferences_model.dart';
 import 'package:Wicore/styles/colors.dart';
 import 'package:Wicore/styles/text_styles.dart';
 import 'package:Wicore/widgets/reusable_app_bar.dart';
+import 'package:Wicore/providers/user_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-class NotificationSettingsScreen extends StatefulWidget {
+class NotificationSettingsScreen extends ConsumerStatefulWidget {
   const NotificationSettingsScreen({super.key});
 
   @override
-  State<NotificationSettingsScreen> createState() =>
+  ConsumerState<NotificationSettingsScreen> createState() =>
       _NotificationSettingsScreenState();
 }
 
 class _NotificationSettingsScreenState
-    extends State<NotificationSettingsScreen> {
+    extends ConsumerState<NotificationSettingsScreen> {
   bool batteryLow = true;
   bool connectionDisabled = true;
-  bool userMaleConfirmed = true;
+  bool userFallConfirmed = true;
+  bool isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Load current settings will be handled by the providers
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadCurrentSettings();
+    });
+  }
+
+  void _loadCurrentSettings() {
+    // Get current settings from the provider
+    final notifications = ref.read(currentNotificationPreferencesProvider);
+
+    if (notifications != null) {
+      setState(() {
+        batteryLow = notifications.lowBattery ?? true;
+        connectionDisabled = notifications.deviceDisconnected ?? true;
+        userFallConfirmed = notifications.fallDetection ?? true;
+      });
+      print(
+        '🔔 📱 Loaded current notification settings: battery=$batteryLow, connection=$connectionDisabled, fall=$userFallConfirmed',
+      );
+    } else {
+      print('🔔 📱 No notification settings found, using defaults');
+      // Keep default values (true)
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    // Listen to notification changes from the provider
+    ref.listen<
+      NotificationPreferences?
+    >(currentNotificationPreferencesProvider, (previous, next) {
+      if (next != null && mounted) {
+        setState(() {
+          batteryLow = next.lowBattery ?? true;
+          connectionDisabled = next.deviceDisconnected ?? true;
+          userFallConfirmed = next.fallDetection ?? true;
+        });
+        print(
+          '🔔 📱 Provider updated notification settings: battery=$batteryLow, connection=$connectionDisabled, fall=$userFallConfirmed',
+        );
+      }
+    });
+
     return Scaffold(
       backgroundColor: CustomColors.lighterGray,
       appBar: CustomAppBar(
@@ -61,21 +109,22 @@ class _NotificationSettingsScreenState
             // Device Section
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 20),
-              padding: const EdgeInsets.symmetric(vertical: 24),
               decoration: BoxDecoration(
                 color: Colors.white,
-
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildSettingItem('배터리 낮음', batteryLow, (value) {
-                    setState(() => batteryLow = value);
+                  _buildSettingItem('배터리 낮음', batteryLow, (value) async {
+                    await _updateNotificationSetting('batteryLow', value);
                   }),
                   const Divider(height: 1, color: CustomColors.softGray),
-                  _buildSettingItem('연결 해지', connectionDisabled, (value) {
-                    setState(() => connectionDisabled = value);
+                  _buildSettingItem('연결 해지', connectionDisabled, (value) async {
+                    await _updateNotificationSetting(
+                      'connectionDisabled',
+                      value,
+                    );
                   }),
                 ],
               ),
@@ -89,7 +138,6 @@ class _NotificationSettingsScreenState
             // User Section
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 20),
-              padding: const EdgeInsets.symmetric(vertical: 24),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(10),
@@ -97,8 +145,13 @@ class _NotificationSettingsScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildSettingItem('사용자 낙상여부 확인', userMaleConfirmed, (value) {
-                    setState(() => userMaleConfirmed = value);
+                  _buildSettingItem('사용자 낙상여부 확인', userFallConfirmed, (
+                    value,
+                  ) async {
+                    await _updateNotificationSetting(
+                      'userFallConfirmed',
+                      value,
+                    );
                   }),
                 ],
               ),
@@ -109,32 +162,129 @@ class _NotificationSettingsScreenState
     );
   }
 
+  Future<void> _updateNotificationSetting(
+    String settingType,
+    bool value,
+  ) async {
+    if (isLoading) return; // Prevent multiple simultaneous updates
+
+    setState(() {
+      isLoading = true;
+      // Update UI immediately for better UX
+      switch (settingType) {
+        case 'batteryLow':
+          batteryLow = value;
+          break;
+        case 'connectionDisabled':
+          connectionDisabled = value;
+          break;
+        case 'userFallConfirmed':
+          userFallConfirmed = value;
+          break;
+      }
+    });
+
+    try {
+      final userNotifier = ref.read(userProvider.notifier);
+
+      // PATCH: Update only the specific setting (more efficient)
+      switch (settingType) {
+        case 'batteryLow':
+          await userNotifier.updateBatteryLowNotification(value);
+          break;
+        case 'connectionDisabled':
+          await userNotifier.updateConnectionDisconnectedNotification(value);
+          break;
+        case 'userFallConfirmed':
+          await userNotifier.updateFallDetectionNotification(value);
+          break;
+      }
+
+      print(
+        '🔔 ✅ Single notification setting updated via PATCH: $settingType = $value',
+      );
+    } catch (error) {
+      print('🔔 ❌ Error updating notification setting: $error');
+
+      // Revert UI state on error
+      setState(() {
+        switch (settingType) {
+          case 'batteryLow':
+            batteryLow = !value;
+            break;
+          case 'connectionDisabled':
+            connectionDisabled = !value;
+            break;
+          case 'userFallConfirmed':
+            userFallConfirmed = !value;
+            break;
+        }
+      });
+
+      // Show error message to user
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('알림 설정 업데이트에 실패했습니다: $error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
+    }
+  }
+
   Widget _buildSettingItem(String title, bool value, Function(bool) onChanged) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-      height: 60, // Fixed height for consistent row sizes
+      height: 60, // Fixed height for all rows
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment:
-            CrossAxisAlignment.center, // Center content vertically
         children: [
           Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.black,
-                fontWeight: FontWeight.w400,
+            child: Container(
+              height: 60, // Same height as parent
+              alignment:
+                  Alignment.centerLeft, // Center text vertically and align left
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: Colors.black,
+                  fontWeight: FontWeight.w400,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              maxLines: 2, // Allow text to wrap to 2 lines if needed
-              overflow: TextOverflow.ellipsis,
             ),
           ),
-          const SizedBox(width: 16), // Add spacing between text and switch
-          CupertinoSwitch(
-            value: value,
-            onChanged: onChanged,
-            activeColor: const Color(0xFF4CAF50),
+          const SizedBox(width: 16),
+          Container(
+            height: 60, // Same height as parent
+            alignment: Alignment.center, // Center switch vertically
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                CupertinoSwitch(
+                  value: value,
+                  onChanged:
+                      isLoading ? null : onChanged, // Disable when loading
+                  activeColor: const Color(0xFF4CAF50),
+                ),
+                if (isLoading)
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ],
       ),

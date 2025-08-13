@@ -1,3 +1,4 @@
+// lib/screens/calendar_screen.dart - UPDATED
 import 'package:Wicore/styles/text_styles.dart';
 import 'package:Wicore/models/device_list_response_model.dart';
 import 'package:Wicore/providers/device_provider.dart';
@@ -156,16 +157,16 @@ class _KoreanCalendarState extends ConsumerState<CalendarScreen> {
       );
     }
 
-    // Watch device list from API
-    final devicesAsync = ref.watch(userDeviceListProvider);
+    // ✅ UPDATED: Use the new simplified provider
+    final devicesAsync = ref.watch(allDevicesProvider);
 
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        scrolledUnderElevation: 0, // Add this line
-        surfaceTintColor: Colors.transparent, // Add this line too
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
         automaticallyImplyLeading: false,
         actions: [
           IconButton(
@@ -184,29 +185,38 @@ class _KoreanCalendarState extends ConsumerState<CalendarScreen> {
         centerTitle: true,
       ),
       body: devicesAsync.when(
-        data: (devices) => _buildCalendarContent(devices),
-        loading: () => Center(child: CircularProgressIndicator()),
-        error:
-            (error, stackTrace) => Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
-                  SizedBox(height: 16),
-                  Text(
-                    '기기 정보를 불러올 수 없습니다',
-                    style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                  ),
-                  SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () {
-                      ref.invalidate(userDeviceListProvider);
-                    },
-                    child: Text('다시 시도'),
-                  ),
-                ],
-              ),
+        data: (devices) {
+          print('📅 ✅ Calendar loaded ${devices.length} devices');
+          return _buildCalendarContent(devices);
+        },
+        loading: () {
+          print('📅 ⏳ Loading devices for calendar...');
+          return Center(child: CircularProgressIndicator());
+        },
+        error: (error, stackTrace) {
+          print('📅 ❌ Calendar error: $error');
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+                SizedBox(height: 16),
+                Text(
+                  '기기 정보를 불러올 수 없습니다',
+                  style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                ),
+                SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () {
+                    // ✅ UPDATED: Invalidate the new provider
+                    ref.invalidate(allDevicesProvider);
+                  },
+                  child: Text('다시 시도'),
+                ),
+              ],
             ),
+          );
+        },
       ),
     );
   }
@@ -247,7 +257,9 @@ class _KoreanCalendarState extends ConsumerState<CalendarScreen> {
         Expanded(
           child: RefreshIndicator(
             onRefresh: () async {
-              ref.invalidate(userDeviceListProvider);
+              // ✅ UPDATED: Invalidate the new provider
+              ref.invalidate(allDevicesProvider);
+              await ref.read(allDevicesProvider.future);
             },
             child: SingleChildScrollView(
               controller: _scrollController,

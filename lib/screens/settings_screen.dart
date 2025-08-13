@@ -1,6 +1,8 @@
+// Update the import to use the main confirmation dialog file
+import 'package:Wicore/dialogs/confirmation_dialog.dart'; // Changed from settings_confirmation_dialog
 import 'package:Wicore/dialogs/settings_confirmation_dialog.dart';
 import 'package:Wicore/providers/authentication_provider.dart';
-import 'package:Wicore/providers/user_provider.dart'; // Add this import
+import 'package:Wicore/providers/user_provider.dart';
 import 'package:Wicore/screens/personal_info_input_screen.dart';
 import 'package:Wicore/styles/colors.dart';
 import 'package:Wicore/styles/text_styles.dart';
@@ -76,64 +78,54 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  // Updated data deletion method with new dialogs
   Future<void> _handleDeleteData() async {
-    // Show iOS style confirmation dialog
-    final confirmed = await IOSConfirmationDialog.show(
-      context: context,
-      title: '데이터 삭제',
-      content:
-          '정말로 모든 데이터를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.\n\n삭제될 데이터:\n• 기기 사용 기록\n• 신체 정보\n• 앱 설정',
-      confirmText: '삭제',
-      cancelText: '취소',
-      confirmTextColor: CupertinoColors.destructiveRed,
-    );
+    // Show data deletion confirmation dialog
+    final confirmed = await DataDeletionConfirmationDialog.show(context);
 
-    if (confirmed == true) {
-      try {
-        // Show loading dialog
-        showCupertinoDialog(
-          context: context,
-          barrierDismissible: false,
-          builder:
-              (context) => const CupertinoAlertDialog(
-                content: Row(
-                  children: [
-                    CupertinoActivityIndicator(),
-                    SizedBox(width: 16),
-                    Text('데이터를 삭제하고 있습니다...'),
-                  ],
-                ),
+    if (confirmed != true) return; // User chose "아니요" (No)
+
+    try {
+      // Show loading dialog
+      showCupertinoDialog(
+        context: context,
+        barrierDismissible: false,
+        builder:
+            (context) => const CupertinoAlertDialog(
+              content: Row(
+                children: [
+                  CupertinoActivityIndicator(),
+                  SizedBox(width: 16),
+                  Text('데이터를 삭제하고 있습니다...'),
+                ],
               ),
+            ),
+      );
+
+      // Simulate data deletion (implement actual logic here)
+      await Future.delayed(const Duration(seconds: 2));
+
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+
+        // Show completion dialog
+        await DataDeletionCompletionDialog.show(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('데이터 삭제 중 오류가 발생했습니다.'),
+            backgroundColor: Colors.red,
+          ),
         );
-
-        // Simulate data deletion (implement actual logic here)
-        await Future.delayed(const Duration(seconds: 2));
-
-        if (mounted) {
-          Navigator.pop(context); // Close loading dialog
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('모든 데이터가 삭제되었습니다.'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          Navigator.pop(context); // Close loading dialog
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('데이터 삭제 중 오류가 발생했습니다.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
       }
     }
   }
 
+  // Updated account deletion method with new dialogs
   Future<void> _handleDeleteAccount() async {
     if (_isDeletingAccount) return;
 
@@ -188,19 +180,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         // Navigate to welcome screen
         context.go('/welcome');
 
-        // Show completion dialog
-        await IOSConfirmationDialog.show(
-          context: context,
-          title: '회원 탈퇴 완료',
-          content: '회원님의 정보가 모두 삭제되었습니다.\n다시 이용하시려면 새로 가입해주세요.',
-          confirmText: '확인',
-          cancelText: '', // Hide cancel button
-        );
+        // Show completion dialog using new dialog
+        await AccountWithdrawalCompletionDialog.show(context);
       }
     } catch (e) {
       if (mounted) {
         Navigator.pop(context); // Close loading dialog
 
+        // Show error dialog
         await IOSConfirmationDialog.show(
           context: context,
           title: '오류',
@@ -240,12 +227,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               trailingButtonIcon: Icons.info_outline,
               showTrailingButton: true,
               onTrailingPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const PersonalInfoInputScreen(),
-                  ),
-                );
+                context.push('/onboarding');
               },
               showBackButton: false,
             ),

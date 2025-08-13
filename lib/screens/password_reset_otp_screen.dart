@@ -1,4 +1,5 @@
 // password_reset_otp_screen.dart - Two-step animated OTP screen
+import 'package:Wicore/dialogs/settings_confirmation_dialog.dart';
 import 'package:Wicore/providers/authentication_provider.dart';
 import 'package:Wicore/styles/text_styles.dart';
 import 'package:Wicore/widgets/reusable_app_bar.dart';
@@ -174,29 +175,37 @@ class _PasswordResetOTPScreenState extends ConsumerState<PasswordResetOTPScreen>
 
   Future<void> _resendOtp() async {
     try {
-      final email = widget.resetData['email']!;
-      print('🔐 Resending OTP to: $email');
+      print('🔐 User clicked resend OTP');
 
-      final authNotifier = ref.read(authNotifierProvider.notifier);
-      final result = await authNotifier.forgotPassword(email: email);
+      // First show confirmation dialog
+      final shouldResend = await OTPResendConfirmationDialog.show(context);
 
-      if (mounted) {
-        if (result.isSuccess) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('인증번호를 다시 전송했습니다.'),
-              duration: Duration(seconds: 2),
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result.message ?? '인증번호 재전송에 실패했습니다.'),
-              backgroundColor: Colors.red,
-              duration: const Duration(seconds: 2),
-            ),
-          );
+      if (shouldResend == true && mounted) {
+        print('🔐 User confirmed to resend OTP');
+
+        final email = widget.resetData['email']!;
+        print('🔐 Resending OTP to: $email');
+
+        final authNotifier = ref.read(authNotifierProvider.notifier);
+        final result = await authNotifier.forgotPassword(email: email);
+
+        if (mounted) {
+          if (result.isSuccess) {
+            // Show success dialog instead of snackbar
+            await OTPSentCompletionDialog.show(context);
+            print('✅ OTP resent successfully');
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(result.message ?? '인증번호 재전송에 실패했습니다.'),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
         }
+      } else {
+        print('🔐 User chose not to resend OTP');
       }
     } catch (e) {
       print('❌ Error resending OTP: $e');

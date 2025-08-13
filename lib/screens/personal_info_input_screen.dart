@@ -1,3 +1,4 @@
+import 'package:Wicore/dialogs/settings_confirmation_dialog.dart';
 import 'package:Wicore/widgets/onboarding_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -87,27 +88,37 @@ class _PersonalInfoInputScreenState
     }
   }
 
-  // ✅ Improved skip function with proper onboarding state management
+  // Updated _skipAndContinue method
   void _skipAndContinue() async {
     try {
-      print('⏭️ PersonalInfo - User chose to skip personal info');
+      print('⏭️ PersonalInfo - User clicked skip button');
 
-      final onboardingManager = ref.read(onboardingManagerProvider);
+      // Show confirmation dialog first
+      final shouldSkip = await SkipPersonalInfoDialog.show(context);
 
-      // Mark that we've shown the onboarding today (so they don't see it again today)
-      await onboardingManager.markOnboardingPromptShown();
+      if (shouldSkip == true && mounted) {
+        print('⏭️ PersonalInfo - User confirmed to skip personal info');
 
-      // Don't mark as fully completed since they skipped - they might want to complete it later
-      print('📅 PersonalInfo - Marked onboarding prompt as shown for today');
+        final onboardingManager = ref.read(onboardingManagerProvider);
 
-      if (mounted) {
-        context.push('/phone-input');
+        // Mark that we've shown the onboarding today (so they don't see it again today)
+        await onboardingManager.markOnboardingPromptShown();
+
+        // Don't mark as fully completed since they skipped - they might want to complete it later
+        print('📅 PersonalInfo - Marked onboarding prompt as shown for today');
+
+        // Navigate to home screen instead of phone input
+        context.go('/navigation');
+      } else {
+        print(
+          '⏭️ PersonalInfo - User chose to stay and continue with personal info',
+        );
       }
     } catch (e) {
       print('❌ PersonalInfo - Error during skip: $e');
       if (mounted) {
-        // Even if there's an error, let them continue
-        context.push('/phone-input');
+        // Even if there's an error, let them continue to home if they confirmed
+        context.go('/navigation');
       }
     }
   }

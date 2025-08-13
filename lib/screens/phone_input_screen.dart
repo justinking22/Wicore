@@ -1,3 +1,4 @@
+import 'package:Wicore/dialogs/settings_confirmation_dialog.dart';
 import 'package:Wicore/widgets/onboarding_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -107,31 +108,42 @@ class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
     }
   }
 
-  // ✅ Also update the skip function
   void _skipAndContinue() async {
     try {
-      // ✅ Even when skipping, mark as onboarded so they don't see it again today
-      await ref
-          .read(userProvider.notifier)
-          .updateCurrentUserProfile(UserUpdateRequest(onboarded: true));
+      print('⏭️ PhoneInput - User clicked skip button');
 
-      print('⏭️ PhoneInput - User marked as onboarded (skipped)');
+      // Show confirmation dialog first
+      final shouldSkip = await SkipPersonalInfoDialog.show(context);
 
-      // Mark as completed locally
-      final onboardingManager = ref.read(onboardingManagerProvider);
-      await onboardingManager.markOnboardingCompleted();
+      if (shouldSkip == true && mounted) {
+        print('⏭️ PhoneInput - User confirmed to skip phone input');
 
-      // Refresh profile
-      await ref.read(userProvider.notifier).getCurrentUserProfile();
+        // ✅ Even when skipping, mark as onboarded so they don't see it again today
+        await ref
+            .read(userProvider.notifier)
+            .updateCurrentUserProfile(UserUpdateRequest(onboarded: true));
 
-      if (mounted) {
-        context.push('/navigation');
+        print('⏭️ PhoneInput - User marked as onboarded (skipped)');
+
+        // Mark as completed locally
+        final onboardingManager = ref.read(onboardingManagerProvider);
+        await onboardingManager.markOnboardingCompleted();
+
+        // Refresh profile
+        await ref.read(userProvider.notifier).getCurrentUserProfile();
+
+        // Navigate to home screen
+        context.go('/navigation');
+      } else {
+        print(
+          '⏭️ PhoneInput - User chose to stay and continue with phone input',
+        );
       }
     } catch (e) {
       print('❌ PhoneInput - Error during skip: $e');
       if (mounted) {
-        // Even if there's an error, let them continue
-        context.push('/prep-done');
+        // Even if there's an error, let them continue to home if they confirmed
+        context.go('/navigation');
       }
     }
   }

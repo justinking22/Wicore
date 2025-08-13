@@ -1,4 +1,5 @@
 import 'package:Wicore/dialogs/confirmation_dialog.dart';
+import 'package:Wicore/dialogs/settings_confirmation_dialog.dart';
 import 'package:Wicore/models/sign_up_response_model.dart';
 import 'package:Wicore/services/api_error_code_service.dart' show ApiErrorCode;
 import 'package:Wicore/utilities/sign_up_form_state.dart';
@@ -292,9 +293,9 @@ class _PasswordConfirmationScreenState
                 children: [
                   const SizedBox(height: 40),
                   // Title text
-                  Text('안전한 비밀번호를', style: TextStyles.kBody),
+                  Text('비밀번호를', style: TextStyles.kBody),
                   const SizedBox(height: 8),
-                  Text('만들어주세요', style: TextStyles.kBody),
+                  Text('다시 한 번 입력해주세요', style: TextStyles.kBody),
 
                   // Show password criteria or error message
                   if (_passwordMismatchError != null) ...[
@@ -349,13 +350,7 @@ class _PasswordConfirmationScreenState
                       hintText: '비밀번호를 입력해주세요',
                       hintStyle: TextStyles.kMedium,
                       errorText: _errorText,
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscureText
-                              ? Icons.visibility
-                              : Icons.visibility_off,
-                          color: Colors.grey,
-                        ),
+                      suffixIcon: TextButton(
                         onPressed:
                             _isSigningUp
                                 ? null
@@ -364,6 +359,19 @@ class _PasswordConfirmationScreenState
                                     _obscureText = !_obscureText;
                                   });
                                 },
+                        style: TextButton.styleFrom(
+                          minimumSize: Size.zero, // Remove default min size
+                          padding: EdgeInsets.zero, // Remove default padding
+                          tapTargetSize:
+                              MaterialTapTargetSize
+                                  .shrinkWrap, // Reduce hit area if needed
+                        ),
+                        child: Text(
+                          _obscureText ? '보기' : '숨기기',
+                          style: TextStyles.kMedium.copyWith(
+                            color: CustomColors.darkCharcoal,
+                          ),
+                        ),
                       ),
                       border: UnderlineInputBorder(
                         borderSide: BorderSide(
@@ -409,6 +417,31 @@ class _PasswordConfirmationScreenState
                         _handleNext();
                       }
                     },
+                  ),
+                  // ✅ FIXED: Right-aligned "비밀번호를 까먹었어요" button
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed:
+                          _isSigningUp
+                              ? null
+                              : () async {
+                                final shouldGoBack =
+                                    await ForgotPasswordDialog.show(context);
+                                if (shouldGoBack == true && mounted) {
+                                  Navigator.pop(
+                                    context,
+                                  ); // Go back to password setup screen
+                                }
+                              },
+                      child: Text(
+                        '비밀번호를 까먹었어요',
+                        style: TextStyles.kRegular.copyWith(
+                          color: _isSigningUp ? Colors.grey : Colors.black54,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
                   ),
 
                   const Spacer(),

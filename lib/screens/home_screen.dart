@@ -1,3 +1,4 @@
+// lib/screens/home_screen.dart - UPDATED WITH UNPAIR INTEGRATION
 import 'package:Wicore/screens/qr_acanner_screen.dart';
 import 'package:Wicore/widgets/device_details_widget.dart';
 import 'package:Wicore/styles/colors.dart';
@@ -34,7 +35,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _checkExistingDevice() {
-    // Get device ID from multiple sources
     String? deviceId;
 
     // First try paired device provider
@@ -122,7 +122,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
   }
 
-  // SIMPLIFIED: Just navigate to QR scanner, let mobile_scanner handle permissions
   void _startQRScanning() async {
     print('🏠 _startQRScanning called');
 
@@ -137,7 +136,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     if (deviceState.pairedDevice != null || pairedDevice != null) {
       print('🏠 Device already paired, going to device details');
-      // Device already paired, go directly to device details
       setState(() {
         _showDeviceDetails = true;
         _showQRScanner = false;
@@ -146,13 +144,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
 
     print('🏠 No device paired, showing QR scanner');
-    // No device paired, show QR scanner - mobile_scanner will handle permissions
     setState(() {
       _showQRScanner = true;
     });
   }
 
-  void _disconnectDevice() {
+  // ✅ ENHANCED: Comprehensive disconnect/unpair method
+  Future<void> _disconnectDevice() async {
     print('🏠 _disconnectDevice called');
 
     final beforeDeviceState = ref.read(deviceNotifierProvider);
@@ -163,13 +161,103 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
     print('  - pairedDevice: ${beforePairedDevice?.deviceId}');
 
-    ref.read(deviceNotifierProvider.notifier).clearState();
+    // Get device ID before clearing state
+    String? deviceId =
+        beforeDeviceState.pairedDevice?.deviceId ??
+        beforePairedDevice?.deviceId;
 
-    setState(() {
-      _showDeviceDetails = false;
-    });
+    if (deviceId?.trim().isNotEmpty == true) {
+      // Show confirmation dialog first
+      final confirmed = await _showDisconnectConfirmation(deviceId!);
+      if (!confirmed) return;
 
-    // Check state after clearing
+      // Show loading state
+      _showDisconnectingDialog();
+
+      try {
+        print('🏠 Starting device unpair process for: $deviceId');
+
+        // Call the unpair method from device notifier
+        final success = await ref
+            .read(deviceNotifierProvider.notifier)
+            .unpairDevice(deviceId.trim());
+
+        // Hide loading dialog
+        Navigator.of(context).pop();
+
+        if (success) {
+          print('🏠 ✅ Device unpaired successfully');
+
+          // Clear state after successful unpair
+          ref.read(deviceNotifierProvider.notifier).clearState();
+
+          setState(() {
+            _showDeviceDetails = false;
+            _showQRScanner = false;
+          });
+
+          // Invalidate providers
+          ref.invalidate(allDevicesProvider);
+          ref.invalidate(activeDeviceProvider);
+
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('기기 연결이 성공적으로 해제되었습니다'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        } else {
+          print('🏠 ❌ Device unpair failed');
+
+          final errorMessage =
+              ref.read(deviceNotifierProvider).error ?? '기기 연결 해제에 실패했습니다';
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(errorMessage),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
+      } catch (error) {
+        print('🏠 ❌ Error during device unpair: $error');
+
+        // Hide loading dialog
+        Navigator.of(context).pop();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('기기 연결 해제 중 오류가 발생했습니다'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
+    } else {
+      print('🏠 No valid device ID found, performing simple state clear');
+
+      // Simple state clear if no device ID
+      ref.read(deviceNotifierProvider.notifier).clearState();
+
+      setState(() {
+        _showDeviceDetails = false;
+      });
+
+      ref.invalidate(allDevicesProvider);
+      ref.invalidate(activeDeviceProvider);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('기기 연결이 해제되었습니다.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }
+
+    // Debug state after disconnect
     Future.delayed(Duration(milliseconds: 100), () {
       final afterDeviceState = ref.read(deviceNotifierProvider);
       final afterPairedDevice = ref.read(deviceDataProvider);
@@ -179,12 +267,116 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       );
       print('  - pairedDevice: ${afterPairedDevice?.deviceId}');
     });
+  }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('기기 연결이 해제되었습니다.'),
-        backgroundColor: Colors.orange,
-      ),
+  // ✅ NEW: Show disconnect confirmation dialog
+  Future<bool> _showDisconnectConfirmation(String deviceId) async {
+    return await showCupertinoDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return CupertinoAlertDialog(
+              title: Text(
+                '기기 연결 해제',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
+                ),
+              ),
+              content: Padding(
+                padding: EdgeInsets.only(top: 12),
+                child: Column(
+                  children: [
+                    Text(
+                      '다음 기기와의 연결을 해제하시겠습니까?',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.black87,
+                        height: 1.4,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        deviceId,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.black87,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                CupertinoDialogAction(
+                  onPressed: () {
+                    Navigator.of(context).pop(false);
+                  },
+                  child: Text(
+                    '취소',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w400,
+                      color: CupertinoColors.systemBlue,
+                    ),
+                  ),
+                ),
+                CupertinoDialogAction(
+                  onPressed: () {
+                    Navigator.of(context).pop(true);
+                  },
+                  isDestructiveAction: true,
+                  child: Text(
+                    '연결 해제',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      color: CupertinoColors.destructiveRed,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
+  }
+
+  // ✅ NEW: Show disconnecting progress dialog
+  void _showDisconnectingDialog() {
+    showCupertinoDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return CupertinoAlertDialog(
+          content: Padding(
+            padding: EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CupertinoActivityIndicator(radius: 20),
+                SizedBox(height: 16),
+                Text(
+                  '기기 연결을 해제하는 중...',
+                  style: TextStyle(fontSize: 16, color: Colors.black87),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -198,23 +390,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  // DEBUG: Add force clear method
   void _forceCleanState() {
     print('🏠 🗑️ FORCE CLEARING ALL STATE');
 
-    // Clear device state
     ref.read(deviceNotifierProvider.notifier).clearState();
 
-    // Clear local UI state
     setState(() {
       _showQRScanner = false;
       _showDeviceDetails = false;
     });
 
-    // Invalidate providers
     ref.invalidate(deviceNotifierProvider);
-    ref.invalidate(userDeviceListProvider);
-    ref.invalidate(activeDeviceListProvider);
+    ref.invalidate(allDevicesProvider);
+    ref.invalidate(activeDeviceProvider);
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -223,7 +411,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
     );
 
-    // Check state after force clear
     Future.delayed(Duration(milliseconds: 100), () {
       final afterDeviceState = ref.read(deviceNotifierProvider);
       final afterPairedDevice = ref.read(deviceDataProvider);
@@ -256,7 +443,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             math.max(safePadding.bottom + 24, 60.0).toDouble();
         final horizontalPadding = 24.0;
 
-        // Responsive font sizes
         final titleFontSize = 28.0;
         final bodyFontSize = 16.0;
 
@@ -265,14 +451,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           height: availableHeight,
           child: Padding(
             padding: EdgeInsets.only(
-              top: safePadding.top + 60, // Status bar + some spacing
+              top: safePadding.top + 60,
               left: horizontalPadding,
               right: horizontalPadding,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Main content area - positioned higher on screen
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -345,10 +530,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ],
                 ),
 
-                // Spacer to push button to bottom
                 const Spacer(),
 
-                // Bottom button - fixed position
                 Container(
                   padding: EdgeInsets.only(bottom: bottomPadding),
                   child: SizedBox(
@@ -395,17 +578,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildDeviceDetailsContent() {
-    // Get device ID from multiple sources
     String? deviceId;
 
-    // First try device state
     final deviceState = ref.read(deviceNotifierProvider);
     if (deviceState.pairedDevice != null) {
       deviceId = deviceState.pairedDevice!.deviceId;
       print('🔧 Using device from state: $deviceId');
     }
 
-    // Fall back to paired device provider
     if (deviceId == null) {
       final pairedDevice = ref.read(deviceDataProvider);
       if (pairedDevice != null) {
@@ -418,7 +598,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     print('  - deviceId: $deviceId');
 
     if (deviceId == null) {
-      // Fallback if no device ID is available
       return Container(
         color: Colors.white,
         child: Center(
@@ -445,10 +624,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Column(
       children: [
+        // ✅ ENHANCED: CustomAppBar with proper unpair integration
         CustomAppBar(
           title: 'wicore',
           trailingButtonText: '연결 해제',
-          onTrailingPressed: _disconnectDevice,
+          onTrailingPressed:
+              _disconnectDevice, // ✅ This now properly unpairs the device
           showTrailingButton: true,
           trailingButtonColor: Colors.red,
           showBackButton: false,
@@ -457,7 +638,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         Expanded(
           child: DeviceDetailsWidget(
             deviceId: deviceId,
-            onDisconnect: _disconnectDevice,
+            onDisconnect:
+                _disconnectDevice, // ✅ Pass the enhanced disconnect method
+            onUnpaired: () {
+              // ✅ Additional callback when unpaired from within widget
+              setState(() {
+                _showDeviceDetails = false;
+                _showQRScanner = false;
+              });
+            },
           ),
         ),
       ],
@@ -469,7 +658,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final deviceState = ref.watch(deviceNotifierProvider);
     final pairedDevice = ref.watch(deviceDataProvider);
 
-    // Determine if device is connected from multiple sources
     bool isDeviceConnected =
         deviceState.pairedDevice != null || pairedDevice != null;
 

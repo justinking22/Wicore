@@ -18,9 +18,13 @@ UserItem _$UserItemFromJson(Map<String, dynamic> json) => UserItem(
       onboarded: json['onboarded'] as bool?,
       age: (json['age'] as num?)?.toInt(),
       number: json['number'] as String?,
-      deviceStrength: (json['devicestrength'] as num?)?.toInt(),
+      deviceStrength: (json['deviceStrength'] as num?)?.toInt(),
       created: json['created'] as String?,
       updated: json['updated'] as String?,
+      notificationPreferences: json['notificationPreferences'] == null
+          ? null
+          : NotificationPreferences.fromJson(
+              json['notificationPreferences'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$UserItemToJson(UserItem instance) {
@@ -43,9 +47,10 @@ Map<String, dynamic> _$UserItemToJson(UserItem instance) {
   writeNotNull('onboarded', instance.onboarded);
   writeNotNull('age', instance.age);
   writeNotNull('number', instance.number);
-  writeNotNull('devicestrength', instance.deviceStrength);
+  writeNotNull('deviceStrength', instance.deviceStrength);
   writeNotNull('created', instance.created);
   writeNotNull('updated', instance.updated);
+  writeNotNull('notificationPreferences', instance.notificationPreferences);
   return val;
 }
 

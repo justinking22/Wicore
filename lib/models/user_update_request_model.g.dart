@@ -11,7 +11,7 @@ UserUpdateRequest _$UserUpdateRequestFromJson(Map<String, dynamic> json) =>
       firstName: json['firstName'] as String?,
       lastName: json['lastName'] as String?,
       age: (json['age'] as num?)?.toInt(),
-      deviceStrength: (json['devicestrength'] as num?)?.toInt(),
+      deviceStrength: (json['deviceStrength'] as num?)?.toInt(),
       weight: (json['weight'] as num?)?.toDouble(),
       height: (json['height'] as num?)?.toDouble(),
       gender: json['gender'] as String?,
@@ -21,6 +21,10 @@ UserUpdateRequest _$UserUpdateRequestFromJson(Map<String, dynamic> json) =>
       id: json['id'] as String?,
       updated: json['updated'] as String?,
       created: json['created'] as String?,
+      notificationPreferences: json['notificationPreferences'] == null
+          ? null
+          : NotificationPreferences.fromJson(
+              json['notificationPreferences'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$UserUpdateRequestToJson(UserUpdateRequest instance) {
@@ -35,7 +39,7 @@ Map<String, dynamic> _$UserUpdateRequestToJson(UserUpdateRequest instance) {
   writeNotNull('firstName', instance.firstName);
   writeNotNull('lastName', instance.lastName);
   writeNotNull('age', instance.age);
-  writeNotNull('devicestrength', instance.deviceStrength);
+  writeNotNull('deviceStrength', instance.deviceStrength);
   writeNotNull('weight', instance.weight);
   writeNotNull('height', instance.height);
   writeNotNull('gender', instance.gender);
@@ -45,5 +49,6 @@ Map<String, dynamic> _$UserUpdateRequestToJson(UserUpdateRequest instance) {
   writeNotNull('id', instance.id);
   writeNotNull('updated', instance.updated);
   writeNotNull('created', instance.created);
+  writeNotNull('notificationPreferences', instance.notificationPreferences);
   return val;
 }

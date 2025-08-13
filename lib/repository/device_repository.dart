@@ -1,4 +1,4 @@
-import 'package:Wicore/models/active_device_response_model.dart';
+import 'package:Wicore/models/active_device_model.dart';
 import 'package:Wicore/models/device_list_response_model.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -39,7 +39,7 @@ class DeviceRepository {
   }
 
   // Method for getting active devices with battery info
-  Future<ActiveDeviceListResponse> getActiveDevices(String userId) async {
+  Future<ActiveDeviceResponse> getActiveDevices(String userId) async {
     try {
       print('🔧 Repository - Fetching active devices for userId: $userId');
       return await _apiClient.getActiveDevices(userId: userId);
@@ -49,7 +49,7 @@ class DeviceRepository {
     }
   }
 
-  // NEW METHOD: Get all user devices from /device/all endpoint
+  // Method: Get all user devices from /device/all endpoint
   Future<DeviceListResponse> getAllUserDevices(String userId) async {
     try {
       final response = await _apiClient.getAllDevices(userId: userId);
@@ -58,6 +58,22 @@ class DeviceRepository {
       return _handleDeviceListDioError(e);
     } catch (e) {
       if (kDebugMode) print('Error fetching all user devices: $e');
+      return DeviceListResponse(code: -1, error: e.toString());
+    }
+  }
+
+  // NEW METHOD: Unpair device
+  Future<DeviceListResponse> unpairDevice(String deviceId) async {
+    try {
+      print('🔧 Repository - Unpairing device: $deviceId');
+      final response = await _apiClient.unpairDevice(deviceId: deviceId);
+      print('🔧 Repository - Unpair response: ${response.code}');
+      return response;
+    } on DioException catch (e) {
+      print('🔧 ❌ Repository - Error unpairing device: $e');
+      return _handleDeviceListDioError(e);
+    } catch (e) {
+      if (kDebugMode) print('Error unpairing device: $e');
       return DeviceListResponse(code: -1, error: e.toString());
     }
   }
@@ -153,4 +169,22 @@ class DeviceRepository {
       return 0;
     }
   }
+
+  /// NEW UTILITY: Check if device unpair was successful
+  // bool isUnpairSuccessful(DeviceListResponse response) {
+  //   return response.code == 0 && response.data?.status == 'expired';
+  // }
+
+  // /// NEW UTILITY: Get unpaired device info
+  // Map<String, dynamic>? getUnpairedDeviceInfo(DeviceListResponse response) {
+  //   if (isUnpairSuccessful(response) && response.data != null) {
+  //     return {
+  //       'deviceId': response.data!.dId,
+  //       'status': response.data!.status,
+  //       'updatedAt': response.data!.updated,
+  //       'expiryDate': response.data!.expiryDate,
+  //     };
+  //   }
+  //   return null;
+  // }
 }

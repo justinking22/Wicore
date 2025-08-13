@@ -176,18 +176,25 @@ class _PasswordInputScreenState extends ConsumerState<PasswordInputScreen> {
                       hintText: '비밀번호를 입력해주세요',
                       hintStyle: TextStyles.kMedium,
                       errorText: _errorText,
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscureText
-                              ? Icons.visibility
-                              : Icons.visibility_off,
-                          color: Colors.grey,
-                        ),
+                      suffixIcon: TextButton(
                         onPressed: () {
                           setState(() {
                             _obscureText = !_obscureText;
                           });
                         },
+                        style: TextButton.styleFrom(
+                          minimumSize: Size.zero, // Remove default min size
+                          padding: EdgeInsets.zero, // Remove default padding
+                          tapTargetSize:
+                              MaterialTapTargetSize
+                                  .shrinkWrap, // Reduce hit area if needed
+                        ),
+                        child: Text(
+                          _obscureText ? '보기' : '숨기기',
+                          style: TextStyles.kMedium.copyWith(
+                            color: CustomColors.darkCharcoal,
+                          ),
+                        ),
                       ),
                       border: UnderlineInputBorder(
                         borderSide: BorderSide(

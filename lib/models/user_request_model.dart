@@ -1,3 +1,4 @@
+import 'package:Wicore/models/notification_preferences_model.dart';
 import 'package:json_annotation/json_annotation.dart';
 
 part 'user_request_model.g.dart';
@@ -26,12 +27,15 @@ class UserItem {
   final int? age;
   @JsonKey(defaultValue: null, includeIfNull: false)
   final String? number;
-  @JsonKey(name: 'devicestrength', defaultValue: null, includeIfNull: false)
+  @JsonKey(name: 'deviceStrength', defaultValue: null, includeIfNull: false)
   final int? deviceStrength;
   @JsonKey(defaultValue: null, includeIfNull: false)
   final String? created;
   @JsonKey(defaultValue: null, includeIfNull: false)
   final String? updated;
+  // NEW: Add notification preferences field
+  @JsonKey(defaultValue: null, includeIfNull: false)
+  final NotificationPreferences? notificationPreferences;
 
   const UserItem({
     this.id,
@@ -48,6 +52,7 @@ class UserItem {
     this.deviceStrength,
     this.created,
     this.updated,
+    this.notificationPreferences, // Add this to constructor
   });
 
   factory UserItem.fromJson(Map<String, dynamic> json) =>

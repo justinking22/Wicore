@@ -1,3 +1,4 @@
+import 'package:Wicore/models/notification_preferences_model.dart';
 import 'package:Wicore/models/user_response_model.dart';
 import 'package:Wicore/models/user_request_model.dart';
 import 'package:Wicore/models/user_update_request_model.dart';
@@ -266,6 +267,126 @@ class UserNotifier extends StateNotifier<AsyncValue<UserResponse?>> {
       orElse: () => null,
     );
   }
+  // Add these methods to your UserNotifier class
+
+  // Add these methods to your UserNotifier class
+
+  // Method to update a single notification setting while preserving others
+  Future<void> updateSingleNotificationSetting({
+    bool? batteryLow,
+    bool? connectionDisabled,
+    bool? userFallConfirmed,
+  }) async {
+    try {
+      // Get current notification settings from the user profile
+      final currentUser = this.currentUser;
+      final currentNotifications = currentUser?.notificationPreferences;
+
+      String settingName = '';
+      bool settingValue = false;
+
+      // Determine which setting is being updated and preserve others
+      final updatedBatteryLow =
+          batteryLow ?? currentNotifications?.lowBattery ?? true;
+      final updatedConnectionDisabled =
+          connectionDisabled ??
+          currentNotifications?.deviceDisconnected ??
+          true;
+      final updatedUserFallConfirmed =
+          userFallConfirmed ?? currentNotifications?.fallDetection ?? true;
+
+      // Determine which setting is being updated for logging
+      if (batteryLow != null) {
+        settingName = 'lowBattery';
+        settingValue = batteryLow;
+      } else if (connectionDisabled != null) {
+        settingName = 'deviceDisconnected';
+        settingValue = connectionDisabled;
+      } else if (userFallConfirmed != null) {
+        settingName = 'fallDetection';
+        settingValue = userFallConfirmed;
+      } else {
+        throw Exception('No notification setting provided to update');
+      }
+
+      print('🔧 🔔 UserNotifier - Updating $settingName = $settingValue');
+      print(
+        '🔧 🔔 UserNotifier - Sending all three: battery=$updatedBatteryLow, connection=$updatedConnectionDisabled, fall=$updatedUserFallConfirmed',
+      );
+
+      // Create notification preferences with ALL three values (as required by API)
+      final notificationPreferences = NotificationPreferences(
+        lowBattery: updatedBatteryLow,
+        deviceDisconnected: updatedConnectionDisabled,
+        fallDetection: updatedUserFallConfirmed,
+      );
+
+      final updateRequest = UserUpdateRequest.notificationsOnly(
+        preferences: notificationPreferences,
+      );
+
+      print('🔧 🔔 PATCH request JSON: ${updateRequest.toJsonNonNull()}');
+
+      await updateCurrentUserProfile(updateRequest);
+
+      print('🔧 ✅ UserNotifier - Notification settings updated successfully');
+    } catch (error, stackTrace) {
+      print('🔧 ❌ UserNotifier - Error updating notification settings: $error');
+      state = AsyncValue.error(error, stackTrace);
+      rethrow;
+    }
+  }
+
+  // Convenience methods for individual settings (preserving others)
+  Future<void> updateBatteryLowNotification(bool enabled) async {
+    await updateSingleNotificationSetting(batteryLow: enabled);
+  }
+
+  Future<void> updateConnectionDisconnectedNotification(bool enabled) async {
+    await updateSingleNotificationSetting(connectionDisabled: enabled);
+  }
+
+  Future<void> updateFallDetectionNotification(bool enabled) async {
+    await updateSingleNotificationSetting(userFallConfirmed: enabled);
+  }
+
+  // Method to update all notification preferences at once
+  Future<void> updateAllNotificationPreferences({
+    required bool batteryLow,
+    required bool connectionDisabled,
+    required bool userFallConfirmed,
+  }) async {
+    try {
+      print('🔧 🔔 UserNotifier - Updating all notification preferences');
+      print('🔧 🔔 Battery Low: $batteryLow');
+      print('🔧 🔔 Connection Disabled: $connectionDisabled');
+      print('🔧 🔔 Fall Detection: $userFallConfirmed');
+
+      final notificationPreferences = NotificationPreferences(
+        lowBattery: batteryLow,
+        deviceDisconnected: connectionDisabled,
+        fallDetection: userFallConfirmed,
+      );
+
+      final updateRequest = UserUpdateRequest.notificationsOnly(
+        preferences: notificationPreferences,
+      );
+
+      print('🔧 🔔 Update request JSON: ${updateRequest.toJsonNonNull()}');
+
+      await updateCurrentUserProfile(updateRequest);
+
+      print(
+        '🔧 ✅ UserNotifier - All notification preferences updated successfully',
+      );
+    } catch (error, stackTrace) {
+      print(
+        '🔧 ❌ UserNotifier - Error updating all notification preferences: $error',
+      );
+      state = AsyncValue.error(error, stackTrace);
+      rethrow;
+    }
+  }
 
   // Helper method to check if user is onboarded
   bool get isOnboarded {
@@ -406,4 +527,41 @@ final userAuthStateListener = Provider<void>((ref) {
     }
   });
   return;
+});
+final currentNotificationPreferencesProvider =
+    Provider<NotificationPreferences?>((ref) {
+      final userData = ref.watch(currentUserDataProvider);
+      final notifications = userData?.notificationPreferences;
+      print('🔧 📊 currentNotificationPreferencesProvider - $notifications');
+      return notifications;
+    });
+
+// Provider to watch for notification changes
+final notificationStateProvider =
+    Provider<AsyncValue<NotificationPreferences?>>((ref) {
+      final userState = ref.watch(userProvider);
+      return userState.when(
+        data:
+            (response) =>
+                AsyncValue.data(response?.data?.notificationPreferences),
+        loading: () => const AsyncValue.loading(),
+        error: (error, stackTrace) => AsyncValue.error(error, stackTrace),
+      );
+    });
+
+// Helper provider to get individual notification settings
+final batteryLowNotificationProvider = Provider<bool>((ref) {
+  final notifications = ref.watch(currentNotificationPreferencesProvider);
+  return notifications?.lowBattery ?? true; // Default to true if not set
+});
+
+final connectionDisconnectedNotificationProvider = Provider<bool>((ref) {
+  final notifications = ref.watch(currentNotificationPreferencesProvider);
+  return notifications?.deviceDisconnected ??
+      true; // Default to true if not set
+});
+
+final fallDetectionNotificationProvider = Provider<bool>((ref) {
+  final notifications = ref.watch(currentNotificationPreferencesProvider);
+  return notifications?.fallDetection ?? true; // Default to true if not set
 });

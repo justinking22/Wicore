@@ -1,7 +1,9 @@
+// lib/screens/qr_scanner_screen.dart - UPDATED
 import 'package:Wicore/models/device_response_model.dart'
     show DeviceResponseData;
 import 'package:Wicore/states/device_state.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:ui';
@@ -127,7 +129,8 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
             return;
           }
 
-          await _processQRCode(code);
+          // ✅ NEW: Check if device is active before pairing
+          await _checkDeviceStatusAndPair(code);
         } catch (e) {
           print('📱 Error processing QR code: $e');
           _resetScanning();
@@ -153,6 +156,94 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
     if (widget.onShowDeviceDetails != null) {
       widget.onShowDeviceDetails!();
     }
+  }
+
+  // ✅ NEW: Check device status before pairing
+  Future<void> _checkDeviceStatusAndPair(String deviceId) async {
+    print('📱 🔍 Checking device status for: $deviceId');
+
+    try {
+      // First, try to check if device is active by fetching active device data
+      ref.invalidate(activeDeviceProvider);
+      final activeDevice = await ref.read(activeDeviceProvider.future);
+
+      print('📱 Active device response: ${activeDevice?.safeDeviceId}');
+
+      // Check if the scanned device is the currently active device
+      if (activeDevice != null && activeDevice.safeDeviceId == deviceId) {
+        print('📱 ✅ Device is active, proceeding with pairing');
+        await _processQRCode(deviceId);
+      } else {
+        print('📱 ❌ Device is not active or not found, showing turn on dialog');
+        _showDeviceTurnOnDialog(deviceId);
+      }
+    } catch (e) {
+      print('📱 ❌ Error checking device status: $e');
+      // If there's an error checking status, show the turn on dialog
+      _showDeviceTurnOnDialog(deviceId);
+    }
+  }
+
+  // ✅ NEW: Show iOS-style dialog for device turn on
+  void _showDeviceTurnOnDialog(String deviceId) {
+    showCupertinoDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return CupertinoAlertDialog(
+          title: Text(
+            '기기를 켜주세요',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.black,
+            ),
+          ),
+          content: Padding(
+            padding: EdgeInsets.only(top: 12),
+            child: Text(
+              '스캔하신 기기가 꺼져있거나 연결되지 않았습니다.\n기기를 켜고 다시 스캔해주세요.',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.black87,
+                height: 1.4,
+              ),
+            ),
+          ),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _resetScanningAfterDialog();
+              },
+              child: Text(
+                '확인',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                  color: CupertinoColors.systemBlue,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ✅ NEW: Reset scanning after dialog
+  void _resetScanningAfterDialog() {
+    setState(() {
+      _isProcessing = false;
+    });
+    _lastScannedCode = null;
+
+    // Restart scanning after a short delay
+    Future.delayed(Duration(milliseconds: 500), () {
+      if (!_isDisposed && controller != null) {
+        controller?.start();
+      }
+    });
   }
 
   Future<void> _processQRCode(String code) async {
@@ -216,24 +307,18 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
         final availableWidth = constraints.maxWidth;
         final safePadding = MediaQuery.of(context).padding;
 
-        // Calculate top section height with much more space for the two-line title
         final topSectionHeight = math.max(220.0, availableHeight * 0.28);
         final bottomSectionHeight = math.max(120.0, availableHeight * 0.15);
 
-        // Add more spacing between top section and scanner
         final spacing = 20.0;
         final availableForScanner =
             availableHeight - topSectionHeight - bottomSectionHeight - spacing;
 
-        // Make scanner size bigger again - use more aggressive sizing
         final maxScannerSize = math.min(
           availableWidth * 0.85,
           availableForScanner * 0.9,
         );
-        final scannerSize = math.max(
-          300.0,
-          maxScannerSize,
-        ); // Increased minimum to 300
+        final scannerSize = math.max(300.0, maxScannerSize);
 
         return Container(
           child: Stack(
@@ -276,13 +361,13 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
                     height: scannerSize,
                     child: MobileScanner(
                       controller: controller,
-                      onDetect: _onDetect, // Use the actual onDetect method
+                      onDetect: _onDetect,
                     ),
                   ),
                 ),
               ),
 
-              // QR Scanner Frame with rounded corners - positioned to match scanner area
+              // QR Scanner Frame with rounded corners
               Positioned(
                 left: (availableWidth - scannerSize) / 2,
                 top:
@@ -302,7 +387,7 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
                 ),
               ),
 
-              // Top section with WHITE background - positioned above blur
+              // Top section with WHITE background
               Positioned(
                 top: 0,
                 left: 0,
@@ -376,17 +461,6 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
                     bottom: safePadding.bottom + 20,
                     top: 20,
                   ),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.transparent,
-                        Colors.transparent,
-                      ],
-                    ),
-                  ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -403,6 +477,34 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
                   ),
                 ),
               ),
+
+              // ✅ NEW: Processing overlay
+              if (_isProcessing)
+                Positioned.fill(
+                  child: Container(
+                    color: Colors.black.withOpacity(0.5),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Color(0xFFB8FF00),
+                            ),
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            '기기 상태를 확인 중...',
+                            style: TextStyles.kMedium.copyWith(
+                              fontSize: 16,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         );
@@ -415,7 +517,7 @@ void unawaited(Future<void>? future) {
   // Explicitly ignore the future
 }
 
-// Updated Custom painter that respects the top section and positions scanner area correctly
+// Custom painter (unchanged)
 class QROverlayPainter extends CustomPainter {
   final double cutOutSize;
   final double borderRadius;
@@ -431,15 +533,13 @@ class QROverlayPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint =
         Paint()
-          ..color = Colors.black.withOpacity(0.3) // Lighter since we have blur
+          ..color = Colors.black.withOpacity(0.3)
           ..style = PaintingStyle.fill;
 
-    // Calculate available height for scanner positioning with reduced spacing
     final spacing = 20.0;
     final availableForScanner =
         size.height - topSectionHeight - (size.height * 0.15) - spacing;
 
-    // Position scanner in the center of available space with reduced spacing
     final center = Offset(
       size.width / 2,
       topSectionHeight + spacing + (availableForScanner / 2),
@@ -451,11 +551,9 @@ class QROverlayPainter extends CustomPainter {
       height: cutOutSize,
     );
 
-    // Create paths for the overlay
     final outerPath =
         Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
 
-    // Exclude the top section from the overlay
     final topSectionPath =
         Path()..addRect(Rect.fromLTWH(0, 0, size.width, topSectionHeight));
 
@@ -464,7 +562,6 @@ class QROverlayPainter extends CustomPainter {
           RRect.fromRectAndRadius(cutOutRect, Radius.circular(borderRadius)),
         );
 
-    // Combine paths: outer - top section - scanner area
     final overlayPath = Path.combine(
       PathOperation.difference,
       Path.combine(PathOperation.difference, outerPath, topSectionPath),

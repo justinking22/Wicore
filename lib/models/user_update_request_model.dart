@@ -1,3 +1,5 @@
+// lib/models/user_update_request_model.dart
+import 'package:Wicore/models/notification_preferences_model.dart';
 import 'package:json_annotation/json_annotation.dart';
 
 part 'user_update_request_model.g.dart';
@@ -10,7 +12,7 @@ class UserUpdateRequest {
   final String? lastName;
   @JsonKey(defaultValue: null, includeIfNull: false)
   final int? age;
-  @JsonKey(name: 'devicestrength', defaultValue: null, includeIfNull: false)
+  @JsonKey(name: 'deviceStrength', defaultValue: null, includeIfNull: false)
   final int? deviceStrength;
   @JsonKey(defaultValue: null, includeIfNull: false)
   final double? weight;
@@ -21,7 +23,7 @@ class UserUpdateRequest {
   @JsonKey(defaultValue: null, includeIfNull: false)
   final String? number;
   @JsonKey(defaultValue: null, includeIfNull: false)
-  final bool? onboarded; // Changed to bool? to match UserItem
+  final bool? onboarded;
   @JsonKey(defaultValue: null, includeIfNull: false)
   final String? email;
   @JsonKey(defaultValue: null, includeIfNull: false)
@@ -30,6 +32,10 @@ class UserUpdateRequest {
   final String? updated;
   @JsonKey(defaultValue: null, includeIfNull: false)
   final String? created;
+
+  // NEW: Add notification preferences
+  @JsonKey(defaultValue: null, includeIfNull: false)
+  final NotificationPreferences? notificationPreferences;
 
   const UserUpdateRequest({
     this.firstName,
@@ -45,6 +51,7 @@ class UserUpdateRequest {
     this.id,
     this.updated,
     this.created,
+    this.notificationPreferences,
   });
 
   factory UserUpdateRequest.fromJson(Map<String, dynamic> json) =>
@@ -70,5 +77,16 @@ class UserUpdateRequest {
       email == null &&
       id == null &&
       updated == null &&
-      created == null;
+      created == null &&
+      notificationPreferences == null;
+
+  // Helper constructor for notification updates only
+  UserUpdateRequest.notificationsOnly({
+    required NotificationPreferences preferences,
+  }) : this(notificationPreferences: preferences);
+
+  @override
+  String toString() {
+    return 'UserUpdateRequest(notificationPreferences: $notificationPreferences, onboarded: $onboarded)';
+  }
 }

@@ -2,7 +2,7 @@ import 'package:Wicore/styles/colors.dart';
 import 'package:Wicore/widgets/reusable_app_bar.dart';
 import 'package:Wicore/models/device_list_response_model.dart';
 import 'package:Wicore/providers/device_provider.dart';
-import 'package:Wicore/providers/authentication_provider.dart'; // Add this import
+import 'package:Wicore/providers/authentication_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -64,8 +64,8 @@ class DeviceHistoryScreen extends ConsumerWidget {
       '📱 ✅ DeviceHistoryScreen - Authentication passed, loading devices...',
     );
 
-    // Only watch device list if authenticated
-    final devicesAsync = ref.watch(userDeviceListProvider);
+    // ✅ UPDATED: Use the new simplified provider
+    final devicesAsync = ref.watch(allDevicesProvider);
 
     return Scaffold(
       backgroundColor: CustomColors.lighterGray,
@@ -104,7 +104,9 @@ class DeviceHistoryScreen extends ConsumerWidget {
 
             return RefreshIndicator(
               onRefresh: () async {
-                ref.invalidate(userDeviceListProvider);
+                // ✅ UPDATED: Invalidate the new provider
+                ref.invalidate(allDevicesProvider);
+                await ref.read(allDevicesProvider.future);
               },
               child: ListView(
                 padding: EdgeInsets.all(16.0),
@@ -139,7 +141,8 @@ class DeviceHistoryScreen extends ConsumerWidget {
                   SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () {
-                      ref.invalidate(userDeviceListProvider);
+                      // ✅ UPDATED: Invalidate the new provider
+                      ref.invalidate(allDevicesProvider);
                     },
                     child: Text('다시 시도'),
                   ),
@@ -268,6 +271,15 @@ class DeviceHistoryScreen extends ConsumerWidget {
                     fontWeight: FontWeight.w400,
                   ),
                 ),
+                // SizedBox(height: 4),
+                // Text(
+                //   _getStatusText(device.status),
+                //   style: TextStyle(
+                //     fontSize: 14,
+                //     color: _getStatusColor(device.status),
+                //     fontWeight: FontWeight.w500,
+                //   ),
+                // ),
               ],
             ),
           ),
@@ -282,6 +294,15 @@ class DeviceHistoryScreen extends ConsumerWidget {
                   fontWeight: FontWeight.w400,
                 ),
               ),
+              //     SizedBox(height: 4),
+              //     Text(
+              //       '신호: ${device.deviceStrength}',
+              //       style: TextStyle(
+              //         fontSize: 14,
+              //         color: Colors.grey[500],
+              //         fontWeight: FontWeight.w400,
+              //       ),
+              //     ),
             ],
           ),
         ],

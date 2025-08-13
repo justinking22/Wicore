@@ -1,15 +1,14 @@
-// lib/providers/device_provider.dart - CLEANED VERSION
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:Wicore/models/active_device_model.dart';
+import 'package:Wicore/models/device_list_response_model.dart';
 import 'package:Wicore/providers/authentication_provider.dart';
 import 'package:Wicore/services/device_api_client.dart';
+import 'package:Wicore/repository/device_repository.dart';
 import 'package:Wicore/states/device_state.dart';
-import 'package:Wicore/models/device_list_response_model.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../repository/device_repository.dart';
-import '../models/device_request_model.dart';
-import '../models/device_response_model.dart';
+import 'package:Wicore/models/device_request_model.dart';
+import 'package:Wicore/models/device_response_model.dart';
 
-// ✅ KEEP: DeviceNotifier for pairing/unpairing operations
+// KEEP your existing DeviceNotifier for pairing/unpairing
 class DeviceNotifier extends StateNotifier<DeviceState> {
   final DeviceRepository _repository;
   final Ref _ref;
@@ -39,10 +38,11 @@ class DeviceNotifier extends StateNotifier<DeviceState> {
         _ref.read(deviceDataProvider.notifier).state = response.data;
         state = state.copyWith(pairedDevice: response.data, isLoading: false);
 
-        // ✅ KEEP: Invalidate the simplified providers
+        // Refresh device lists after pairing
         _ref.invalidate(allDevicesProvider);
         _ref.invalidate(activeDeviceProvider);
       } else if (response.code == -106) {
+        // Device already paired
         final deviceData = DeviceResponseData(
           deviceId: deviceId,
           offset: offset,
@@ -57,7 +57,7 @@ class DeviceNotifier extends StateNotifier<DeviceState> {
         _ref.read(deviceDataProvider.notifier).state = deviceData;
         state = state.copyWith(pairedDevice: deviceData, isLoading: false);
 
-        // ✅ KEEP: Invalidate the simplified providers
+        // Refresh device lists after pairing
         _ref.invalidate(allDevicesProvider);
         _ref.invalidate(activeDeviceProvider);
       } else {
@@ -98,7 +98,7 @@ class DeviceNotifier extends StateNotifier<DeviceState> {
           state = state.copyWith(pairedDevice: null);
         }
 
-        // ✅ KEEP: Invalidate the simplified providers
+        // Refresh device lists after unpairing
         _ref.invalidate(allDevicesProvider);
         _ref.invalidate(activeDeviceProvider);
 
@@ -123,14 +123,9 @@ class DeviceNotifier extends StateNotifier<DeviceState> {
     _ref.read(deviceDataProvider.notifier).state = null;
     state = DeviceState();
   }
-
-  void refreshDeviceLists() {
-    _ref.invalidate(allDevicesProvider);
-    _ref.invalidate(activeDeviceProvider);
-  }
 }
 
-// ✅ KEEP: Core infrastructure providers
+// Core Providers
 final deviceApiClientProvider = Provider<DeviceApiClient>((ref) {
   final dio = ref.watch(authenticatedDioProvider);
   return DeviceApiClient(dio);
@@ -149,7 +144,7 @@ final deviceNotifierProvider =
 
 final deviceDataProvider = StateProvider<DeviceResponseData?>((ref) => null);
 
-// ✅ KEEP & UPDATE: Simplified All Devices Provider
+// SIMPLIFIED: All Devices Provider (from /device/all)
 final allDevicesProvider = FutureProvider.autoDispose<List<DeviceListItem>>((
   ref,
 ) async {
@@ -178,6 +173,7 @@ final allDevicesProvider = FutureProvider.autoDispose<List<DeviceListItem>>((
       print('🔧 ✅ Loaded ${response.data!.length} devices from /device/all');
       return response.data!;
     } else {
+      print('🔧 ❌ Failed to load devices: ${response.error}');
       throw Exception(response.error ?? 'Failed to fetch devices');
     }
   } catch (e) {
@@ -189,7 +185,7 @@ final allDevicesProvider = FutureProvider.autoDispose<List<DeviceListItem>>((
   }
 });
 
-// ✅ KEEP & UPDATE: Simplified Active Device Provider
+// SIMPLIFIED: Active Device Provider (from /device/active)
 final activeDeviceProvider = FutureProvider.autoDispose<ActiveDeviceData?>((
   ref,
 ) async {
@@ -197,7 +193,7 @@ final activeDeviceProvider = FutureProvider.autoDispose<ActiveDeviceData?>((
   final authState = ref.watch(authNotifierProvider);
 
   if (!authState.isAuthenticated) {
-    return null;
+    return null; // Return null instead of throwing for better UX
   }
 
   final userId = authState.userData?.id ?? authState.userData?.username;
@@ -216,8 +212,12 @@ final activeDeviceProvider = FutureProvider.autoDispose<ActiveDeviceData?>((
 
     if (response.isSuccess && response.data != null) {
       print('🔧 ✅ Loaded active device: ${response.data!.safeDeviceId}');
+      print(
+        '🔧 📱 Battery: ${response.data!.batteryLevel}% - Signal: ${response.data!.signalStrength}',
+      );
       return response.data!;
     } else {
+      print('🔧 ❌ No active device found or error: ${response.error}');
       return null;
     }
   } catch (e) {
@@ -225,11 +225,12 @@ final activeDeviceProvider = FutureProvider.autoDispose<ActiveDeviceData?>((
         e.toString().contains('401')) {
       ref.read(authNotifierProvider.notifier).setUnauthenticated();
     }
+    print('🔧 ❌ Error fetching active device: $e');
     return null;
   }
 });
 
-// ✅ KEEP: Filtered providers (simplified)
+// Filtered Providers
 final activeDevicesFromAllProvider = Provider<AsyncValue<List<DeviceListItem>>>(
   (ref) {
     final allDevicesAsync = ref.watch(allDevicesProvider);
@@ -258,7 +259,7 @@ final expiredDevicesProvider = Provider<AsyncValue<List<DeviceListItem>>>((
   );
 });
 
-// ✅ KEEP: Device-specific providers (simplified)
+// Device-specific Providers
 final deviceByIdProvider = Provider.family<AsyncValue<DeviceListItem?>, String>(
   (ref, deviceId) {
     final allDevicesAsync = ref.watch(allDevicesProvider);
@@ -311,7 +312,7 @@ final deviceSignalProvider = Provider.family<AsyncValue<int?>, String>((
   );
 });
 
-// ✅ KEEP: Utility providers (simplified)
+// Utility Providers
 final deviceStatusCountProvider = Provider<AsyncValue<Map<String, int>>>((ref) {
   final allDevicesAsync = ref.watch(allDevicesProvider);
   return allDevicesAsync.when(

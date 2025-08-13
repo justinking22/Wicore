@@ -97,7 +97,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       switch (authState.status) {
         case AuthStatus.authenticated:
           print('Navigating to home - user is authenticated');
-          context.go('/home');
+          context.go('/navigation');
           break;
         case AuthStatus.unauthenticated:
           print('Navigating to login - user is not authenticated');

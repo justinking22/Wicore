@@ -56,13 +56,13 @@ class _DeviceApiClient implements DeviceApiClient {
   }
 
   @override
-  Future<ActiveDeviceListResponse> getActiveDevices(
+  Future<ActiveDeviceResponse> getActiveDevices(
       {required String userId}) async {
     final _extra = <String, dynamic>{};
     final queryParameters = <String, dynamic>{r'uId': userId};
     final _headers = <String, dynamic>{};
     const Map<String, dynamic>? _data = null;
-    final _options = _setStreamType<ActiveDeviceListResponse>(Options(
+    final _options = _setStreamType<ActiveDeviceResponse>(Options(
       method: 'GET',
       headers: _headers,
       extra: _extra,
@@ -79,9 +79,9 @@ class _DeviceApiClient implements DeviceApiClient {
           baseUrl,
         )));
     final _result = await _dio.fetch<Map<String, dynamic>>(_options);
-    late ActiveDeviceListResponse _value;
+    late ActiveDeviceResponse _value;
     try {
-      _value = ActiveDeviceListResponse.fromJson(_result.data!);
+      _value = ActiveDeviceResponse.fromJson(_result.data!);
     } on Object catch (e, s) {
       errorLogger?.logError(e, s, _options);
       rethrow;
@@ -103,6 +103,39 @@ class _DeviceApiClient implements DeviceApiClient {
         .compose(
           _dio.options,
           '/device/all',
+          queryParameters: queryParameters,
+          data: _data,
+        )
+        .copyWith(
+            baseUrl: _combineBaseUrls(
+          _dio.options.baseUrl,
+          baseUrl,
+        )));
+    final _result = await _dio.fetch<Map<String, dynamic>>(_options);
+    late DeviceListResponse _value;
+    try {
+      _value = DeviceListResponse.fromJson(_result.data!);
+    } on Object catch (e, s) {
+      errorLogger?.logError(e, s, _options);
+      rethrow;
+    }
+    return _value;
+  }
+
+  @override
+  Future<DeviceListResponse> unpairDevice({required String deviceId}) async {
+    final _extra = <String, dynamic>{};
+    final queryParameters = <String, dynamic>{};
+    final _headers = <String, dynamic>{};
+    const Map<String, dynamic>? _data = null;
+    final _options = _setStreamType<DeviceListResponse>(Options(
+      method: 'DELETE',
+      headers: _headers,
+      extra: _extra,
+    )
+        .compose(
+          _dio.options,
+          '/device/unpair/${deviceId}',
           queryParameters: queryParameters,
           data: _data,
         )
