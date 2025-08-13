@@ -92,7 +92,9 @@ class _ResavePhoneNumberScreenState
       final phoneNumber = _phoneController.text;
       await ref
           .read(userProvider.notifier)
-          .updateCurrentUserProfile(UserUpdateRequest(number: phoneNumber));
+          .updateCurrentUserProfile(
+            UserUpdateRequest(phoneNumber: phoneNumber),
+          );
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('전화번호가 성공적으로 저장되었습니다')));

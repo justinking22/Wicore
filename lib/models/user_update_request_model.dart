@@ -21,7 +21,7 @@ class UserUpdateRequest {
   @JsonKey(defaultValue: null, includeIfNull: false)
   final String? gender;
   @JsonKey(defaultValue: null, includeIfNull: false)
-  final String? number;
+  final String? phoneNumber;
   @JsonKey(defaultValue: null, includeIfNull: false)
   final bool? onboarded;
   @JsonKey(defaultValue: null, includeIfNull: false)
@@ -45,7 +45,7 @@ class UserUpdateRequest {
     this.weight,
     this.height,
     this.gender,
-    this.number,
+    this.phoneNumber,
     this.onboarded,
     this.email,
     this.id,
@@ -72,7 +72,7 @@ class UserUpdateRequest {
       weight == null &&
       height == null &&
       gender == null &&
-      number == null &&
+      phoneNumber == null &&
       onboarded == null &&
       email == null &&
       id == null &&

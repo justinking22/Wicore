@@ -15,7 +15,7 @@ UserUpdateRequest _$UserUpdateRequestFromJson(Map<String, dynamic> json) =>
       weight: (json['weight'] as num?)?.toDouble(),
       height: (json['height'] as num?)?.toDouble(),
       gender: json['gender'] as String?,
-      number: json['number'] as String?,
+      phoneNumber: json['phoneNumber'] as String?,
       onboarded: json['onboarded'] as bool?,
       email: json['email'] as String?,
       id: json['id'] as String?,
@@ -43,7 +43,7 @@ Map<String, dynamic> _$UserUpdateRequestToJson(UserUpdateRequest instance) {
   writeNotNull('weight', instance.weight);
   writeNotNull('height', instance.height);
   writeNotNull('gender', instance.gender);
-  writeNotNull('number', instance.number);
+  writeNotNull('phoneNumber', instance.phoneNumber);
   writeNotNull('onboarded', instance.onboarded);
   writeNotNull('email', instance.email);
   writeNotNull('id', instance.id);

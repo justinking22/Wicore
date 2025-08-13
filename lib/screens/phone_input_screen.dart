@@ -63,7 +63,9 @@ class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
       // Save phone number
       await ref
           .read(userProvider.notifier)
-          .updateCurrentUserProfile(UserUpdateRequest(number: phoneNumber));
+          .updateCurrentUserProfile(
+            UserUpdateRequest(phoneNumber: phoneNumber),
+          );
 
       print('📱 PhoneInput - Phone number saved successfully');
 
