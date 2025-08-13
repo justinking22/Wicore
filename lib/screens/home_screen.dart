@@ -252,125 +252,108 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         final availableWidth = constraints.maxWidth;
         final safePadding = MediaQuery.of(context).padding;
 
-        // Calculate responsive dimensions
-        final topPadding =
-            math.max(safePadding.top + 40, availableHeight * 0.15).toDouble();
         final bottomPadding =
             math.max(safePadding.bottom + 24, 60.0).toDouble();
-        final horizontalPadding =
-            math.max(24.0, availableWidth * 0.06).toDouble();
-
-        // Calculate available space for content
-        final contentHeight =
-            availableHeight -
-            topPadding -
-            bottomPadding -
-            80; // 80 for button + spacing
+        final horizontalPadding = 24.0;
 
         // Responsive font sizes
-        final titleFontSize =
-            math.min(32, math.max(24, availableWidth * 0.08)).toDouble();
-        final bodyFontSize =
-            math.min(16, math.max(14, availableWidth * 0.04)).toDouble();
+        final titleFontSize = 28.0;
+        final bodyFontSize = 16.0;
 
         return Container(
           color: Colors.white,
           height: availableHeight,
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+            padding: EdgeInsets.only(
+              top: safePadding.top + 60, // Status bar + some spacing
+              left: horizontalPadding,
+              right: horizontalPadding,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(height: topPadding),
-
-                // Main content area - flexible
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        '기기를 연결하려면\n접근 허용이 필요해요',
-                        style: TextStyles.kSemiBold.copyWith(
-                          fontSize: titleFontSize,
-                          height: 1.3,
-                        ),
+                // Main content area - positioned higher on screen
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '기기를 연결하려면\n접근 허용이 필요해요',
+                      style: TextStyles.kSemiBold.copyWith(
+                        fontSize: titleFontSize,
+                        height: 1.3,
                       ),
-                      SizedBox(
-                        height:
-                            math.max(20, availableHeight * 0.025).toDouble(),
-                      ),
+                    ),
+                    const SizedBox(height: 24),
 
-                      Text(
-                        '블루투스(기기연결)와 카메라(QR촬영)가\n필요하며 그 외에는 사용되지 않습니다.',
+                    Text(
+                      '블루투스(기기연결)와 카메라(QR촬영)가\n필요하며 그 외에는 사용되지 않습니다.',
+                      style: TextStyles.kMedium.copyWith(
+                        color: CustomColors.lightGray,
+                        fontSize: bodyFontSize,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    RichText(
+                      text: TextSpan(
                         style: TextStyles.kMedium.copyWith(
-                          color: CustomColors.lightGray,
                           fontSize: bodyFontSize,
+                          height: 1.4,
                         ),
-                      ),
-                      SizedBox(
-                        height:
-                            math.max(12, availableHeight * 0.015).toDouble(),
-                      ),
-
-                      RichText(
-                        text: TextSpan(
-                          style: TextStyles.kMedium.copyWith(
-                            fontSize: bodyFontSize,
+                        children: [
+                          TextSpan(
+                            text: '알림창의 ',
+                            style: TextStyles.kMedium.copyWith(
+                              color: Colors.red,
+                              fontSize: bodyFontSize,
+                            ),
                           ),
-                          children: [
-                            TextSpan(
-                              text: Platform.isIOS ? '설정에서 ' : '알림창의 ',
-                              style: TextStyles.kMedium.copyWith(
-                                color: Colors.red,
-                                fontSize: bodyFontSize,
-                              ),
+                          TextSpan(
+                            text: '【허용】',
+                            style: TextStyle(
+                              color: Colors.red,
+                              fontWeight: FontWeight.bold,
+                              fontSize: bodyFontSize,
                             ),
-                            TextSpan(
-                              text: Platform.isIOS ? '【권한 허용】' : '【허용】',
-                              style: TextStyle(
-                                color: Colors.red,
-                                fontWeight: FontWeight.bold,
-                                fontSize: bodyFontSize,
-                              ),
+                          ),
+                          TextSpan(
+                            text: ' 또는 ',
+                            style: TextStyles.kMedium.copyWith(
+                              color: Colors.red,
+                              fontSize: bodyFontSize,
                             ),
-                            if (!Platform.isIOS) ...[
-                              TextSpan(
-                                text: ' 또는 ',
-                                style: TextStyles.kMedium.copyWith(
-                                  color: Colors.red,
-                                  fontSize: bodyFontSize,
-                                ),
-                              ),
-                              TextSpan(
-                                text: '【허가】',
-                                style: TextStyle(
-                                  color: Colors.red,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: bodyFontSize,
-                                ),
-                              ),
-                            ],
-                            TextSpan(
-                              text: ' 을 눌러주세요.',
-                              style: TextStyles.kMedium.copyWith(
-                                color: Colors.red,
-                                fontSize: bodyFontSize,
-                              ),
+                          ),
+                          TextSpan(
+                            text: '[확인]',
+                            style: TextStyle(
+                              color: Colors.red,
+                              fontWeight: FontWeight.bold,
+                              fontSize: bodyFontSize,
                             ),
-                          ],
-                        ),
+                          ),
+                          TextSpan(
+                            text: ' 을 눌러주세요.',
+                            style: TextStyles.kMedium.copyWith(
+                              color: Colors.red,
+                              fontSize: bodyFontSize,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
+
+                // Spacer to push button to bottom
+                const Spacer(),
 
                 // Bottom button - fixed position
                 Container(
                   padding: EdgeInsets.only(bottom: bottomPadding),
                   child: SizedBox(
                     width: double.infinity,
-                    height: math.max(56, availableHeight * 0.07).toDouble(),
+                    height: 56,
                     child: OutlinedButton(
                       onPressed: _startQRScanning,
                       style: OutlinedButton.styleFrom(
@@ -382,12 +365,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                       child: Text(
                         '확인했습니다',
-                        style: TextStyles.kSemiBold.copyWith(
-                          fontSize:
-                              math
-                                  .min(16, math.max(14, availableWidth * 0.04))
-                                  .toDouble(),
-                        ),
+                        style: TextStyles.kSemiBold.copyWith(fontSize: 16),
                       ),
                     ),
                   ),

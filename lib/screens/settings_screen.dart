@@ -1,6 +1,7 @@
 import 'package:Wicore/dialogs/settings_confirmation_dialog.dart';
 import 'package:Wicore/providers/authentication_provider.dart';
 import 'package:Wicore/providers/user_provider.dart'; // Add this import
+import 'package:Wicore/screens/personal_info_input_screen.dart';
 import 'package:Wicore/styles/colors.dart';
 import 'package:Wicore/styles/text_styles.dart';
 import 'package:Wicore/widgets/reusable_app_bar.dart';
@@ -239,8 +240,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               trailingButtonIcon: Icons.info_outline,
               showTrailingButton: true,
               onTrailingPressed: () {
-                // Handle info button press
-                context.push('/onboarding');
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const PersonalInfoInputScreen(),
+                  ),
+                );
               },
               showBackButton: false,
             ),

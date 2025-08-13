@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:math';
 import 'package:Wicore/repository/auth_repository.dart';
 import 'package:Wicore/services/config_service.dart';
 import 'package:Wicore/states/auth_status.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/auth_api_client.dart';
 import '../services/token_storage_service.dart';
@@ -27,6 +29,79 @@ final dioProvider = Provider<Dio>((ref) {
 
   return dio;
 });
+
+// Debug helper for token issues
+class AuthDebugHelper {
+  final TokenStorageService _tokenStorage;
+
+  AuthDebugHelper(this._tokenStorage);
+
+  Future<void> debugAuthState() async {
+    if (!kDebugMode) return;
+
+    print('🔍 === AUTH DEBUG INFORMATION ===');
+
+    try {
+      final accessToken = await _tokenStorage.getAccessToken();
+      final refreshToken = await _tokenStorage.getRefreshToken();
+      final expiryDate = await _tokenStorage.getTokenExpiryDate();
+      final refreshExpiryDate = await _tokenStorage.getRefreshTokenExpiryDate();
+
+      print('🔍 Access Token Present: ${accessToken != null}');
+      if (accessToken != null) {
+        print(
+          '🔍 Access Token Preview: ${accessToken.substring(0, min(20, accessToken.length))}...',
+        );
+        print('🔍 Access Token Length: ${accessToken.length}');
+      }
+
+      print('🔍 Refresh Token Present: ${refreshToken != null}');
+      if (refreshToken != null) {
+        print(
+          '🔍 Refresh Token Preview: ${refreshToken.substring(0, min(20, refreshToken.length))}...',
+        );
+        print('🔍 Refresh Token Length: ${refreshToken.length}');
+      }
+
+      print('🔍 Access Token Expiry: $expiryDate');
+      print('🔍 Refresh Token Expiry: $refreshExpiryDate');
+
+      if (expiryDate != null) {
+        final expiry = DateTime.parse(expiryDate);
+        final now = DateTime.now();
+        final timeUntilExpiry = expiry.difference(now);
+
+        print('🔍 Current Time: $now');
+        print('🔍 Access Token Expires: $expiry');
+        print('🔍 Time Until Expiry: ${timeUntilExpiry.inMinutes} minutes');
+        print('🔍 Access Token Expired: ${timeUntilExpiry.isNegative}');
+      }
+
+      if (refreshExpiryDate != null) {
+        final refreshExpiry = DateTime.parse(refreshExpiryDate);
+        final now = DateTime.now();
+        final timeUntilRefreshExpiry = refreshExpiry.difference(now);
+
+        print('🔍 Refresh Token Expires: $refreshExpiry');
+        print(
+          '🔍 Time Until Refresh Expiry: ${timeUntilRefreshExpiry.inHours} hours',
+        );
+        print('🔍 Refresh Token Expired: ${timeUntilRefreshExpiry.isNegative}');
+      }
+
+      // Test token validation
+      final isTokenExpired = await _tokenStorage.isTokenExpired();
+      final isRefreshTokenExpired = await _tokenStorage.isRefreshTokenExpired();
+
+      print('🔍 Token Storage Says Access Expired: $isTokenExpired');
+      print('🔍 Token Storage Says Refresh Expired: $isRefreshTokenExpired');
+    } catch (e) {
+      print('🔍 Error during debug: $e');
+    }
+
+    print('🔍 === END AUTH DEBUG ===');
+  }
+}
 
 // Token refresh manager to handle proactive token refresh
 class TokenRefreshManager {
@@ -100,83 +175,6 @@ class TokenRefreshManager {
     _cancelTimer();
   }
 }
-
-// Authenticated Dio provider with improved interceptors
-final authenticatedDioProvider = Provider<Dio>((ref) {
-  final dio = Dio();
-  final tokenStorage = ref.watch(tokenStorageProvider);
-  final baseUrl = ref.watch(baseUrlProvider);
-
-  // Set base URL
-  dio.options.baseUrl = baseUrl;
-
-  if (kDebugMode) {
-    dio.interceptors.add(LogInterceptor(requestBody: true, responseBody: true));
-  }
-
-  // Add auth interceptor with improved refresh token logic
-  dio.interceptors.add(
-    InterceptorsWrapper(
-      onRequest: (options, handler) async {
-        // Only add token for non-auth endpoints
-        if (!options.path.contains('/auth/')) {
-          final token = await _getValidAccessToken(tokenStorage);
-          if (token != null) {
-            options.headers['Authorization'] = 'Bearer $token';
-          } else {
-            // If we can't get a valid token, this request will likely fail
-            if (kDebugMode)
-              print('⚠️ No valid access token available for request');
-          }
-        }
-        handler.next(options);
-      },
-      onError: (error, handler) async {
-        if (error.response?.statusCode == 401 &&
-            !error.requestOptions.path.contains('/auth/')) {
-          if (kDebugMode) print('🔄 401 error, attempting token refresh');
-
-          // Try to get a valid access token (this will handle refresh if needed)
-          final token = await _getValidAccessToken(
-            tokenStorage,
-            forceRefresh: true,
-          );
-
-          if (token != null) {
-            if (kDebugMode) print('🔄 Got new token, retrying request');
-
-            // Retry original request with new token
-            error.requestOptions.headers['Authorization'] = 'Bearer $token';
-            try {
-              final cloneReq = await dio.request(
-                error.requestOptions.path,
-                options: Options(
-                  method: error.requestOptions.method,
-                  headers: error.requestOptions.headers,
-                ),
-                data: error.requestOptions.data,
-                queryParameters: error.requestOptions.queryParameters,
-              );
-              handler.resolve(cloneReq);
-              return;
-            } catch (e) {
-              if (kDebugMode) print('Retry request failed: $e');
-            }
-          } else {
-            if (kDebugMode)
-              print('🔄 Failed to refresh token, clearing auth state');
-            // If all refresh attempts failed, clear tokens
-            await tokenStorage.clearTokens();
-          }
-        }
-
-        handler.next(error);
-      },
-    ),
-  );
-
-  return dio;
-});
 
 // Enhanced helper function to get valid access token with better error handling
 Future<String?> _getValidAccessToken(
@@ -291,32 +289,6 @@ Future<String?> _refreshAccessToken(
   }
 }
 
-// Helper function to extract expiry from JWT token
-String? _extractExpiryFromJWT(String token) {
-  try {
-    final parts = token.split('.');
-    if (parts.length != 3) return null;
-
-    String payload = parts[1];
-    while (payload.length % 4 != 0) {
-      payload += '=';
-    }
-    payload = payload.replaceAll('-', '+').replaceAll('_', '/');
-
-    final decoded = utf8.decode(base64.decode(payload));
-    final payloadMap = jsonDecode(decoded);
-    final exp = payloadMap['exp'] as int?;
-
-    if (exp != null) {
-      final expiryDate = DateTime.fromMillisecondsSinceEpoch(exp * 1000);
-      return expiryDate.toIso8601String();
-    }
-  } catch (e) {
-    if (kDebugMode) print('Error extracting expiry from JWT: $e');
-  }
-  return null;
-}
-
 // Base URL provider
 final baseUrlProvider = Provider<String>((ref) {
   return '${ConfigService().getPrimaryApiEndpoint()}';
@@ -341,11 +313,99 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(apiClient, tokenStorage);
 });
 
-// Enhanced Auth state notifier with proactive token refresh
-class AuthNotifier extends StateNotifier<AuthState> {
+// Enhanced authenticated Dio provider that waits for auth initialization
+final authenticatedDioProvider = Provider<Dio>((ref) {
+  final dio = Dio();
+  final tokenStorage = ref.watch(tokenStorageProvider);
+  final baseUrl = ref.watch(baseUrlProvider);
+  final authNotifier = ref.watch(authNotifierProvider.notifier);
+
+  // Set base URL
+  dio.options.baseUrl = baseUrl;
+
+  if (kDebugMode) {
+    dio.interceptors.add(LogInterceptor(requestBody: true, responseBody: true));
+  }
+
+  // Add auth interceptor with improved refresh token logic
+  dio.interceptors.add(
+    InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        // Wait for auth initialization before proceeding
+        await authNotifier.waitForInitialization();
+
+        // Only add token for non-auth endpoints
+        if (!options.path.contains('/auth/')) {
+          final token = await _getValidAccessToken(tokenStorage);
+          if (token != null) {
+            options.headers['Authorization'] = 'Bearer $token';
+            if (kDebugMode) print('🔐 Added auth header to ${options.path}');
+          } else {
+            if (kDebugMode)
+              print('⚠️ No valid access token available for ${options.path}');
+          }
+        }
+        handler.next(options);
+      },
+      onError: (error, handler) async {
+        if (error.response?.statusCode == 401 &&
+            !error.requestOptions.path.contains('/auth/')) {
+          if (kDebugMode) print('🔄 401 error, attempting token refresh');
+
+          // Try to get a valid access token (this will handle refresh if needed)
+          final token = await _getValidAccessToken(
+            tokenStorage,
+            forceRefresh: true,
+          );
+
+          if (token != null) {
+            if (kDebugMode) print('🔄 Got new token, retrying request');
+
+            // Retry original request with new token
+            error.requestOptions.headers['Authorization'] = 'Bearer $token';
+            try {
+              final cloneReq = await dio.request(
+                error.requestOptions.path,
+                options: Options(
+                  method: error.requestOptions.method,
+                  headers: error.requestOptions.headers,
+                ),
+                data: error.requestOptions.data,
+                queryParameters: error.requestOptions.queryParameters,
+              );
+              handler.resolve(cloneReq);
+              return;
+            } catch (e) {
+              if (kDebugMode) print('Retry request failed: $e');
+            }
+          } else {
+            if (kDebugMode)
+              print('🔄 Failed to refresh token, clearing auth state');
+            // If all refresh attempts failed, clear tokens
+            await tokenStorage.clearTokens();
+
+            // Notify auth state that tokens are invalid
+            ref.read(authNotifierProvider.notifier).setUnauthenticated();
+          }
+        }
+
+        handler.next(error);
+      },
+    ),
+  );
+
+  return dio;
+});
+
+// Enhanced Auth state notifier with app lifecycle handling
+class AuthNotifier extends StateNotifier<AuthState>
+    with WidgetsBindingObserver {
   final AuthRepository _repository;
   final TokenStorageService _tokenStorage;
   late final TokenRefreshManager _refreshManager;
+  late final AuthDebugHelper _debugHelper;
+  bool _isInitialized = false;
+  Completer<void>? _initCompleter;
 
   AuthNotifier(this._repository, this._tokenStorage)
     : super(const AuthState(status: AuthStatus.unknown)) {
@@ -353,76 +413,151 @@ class AuthNotifier extends StateNotifier<AuthState> {
       _tokenStorage,
       _handleProactiveRefresh,
     );
+    _debugHelper = AuthDebugHelper(_tokenStorage);
+    WidgetsBinding.instance.addObserver(this);
     _init();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _refreshManager.dispose();
     super.dispose();
   }
 
+  // Handle app lifecycle changes
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    switch (state) {
+      case AppLifecycleState.resumed:
+        if (kDebugMode) print('🔐 App resumed - checking token validity');
+        _handleAppResume();
+        break;
+      case AppLifecycleState.paused:
+        if (kDebugMode) print('🔐 App paused');
+        break;
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.detached:
+      case AppLifecycleState.hidden:
+        // No action needed for these states
+        break;
+    }
+  }
+
+  // Wait for initialization to complete
+  Future<void> waitForInitialization() async {
+    if (_isInitialized) return;
+
+    if (_initCompleter != null) {
+      await _initCompleter!.future;
+    }
+  }
+
   Future<void> _init() async {
+    if (_initCompleter != null) return; // Prevent multiple initializations
+
+    _initCompleter = Completer<void>();
+
     try {
+      if (kDebugMode) {
+        print('🔐 Initializing auth state...');
+        await _debugHelper.debugAuthState();
+      }
+
       final storedData = await _repository.getStoredAuthData();
 
-      if (storedData?.accessToken != null) {
+      if (storedData?.accessToken != null && storedData?.refreshToken != null) {
+        if (kDebugMode) print('🔐 Found stored tokens');
+
         // Check if refresh token is expired first
         final isRefreshTokenExpired =
             await _tokenStorage.isRefreshTokenExpired();
 
         if (isRefreshTokenExpired) {
           if (kDebugMode) print('🔐 Refresh token expired during init');
+          await _tokenStorage.clearTokens();
           state = const AuthState(status: AuthStatus.unauthenticated);
-          return;
-        }
+        } else {
+          // Check if access token is expired
+          final isAccessTokenExpired = await _repository.isTokenExpired();
 
-        // Check if access token is expired
-        final isAccessTokenExpired = await _repository.isTokenExpired();
+          if (isAccessTokenExpired) {
+            if (kDebugMode)
+              print('🔐 Access token expired, refreshing during init');
+            final refreshResult = await _repository.refreshToken();
 
-        if (isAccessTokenExpired) {
-          if (kDebugMode)
-            print('🔐 Access token expired, refreshing during init');
-          final refreshResult = await _repository.refreshToken();
+            if (refreshResult.isSuccess &&
+                refreshResult.data?.accessToken != null) {
+              final userData = UserData(
+                accessToken: refreshResult.data!.accessToken,
+                refreshToken: refreshResult.data!.refreshToken,
+                expiryDate: refreshResult.data!.expiryDate,
+                username: refreshResult.data!.username,
+                id: storedData?.id,
+                email: storedData?.email,
+              );
 
-          if (refreshResult.isSuccess &&
-              refreshResult.data?.accessToken != null) {
-            final userData = UserData(
-              accessToken: refreshResult.data!.accessToken,
-              refreshToken: refreshResult.data!.refreshToken,
-              expiryDate: refreshResult.data!.expiryDate,
-              username: refreshResult.data!.username,
-              id: storedData?.id,
-            );
+              state = AuthState(
+                status: AuthStatus.authenticated,
+                userData: userData,
+                token: refreshResult.data!.accessToken,
+              );
 
+              _refreshManager.startTokenRefreshTimer();
+              if (kDebugMode) print('🔐 ✅ Init complete - token refreshed');
+            } else {
+              if (kDebugMode) print('🔐 Token refresh failed during init');
+              await _tokenStorage.clearTokens();
+              state = const AuthState(status: AuthStatus.unauthenticated);
+            }
+          } else {
+            // Access token is still valid
             state = AuthState(
               status: AuthStatus.authenticated,
-              userData: userData,
-              token: refreshResult.data!.accessToken,
+              userData: storedData,
+              token: storedData?.accessToken,
             );
 
-            // Start the proactive refresh timer
             _refreshManager.startTokenRefreshTimer();
-          } else {
-            if (kDebugMode) print('🔐 Token refresh failed during init');
-            state = const AuthState(status: AuthStatus.unauthenticated);
+            if (kDebugMode) print('🔐 ✅ Init complete - existing token valid');
           }
-        } else {
-          state = AuthState(
-            status: AuthStatus.authenticated,
-            userData: storedData,
-            token: storedData?.accessToken,
-          );
-
-          // Start the proactive refresh timer
-          _refreshManager.startTokenRefreshTimer();
         }
       } else {
+        if (kDebugMode) print('🔐 No stored tokens found');
         state = const AuthState(status: AuthStatus.unauthenticated);
       }
     } catch (e) {
-      if (kDebugMode) print('Error initializing auth: $e');
+      if (kDebugMode) print('🔐 ❌ Error initializing auth: $e');
       state = const AuthState(status: AuthStatus.unauthenticated);
+    } finally {
+      _isInitialized = true;
+      _initCompleter?.complete();
+    }
+  }
+
+  Future<void> _handleAppResume() async {
+    if (kDebugMode) {
+      print('🔐 App resumed - debugging current state');
+      await _debugHelper.debugAuthState();
+    }
+
+    if (state.status == AuthStatus.authenticated) {
+      // Verify token is still valid when app resumes
+      final token = await _getValidAccessToken(
+        _tokenStorage,
+        forceRefresh: false,
+      );
+
+      if (token == null) {
+        if (kDebugMode) print('🔐 Token invalid on app resume, signing out');
+        await signOut();
+      } else {
+        // Restart the refresh timer in case it was stopped
+        _refreshManager.startTokenRefreshTimer();
+        if (kDebugMode) print('🔐 Token valid on app resume');
+      }
     }
   }
 
@@ -608,6 +743,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         expiryDate: response.data!.expiryDate,
         username: response.data!.username,
         id: state.userData?.id,
+        email: state.userData?.email,
       );
 
       state = state.copyWith(
@@ -622,6 +758,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await signOut();
       return false;
     }
+  }
+
+  // Helper method to ensure authentication
+  Future<bool> ensureAuthenticated() async {
+    await waitForInitialization();
+
+    if (state.status != AuthStatus.authenticated) {
+      return false;
+    }
+
+    // Double-check token validity
+    final token = await getValidToken();
+    return token != null;
   }
 }
 
@@ -642,3 +791,27 @@ final isAuthenticatedProvider = Provider<bool>((ref) {
 final currentUserProvider = Provider<UserData?>((ref) {
   return ref.watch(authNotifierProvider).userData;
 });
+
+// Extension for additional functionality
+extension AuthNotifierExtension on AuthNotifier {
+  void setAuthenticatedWithStoredData(Map<String, dynamic> storedTokens) {
+    // Convert stored tokens to UserData
+    final userData = UserData(
+      accessToken: storedTokens['accessToken']!,
+      refreshToken: storedTokens['refreshToken'],
+      expiryDate: storedTokens['expiryDate'],
+      username: storedTokens['username'],
+      id: storedTokens['id'],
+      email: storedTokens['email'],
+    );
+
+    state = AuthState(
+      status: AuthStatus.authenticated,
+      userData: userData,
+      token: userData.accessToken,
+    );
+
+    if (kDebugMode)
+      print('✅ Auth state set with stored data - User ID: ${userData.id}');
+  }
+}

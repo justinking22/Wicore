@@ -216,16 +216,24 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
         final availableWidth = constraints.maxWidth;
         final safePadding = MediaQuery.of(context).padding;
 
-        // Calculate top section height dynamically
-        final topSectionHeight = math.max(160.0, availableHeight * 0.2);
+        // Calculate top section height with much more space for the two-line title
+        final topSectionHeight = math.max(220.0, availableHeight * 0.28);
         final bottomSectionHeight = math.max(120.0, availableHeight * 0.15);
 
-        // Calculate scanner size based on available space
+        // Add more spacing between top section and scanner
+        final spacing = 20.0;
+        final availableForScanner =
+            availableHeight - topSectionHeight - bottomSectionHeight - spacing;
+
+        // Make scanner size bigger again - use more aggressive sizing
         final maxScannerSize = math.min(
-          availableWidth * 0.7,
-          (availableHeight - topSectionHeight - bottomSectionHeight) * 0.8,
+          availableWidth * 0.85,
+          availableForScanner * 0.9,
         );
-        final scannerSize = math.max(250.0, maxScannerSize);
+        final scannerSize = math.max(
+          300.0,
+          maxScannerSize,
+        ); // Increased minimum to 300
 
         return Container(
           child: Stack(
@@ -238,7 +246,7 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
                 ),
               ),
 
-              // Blur effect with proper overlay - using approach from second code
+              // Blur effect with proper overlay
               BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
                 child: Container(
@@ -254,8 +262,13 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
                 ),
               ),
 
-              // Clear scanning area (no blur) - centered
-              Center(
+              // Clear scanning area (no blur) - positioned with proper spacing
+              Positioned(
+                left: (availableWidth - scannerSize) / 2,
+                top:
+                    topSectionHeight +
+                    spacing +
+                    ((availableForScanner - scannerSize) / 2),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
                   child: Container(
@@ -263,14 +276,19 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
                     height: scannerSize,
                     child: MobileScanner(
                       controller: controller,
-                      onDetect: (capture) {},
+                      onDetect: _onDetect, // Use the actual onDetect method
                     ),
                   ),
                 ),
               ),
 
-              // Center QR Scanner Frame with rounded corners
-              Center(
+              // QR Scanner Frame with rounded corners - positioned to match scanner area
+              Positioned(
+                left: (availableWidth - scannerSize) / 2,
+                top:
+                    topSectionHeight +
+                    spacing +
+                    ((availableForScanner - scannerSize) / 2),
                 child: Container(
                   width: scannerSize,
                   height: scannerSize,
@@ -364,8 +382,8 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
                       end: Alignment.bottomCenter,
                       colors: [
                         Colors.transparent,
-                        Colors.black.withOpacity(0.6),
-                        Colors.black.withOpacity(0.8),
+                        Colors.transparent,
+                        Colors.transparent,
                       ],
                     ),
                   ),
@@ -385,27 +403,6 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
                   ),
                 ),
               ),
-
-              // Processing overlay
-              if (_isProcessing)
-                Container(
-                  color: Colors.black54,
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(
-                          color: CustomColors.splashLimeColor,
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          '기기 연결 중...',
-                          style: TextStyle(color: Colors.white, fontSize: 18),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
             ],
           ),
         );
@@ -418,7 +415,7 @@ void unawaited(Future<void>? future) {
   // Explicitly ignore the future
 }
 
-// Updated Custom painter that respects the top section
+// Updated Custom painter that respects the top section and positions scanner area correctly
 class QROverlayPainter extends CustomPainter {
   final double cutOutSize;
   final double borderRadius;
@@ -437,11 +434,15 @@ class QROverlayPainter extends CustomPainter {
           ..color = Colors.black.withOpacity(0.3) // Lighter since we have blur
           ..style = PaintingStyle.fill;
 
-    // Calculate center position, but avoid the top section
-    final availableHeight = size.height - topSectionHeight;
+    // Calculate available height for scanner positioning with reduced spacing
+    final spacing = 20.0;
+    final availableForScanner =
+        size.height - topSectionHeight - (size.height * 0.15) - spacing;
+
+    // Position scanner in the center of available space with reduced spacing
     final center = Offset(
       size.width / 2,
-      topSectionHeight + (availableHeight / 2),
+      topSectionHeight + spacing + (availableForScanner / 2),
     );
 
     final cutOutRect = Rect.fromCenter(

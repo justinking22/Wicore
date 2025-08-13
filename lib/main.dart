@@ -1,8 +1,9 @@
 import 'package:Wicore/app_router.dart';
 import 'package:Wicore/providers/authentication_provider.dart';
-import 'package:Wicore/providers/user_provider.dart'; // ✅ Added this import
+import 'package:Wicore/providers/user_provider.dart';
 import 'package:Wicore/states/auth_status.dart';
 import 'package:Wicore/states/app_initialization_state.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -22,6 +23,7 @@ void main() async {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+
   // Keep the native splash screen visible
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
@@ -115,98 +117,38 @@ class AppInitializationNotifier extends StateNotifier<AppInitializationState> {
       final tokenStorage = ref.read(tokenStorageProvider);
       final authNotifier = ref.read(authNotifierProvider.notifier);
 
-      // Check for stored tokens
-      final storedAuthData = await tokenStorage.getStoredTokens();
+      // Wait for auth initialization to complete
+      await authNotifier.waitForInitialization();
 
-      if (storedAuthData != null) {
-        print('📱 Found stored tokens');
+      // Check current auth state after initialization
+      final authState = ref.read(authNotifierProvider);
 
-        // Always attempt token refresh for security
-        try {
-          final refreshResult =
-              await ref.read(authRepositoryProvider).refreshToken();
+      if (authState.status == AuthStatus.authenticated) {
+        print('✅ User authenticated during app initialization');
 
-          if (refreshResult.isSuccess && refreshResult.data != null) {
-            print('✅ Token refreshed successfully');
-
-            // ✅ Fixed: Convert RefreshTokenData to UserData
-            final userData = UserData(
-              accessToken: refreshResult.data!.accessToken,
-              refreshToken: refreshResult.data!.refreshToken,
-              expiryDate: refreshResult.data!.expiryDate,
-              username: refreshResult.data!.username,
-              id: storedAuthData.id, // Preserve existing ID
-            );
-
-            authNotifier.state = AuthState(
-              status: AuthStatus.authenticated,
-              userData: userData,
-              token: refreshResult.data!.accessToken,
-            );
-
-            // ✅ CRITICAL: Trigger user data fetch after successful auth
-            print('🔄 Triggering user data fetch after auth initialization...');
-            Future.microtask(() {
-              ref.read(userProvider.notifier).getCurrentUserProfile();
-            });
-          } else {
-            print('❌ Token refresh failed, using stored tokens if valid');
-            // Check if stored token is still valid
-            final isExpired = await tokenStorage.isTokenExpired();
-
-            if (!isExpired) {
-              print('✅ Using valid stored tokens');
-              authNotifier.state = AuthState(
-                status: AuthStatus.authenticated,
-                userData: storedAuthData,
-                token: storedAuthData.accessToken,
-              );
-
-              // ✅ CRITICAL: Trigger user data fetch for stored tokens too
-              print('🔄 Triggering user data fetch with stored tokens...');
-              Future.microtask(() {
-                ref.read(userProvider.notifier).getCurrentUserProfile();
-              });
-            } else {
-              print('❌ Stored tokens expired, requiring login');
-              await tokenStorage.clearTokens();
-              authNotifier.setUnauthenticated();
-            }
+        // Trigger user data fetch after successful auth
+        print('🔄 Triggering user data fetch after auth initialization...');
+        Future.microtask(() {
+          try {
+            ref.read(userProvider.notifier).getCurrentUserProfile();
+          } catch (e) {
+            print('❌ Error triggering user data fetch: $e');
           }
-        } catch (e) {
-          print('❌ Token refresh error: $e');
-          // Fall back to stored tokens if valid
-          final isExpired = await tokenStorage.isTokenExpired();
-          if (!isExpired) {
-            print('✅ Using valid stored tokens after refresh error');
-            authNotifier.state = AuthState(
-              status: AuthStatus.authenticated,
-              userData: storedAuthData,
-              token: storedAuthData.accessToken,
-            );
-
-            // ✅ CRITICAL: Trigger user data fetch even after refresh error
-            print('🔄 Triggering user data fetch after refresh error...');
-            Future.microtask(() {
-              ref.read(userProvider.notifier).getCurrentUserProfile();
-            });
-          } else {
-            print('❌ Stored tokens expired after refresh error');
-            await tokenStorage.clearTokens();
-            authNotifier.setUnauthenticated();
-          }
-        }
+        });
       } else {
-        print('ℹ️ No stored tokens found');
-        authNotifier.setUnauthenticated();
+        print('ℹ️ User not authenticated during app initialization');
       }
 
       print('✅ Auth state initialization completed');
     } catch (e, st) {
       print('❌ Error initializing auth state: $e\n$st');
       // Clear tokens and set to unauthenticated on error
-      await ref.read(tokenStorageProvider).clearTokens();
-      ref.read(authNotifierProvider.notifier).setUnauthenticated();
+      try {
+        await ref.read(tokenStorageProvider).clearTokens();
+        ref.read(authNotifierProvider.notifier).setUnauthenticated();
+      } catch (clearError) {
+        print('❌ Error clearing tokens: $clearError');
+      }
     }
   }
 
@@ -217,8 +159,12 @@ class AppInitializationNotifier extends StateNotifier<AppInitializationState> {
   }
 }
 
-class Wicore extends ConsumerWidget {
-  const Wicore({Key? key}) : super(key: key);
+// Auth initialization wrapper widget
+class AuthInitializationWrapper extends ConsumerWidget {
+  final Widget child;
+
+  const AuthInitializationWrapper({Key? key, required this.child})
+    : super(key: key);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -230,46 +176,69 @@ class Wicore extends ConsumerWidget {
     }
 
     // Show error screen if initialization failed
-    if (!initState.initializationSuccess || initState.apiBaseUrl == null) {
+    if (!initState.initializationSuccess) {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
-        home: Scaffold(
-          body: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Failed to initialize application',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    initState.errorMessage ?? 'Unknown error occurred',
-                    style: const TextStyle(color: Colors.grey),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: () {
-                      ref.read(appInitializationProvider.notifier).retry();
-                    },
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            ),
-          ),
+        home: AppInitializationErrorScreen(
+          errorMessage: initState.errorMessage,
+          onRetry: () => ref.read(appInitializationProvider.notifier).retry(),
         ),
       );
     }
 
-    // Main app with Riverpod router
-    return WicoreApp();
+    return child;
+  }
+}
+
+// Error screen for app initialization failures
+class AppInitializationErrorScreen extends StatelessWidget {
+  final String? errorMessage;
+  final VoidCallback onRetry;
+
+  const AppInitializationErrorScreen({
+    Key? key,
+    this.errorMessage,
+    required this.onRetry,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              const Text(
+                'Failed to initialize application',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                errorMessage ?? 'Unknown error occurred',
+                style: const TextStyle(color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(onPressed: onRetry, child: const Text('Retry')),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class Wicore extends ConsumerWidget {
+  const Wicore({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return AuthInitializationWrapper(child: const WicoreApp());
   }
 }
 
@@ -278,45 +247,50 @@ class WicoreApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // ✅ CRITICAL: Watch the auto-fetch provider to ensure it's triggered
-    print('🔄 WicoreApp - Watching autoFetchCurrentUserProvider...');
+    // Watch the auto-fetch provider to ensure it's triggered
+    if (kDebugMode)
+      print('🔄 WicoreApp - Watching autoFetchCurrentUserProvider...');
     ref.watch(autoFetchCurrentUserProvider);
 
-    // ✅ Add debug logging for user state changes
+    // Add debug logging for user state changes
     ref.listen(userProvider, (previous, next) {
-      print('🐛 WicoreApp - User provider state changed');
-      print('  Previous: ${previous?.toString()}');
-      print('  Current: ${next.toString()}');
+      if (kDebugMode) {
+        print('🐛 WicoreApp - User provider state changed');
+        print('  Previous: ${previous?.toString()}');
+        print('  Current: ${next.toString()}');
 
-      next.when(
-        data: (response) {
-          final onboarded = response?.data?.onboarded;
-          final userId = response?.data?.id;
-          final firstName = response?.data?.firstName;
-          print('🐛 WicoreApp - ✅ User data loaded');
-          print('  User ID: $userId');
-          print('  First Name: $firstName');
-          print('  Onboarded: $onboarded');
-          print('  Full response code: ${response?.code}');
-          if (response?.data != null) {
-            print('  Full user data: ${response!.data!.toJson()}');
-          }
-        },
-        loading: () => print('🐛 WicoreApp - ⏳ User data loading...'),
-        error: (error, stack) {
-          print('🐛 WicoreApp - ❌ User data error: $error');
-        },
-      );
+        next.when(
+          data: (response) {
+            final onboarded = response?.data?.onboarded;
+            final userId = response?.data?.id;
+            final firstName = response?.data?.firstName;
+            print('🐛 WicoreApp - ✅ User data loaded');
+            print('  User ID: $userId');
+            print('  First Name: $firstName');
+            print('  Onboarded: $onboarded');
+            print('  Full response code: ${response?.code}');
+            if (response?.data != null) {
+              print('  Full user data: ${response!.data!.toJson()}');
+            }
+          },
+          loading: () => print('🐛 WicoreApp - ⏳ User data loading...'),
+          error: (error, stack) {
+            print('🐛 WicoreApp - ❌ User data error: $error');
+          },
+        );
+      }
     });
 
-    // ✅ Add debug logging for auth state changes
+    // Add debug logging for auth state changes
     ref.listen(authNotifierProvider, (previous, next) {
-      print('🐛 WicoreApp - Auth state changed');
-      print('  Previous status: ${previous?.status}');
-      print('  Current status: ${next.status}');
-      print('  Is Authenticated: ${next.isAuthenticated}');
-      print('  User ID: ${next.userData?.id}');
-      print('  Username: ${next.userData?.username}');
+      if (kDebugMode) {
+        print('🐛 WicoreApp - Auth state changed');
+        print('  Previous status: ${previous?.status}');
+        print('  Current status: ${next.status}');
+        print('  Is Authenticated: ${next.isAuthenticated}');
+        print('  User ID: ${next.userData?.id}');
+        print('  Username: ${next.userData?.username}');
+      }
     });
 
     final router = ref.watch(routerProvider);
@@ -324,13 +298,18 @@ class WicoreApp extends ConsumerWidget {
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: 'Wicore',
-      theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: true),
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+        useMaterial3: true,
+        // Add app lifecycle handling
+        visualDensity: VisualDensity.adaptivePlatformDensity,
+      ),
       routerConfig: router,
     );
   }
 }
 
-// ✅ Fixed extension to use UserData instead of AuthData
+// Enhanced extension for AuthNotifier
 extension AuthNotifierExtension on AuthNotifier {
   void setAuthenticatedWithStoredData(Map<String, dynamic> storedTokens) {
     // Convert stored tokens to UserData
@@ -340,6 +319,7 @@ extension AuthNotifierExtension on AuthNotifier {
       expiryDate: storedTokens['expiryDate'],
       username: storedTokens['username'],
       id: storedTokens['id'],
+      email: storedTokens['email'],
     );
 
     state = AuthState(
@@ -348,6 +328,48 @@ extension AuthNotifierExtension on AuthNotifier {
       token: userData.accessToken,
     );
 
-    print('✅ Auth state set with stored data - User ID: ${userData.id}');
+    if (kDebugMode)
+      print('✅ Auth state set with stored data - User ID: ${userData.id}');
+  }
+}
+
+// API service extension for ensuring authentication
+extension ApiServiceExtension on ConsumerWidget {
+  Future<bool> ensureAuthenticated(WidgetRef ref) async {
+    final authNotifier = ref.read(authNotifierProvider.notifier);
+    return await authNotifier.ensureAuthenticated();
+  }
+}
+
+// Global error boundary for catching authentication errors
+class AuthErrorBoundary extends ConsumerWidget {
+  final Widget child;
+
+  const AuthErrorBoundary({Key? key, required this.child}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Listen for auth errors and handle them
+    ref.listen(authNotifierProvider, (previous, next) {
+      if (next.status == AuthStatus.unauthenticated &&
+          previous?.status == AuthStatus.authenticated) {
+        // User was logged out unexpectedly
+        if (kDebugMode) print('🔐 User logged out unexpectedly');
+
+        // Show a snackbar or dialog to inform the user
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Session expired. Please log in again.'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        });
+      }
+    });
+
+    return child;
   }
 }

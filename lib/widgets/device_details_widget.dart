@@ -17,7 +17,7 @@ class DeviceDetailsWidget extends ConsumerStatefulWidget {
   const DeviceDetailsWidget({
     Key? key,
     required this.deviceId,
-    this.batteryPercentage = 75,
+    this.batteryPercentage = 0,
     this.onDisconnect,
   }) : super(key: key);
 
@@ -290,8 +290,6 @@ class _DeviceDetailsWidgetState extends ConsumerState<DeviceDetailsWidget> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 60),
-
               // Device ID Section
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
