@@ -89,28 +89,7 @@ class _PasswordConfirmationScreenState
     });
   }
 
-  // Update user profile with name after successful sign up
-  Future<void> _updateUserProfileAfterSignUp() async {
-    try {
-      final signUpForm = ref.read(signUpFormProvider);
-      if (signUpForm.name.isNotEmpty) {
-        print('🔄 Updating user profile with name: ${signUpForm.name}');
-
-        await ref
-            .read(userProvider.notifier)
-            .updateCurrentUserProfile(
-              UserUpdateRequest(firstName: signUpForm.name),
-            );
-
-        print('✅ User profile updated with name successfully');
-      }
-    } catch (e) {
-      print('⚠️ Warning: Failed to update user profile with name: $e');
-      // Don't throw error here - sign up was successful, profile update is secondary
-    }
-  }
-
-  // Enhanced _handleNext method with better error handling
+  // Updated _handleNext method without profile update logic
   Future<void> _handleNext() async {
     if (!_isButtonEnabled || _isSigningUp) return;
 
@@ -155,8 +134,10 @@ class _PasswordConfirmationScreenState
       if (result.isSuccess) {
         print('✅ Account created successfully');
 
-        // Update user profile with name after successful sign up
-        await _updateUserProfileAfterSignUp();
+        // Note: Name will be updated when user logs in
+        print(
+          '📝 Name "${signUpForm.name}" stored for later profile update on login',
+        );
 
         if (result.requiresConfirmation) {
           if (mounted) {
@@ -165,7 +146,8 @@ class _PasswordConfirmationScreenState
           }
         } else {
           if (mounted) {
-            print('🎉 Account created and activated');
+            print('🎉 Account created and activated - redirecting to login');
+            // Redirect to login screen where profile will be updated
             context.push('/sign-up-complete');
           }
         }
@@ -190,6 +172,8 @@ class _PasswordConfirmationScreenState
       }
     }
   }
+
+  // Remove the _updateUserProfileAfterSignUp method entirely
 
   // Simplified error handling
   void _handleSignUpError(SignUpServerResponse result) {

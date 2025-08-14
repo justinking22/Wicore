@@ -1,5 +1,8 @@
-// password_reset_confirm_screen.dart - Step 3: Confirm password with right-aligned button
+// password_reset_confirm_screen.dart - Step 3: Confirm password with matching styles
+import 'package:Wicore/dialogs/confirmation_dialog.dart';
+import 'package:Wicore/dialogs/settings_confirmation_dialog.dart';
 import 'package:Wicore/providers/authentication_provider.dart';
+import 'package:Wicore/styles/colors.dart';
 import 'package:Wicore/styles/text_styles.dart';
 import 'package:Wicore/widgets/reusable_app_bar.dart';
 import 'package:Wicore/widgets/reusable_button.dart';
@@ -146,6 +149,7 @@ class _PasswordResetConfirmScreenState
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
         backgroundColor: Colors.white,
+        resizeToAvoidBottomInset: false,
         appBar: CustomAppBar(
           title: '비밀번호 재설정',
           onBackPressed: () => Navigator.pop(context),
@@ -171,34 +175,30 @@ class _PasswordResetConfirmScreenState
                       Text('비밀번호를', style: TextStyles.kBody),
                       const SizedBox(height: 8),
                       Text('다시 한 번 입력해주세요', style: TextStyles.kBody),
-                      const SizedBox(height: 16),
-                      Text(
-                        '입력한 비밀번호가 맞는지 확인할게요.',
-                        style: TextStyles.kThirdBody,
-                      ),
 
+                      // Show password mismatch error with matching styling
                       if (_passwordMismatchError != null) ...[
                         const SizedBox(height: 24),
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
+                        Container(
                           width: double.infinity,
                           padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFFF4F4),
+                            color: CustomColors.translucentRedOrange,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             _passwordMismatchError!,
-                            style: const TextStyle(
-                              color: Color(0xFFE74C3C),
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
+                            style: TextStyles.kError,
                           ),
                         ),
                         const SizedBox(height: 60),
                       ] else ...[
-                        const SizedBox(height: 84),
+                        const SizedBox(height: 16),
+                        Text(
+                          '입력한 비밀번호가 맞는지 확인할게요.',
+                          style: TextStyles.kThirdBody,
+                        ),
+                        const SizedBox(height: 68),
                       ],
 
                       Text('비밀번호 확인', style: TextStyles.kHeader),
@@ -207,17 +207,13 @@ class _PasswordResetConfirmScreenState
                         controller: _confirmPasswordController,
                         enabled: !_isLoading,
                         obscureText: _obscureText,
-                        obscuringCharacter: '●',
+                        obscuringCharacter: '\u2B24',
                         decoration: InputDecoration(
                           hintText: '비밀번호를 입력해주세요',
                           hintStyle: TextStyles.kMedium,
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscureText
-                                  ? Icons.visibility
-                                  : Icons.visibility_off,
-                              color: Colors.grey,
-                            ),
+                          errorText: _errorText,
+                          // ✅ FIXED: Using same TextButton style as signup screen
+                          suffixIcon: TextButton(
                             onPressed:
                                 _isLoading
                                     ? null
@@ -226,12 +222,32 @@ class _PasswordResetConfirmScreenState
                                         _obscureText = !_obscureText;
                                       });
                                     },
+                            style: TextButton.styleFrom(
+                              minimumSize: Size.zero,
+                              padding: EdgeInsets.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: Text(
+                              _obscureText ? '보기' : '숨기기',
+                              style: TextStyles.kMedium.copyWith(
+                                color:
+                                    _isLoading
+                                        ? Colors.grey
+                                        : CustomColors.darkCharcoal,
+                              ),
+                            ),
                           ),
                           border: UnderlineInputBorder(
-                            borderSide: BorderSide(color: Colors.grey[300]!),
+                            borderSide: BorderSide(
+                              color: Colors.grey[300]!,
+                              width: 1,
+                            ),
                           ),
                           enabledBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: Colors.grey[300]!),
+                            borderSide: BorderSide(
+                              color: Colors.grey[300]!,
+                              width: 1,
+                            ),
                           ),
                           focusedBorder: const UnderlineInputBorder(
                             borderSide: BorderSide(
@@ -240,10 +256,20 @@ class _PasswordResetConfirmScreenState
                             ),
                           ),
                           disabledBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: Colors.grey[400]!),
+                            borderSide: BorderSide(
+                              color: Colors.grey[400]!,
+                              width: 1,
+                            ),
+                          ),
+                          errorBorder: const UnderlineInputBorder(
+                            borderSide: BorderSide(color: Colors.red, width: 1),
+                          ),
+                          focusedErrorBorder: const UnderlineInputBorder(
+                            borderSide: BorderSide(color: Colors.red, width: 2),
                           ),
                           contentPadding: const EdgeInsets.symmetric(
                             vertical: 12,
+                            horizontal: 0,
                           ),
                         ),
                         style: TextStyle(
@@ -256,23 +282,26 @@ class _PasswordResetConfirmScreenState
                         onSubmitted: (_) => _handleConfirm(),
                       ),
 
-                      const SizedBox(height: 24),
-
-                      // ✅ FIXED: Right-aligned "비밀번호를 까먹었어요" button
+                      // ✅ FIXED: Right-aligned button with same styling and dialog as signup
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
                           onPressed:
                               _isLoading
                                   ? null
-                                  : () {
-                                    Navigator.pop(context);
+                                  : () async {
+                                    final shouldGoBack =
+                                        await ForgotPasswordDialog.show(
+                                          context,
+                                        );
+                                    if (shouldGoBack == true && mounted) {
+                                      Navigator.pop(context);
+                                    }
                                   },
                           child: Text(
                             '비밀번호를 까먹었어요',
-                            style: TextStyle(
+                            style: TextStyles.kRegular.copyWith(
                               color: _isLoading ? Colors.grey : Colors.black54,
-                              fontSize: 14,
                               decoration: TextDecoration.underline,
                             ),
                           ),

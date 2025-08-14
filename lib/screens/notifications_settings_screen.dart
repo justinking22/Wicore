@@ -239,7 +239,7 @@ class _NotificationSettingsScreenState
 
   Widget _buildSettingItem(String title, bool value, Function(bool) onChanged) {
     return Container(
-      height: 60, // Fixed height for all rows
+      height: 100, // Fixed height for all rows
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -251,10 +251,8 @@ class _NotificationSettingsScreenState
                   Alignment.centerLeft, // Center text vertically and align left
               child: Text(
                 title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Colors.black,
-                  fontWeight: FontWeight.w400,
+                style: TextStyles.kMedium.copyWith(
+                  color: CustomColors.darkCharcoal,
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,

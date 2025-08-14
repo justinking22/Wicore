@@ -1,4 +1,7 @@
 import 'package:Wicore/providers/authentication_provider.dart';
+import 'package:Wicore/utilities/sign_up_form_state.dart'; // Add this import
+import 'package:Wicore/providers/user_provider.dart'; // Add this import
+import 'package:Wicore/models/user_update_request_model.dart'; // Add this import
 import 'package:Wicore/styles/colors.dart';
 import 'package:Wicore/styles/text_styles.dart';
 import 'package:Wicore/states/auth_status.dart';
@@ -18,7 +21,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  bool _isAutoLogin = false;
+  bool _isAutoLogin = true;
   bool _isObscurePassword = true;
   bool _hasEmailError = false;
   String _emailErrorMessage = '';
@@ -59,29 +62,42 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     );
   }
 
-  void _showConfirmationDialog() {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('이메일 확인 필요'),
-            content: const Text('계정을 활성화하려면 이메일을 확인해주세요.'),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  // Navigate to email verification if needed
-                  context.push('/email-verification');
-                },
-                child: const Text('이메일 확인하기'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('나중에'),
-              ),
-            ],
-          ),
-    );
+  // NEW: Method to update user profile with stored name from signup
+  Future<void> _updateUserProfileAfterLogin() async {
+    try {
+      final signUpForm = ref.read(signUpFormProvider);
+
+      // Check if there's a name stored from recent signup
+      if (signUpForm.name.isNotEmpty) {
+        print(
+          '🔄 Login successful, updating profile with stored name: ${signUpForm.name}',
+        );
+
+        // Small delay to ensure authentication is fully established
+        await Future.delayed(const Duration(milliseconds: 300));
+
+        // Update the user profile with the stored name
+        await ref
+            .read(userProvider.notifier)
+            .updateCurrentUserProfile(
+              UserUpdateRequest(firstName: signUpForm.name),
+            );
+
+        print('✅ User profile updated with name after login');
+
+        // Clear the stored signup form data after successful update
+        ref.read(signUpFormProvider.notifier).reset();
+
+        // Show success message
+        if (mounted) {
+          _showMessage('프로필이 업데이트되었습니다!', backgroundColor: Colors.green);
+        }
+      }
+    } catch (e) {
+      print('⚠️ Failed to update profile after login: $e');
+      // Don't show error to user since login was successful
+      // They can update their name later in settings
+    }
   }
 
   Future<void> _handleLogin() async {
@@ -105,10 +121,16 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
             print('Auto-login enabled for user');
           }
 
+          // NEW: Update user profile with stored name if available
+          await _updateUserProfileAfterLogin();
+
           _showMessage('로그인 성공!', backgroundColor: Colors.green);
           context.go('/navigation');
         } else if (result.data?.accessToken == null) {
-          _showConfirmationDialog();
+          setState(() {
+            _hasEmailError = true;
+            _emailErrorMessage = '잘못된 이메일 또는 비밀번호입니다.';
+          });
         } else {
           // Handle specific error cases
           if (result.message?.contains('invalid') == true ||
@@ -238,13 +260,10 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       _showMessage('Google 로그인 기능을 준비 중입니다.', backgroundColor: Colors.orange);
 
       // TODO: Implement Google OAuth login
-      // final authNotifier = ref.read(authNotifierProvider.notifier);
-      // final result = await authNotifier.signInWithGoogle();
-      //
-      // if (result.isSuccess && mounted) {
+      // When implementing, add the same profile update logic:
+      // if (result.isSuccess) {
+      //   await _updateUserProfileAfterLogin();
       //   context.go('/navigation');
-      // } else if (mounted) {
-      //   _showMessage(result.message ?? 'Google 로그인 실패');
       // }
     } catch (e) {
       if (mounted) {
@@ -258,13 +277,10 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       _showMessage('Apple 로그인 기능을 준비 중입니다.', backgroundColor: Colors.orange);
 
       // TODO: Implement Apple Sign In
-      // final authNotifier = ref.read(authNotifierProvider.notifier);
-      // final result = await authNotifier.signInWithApple();
-      //
-      // if (result.isSuccess && mounted) {
+      // When implementing, add the same profile update logic:
+      // if (result.isSuccess) {
+      //   await _updateUserProfileAfterLogin();
       //   context.go('/navigation');
-      // } else if (mounted) {
-      //   _showMessage(result.message ?? 'Apple 로그인 실패');
       // }
     } catch (e) {
       if (mounted) {

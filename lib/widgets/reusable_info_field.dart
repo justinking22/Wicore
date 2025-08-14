@@ -54,7 +54,10 @@ class InfoField extends StatelessWidget {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(label, style: TextStyles.kRegular),
+                SizedBox(
+                  width: 60, // Fixed width for all labels
+                  child: Text(label, style: TextStyles.kRegular),
+                ),
                 if (isPlaceholder) ...[
                   SizedBox(width: 8),
                   Text(
@@ -84,9 +87,7 @@ class InfoField extends StatelessWidget {
                         ),
                       ),
                       if (splitValue['unit']!.isNotEmpty) ...[
-                        SizedBox(
-                          width: 2,
-                        ), // Small space between number and unit
+                        SizedBox(width: 2),
                         Text(splitValue['unit']!, style: TextStyles.kRegular),
                       ],
                     ],
@@ -95,17 +96,12 @@ class InfoField extends StatelessWidget {
               ],
             ),
             // Edit hint on the right
-            Row(
-              children: [
-                if (!isPlaceholder) ...[
-                  SizedBox(width: 20),
-                  Text(
-                    '수정하기',
-                    style: TextStyles.kTrailingBottomButtonWithUnderline,
-                  ),
-                ],
-              ],
-            ),
+            if (!isPlaceholder) ...[
+              Text(
+                '수정하기',
+                style: TextStyles.kTrailingBottomButtonWithUnderline,
+              ),
+            ],
           ],
         ),
       ),

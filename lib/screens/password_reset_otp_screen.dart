@@ -1,4 +1,4 @@
-// password_reset_otp_screen.dart - Two-step animated OTP screen
+// password_reset_otp_screen.dart - FIXED: Properly calls password reset API
 import 'package:Wicore/dialogs/settings_confirmation_dialog.dart';
 import 'package:Wicore/providers/authentication_provider.dart';
 import 'package:Wicore/styles/text_styles.dart';
@@ -148,6 +148,7 @@ class _PasswordResetOTPScreenState extends ConsumerState<PasswordResetOTPScreen>
         print('✅ Password reset successful!');
         if (mounted) {
           // ✅ Navigate to password reset success screen
+          context.go('/password-reset-success');
         }
       } else {
         print('❌ Password reset failed: ${result.message}');
@@ -353,12 +354,11 @@ class _PasswordResetOTPScreenState extends ConsumerState<PasswordResetOTPScreen>
                                     onPressed: _isLoading ? null : _resendOtp,
                                     child: Text(
                                       '인증번호가 도착하지 않았어요',
-                                      style: TextStyle(
+                                      style: TextStyles.kRegular.copyWith(
                                         color:
                                             _isLoading
                                                 ? Colors.grey
                                                 : Colors.black54,
-                                        fontSize: 14,
                                         decoration: TextDecoration.underline,
                                       ),
                                     ),
@@ -372,7 +372,7 @@ class _PasswordResetOTPScreenState extends ConsumerState<PasswordResetOTPScreen>
 
                       const Spacer(),
 
-                      // Button - changes function based on step
+                      // FIXED: Button - properly calls the correct function
                       CustomButton(
                         text:
                             _showOtpField
@@ -382,10 +382,7 @@ class _PasswordResetOTPScreenState extends ConsumerState<PasswordResetOTPScreen>
                         onPressed:
                             (_isButtonEnabled && !_isLoading)
                                 ? (_showOtpField
-                                    ? () {
-                                      _handleOtpSubmit;
-                                      context.push('/password-reset-success');
-                                    }
+                                    ? _handleOtpSubmit // ✅ FIXED: Call the function, don't reference it
                                     : _handleShowOtpField)
                                 : null,
                         disabledBackgroundColor: Colors.grey,
