@@ -17,7 +17,7 @@ UserItem _$UserItemFromJson(Map<String, dynamic> json) => UserItem(
       gender: json['gender'] as String?,
       onboarded: json['onboarded'] as bool?,
       age: (json['age'] as num?)?.toInt(),
-      number: json['number'] as String?,
+      phoneNumber: json['phoneNumber'] as String?,
       deviceStrength: (json['deviceStrength'] as num?)?.toInt(),
       created: json['created'] as String?,
       updated: json['updated'] as String?,
@@ -46,7 +46,7 @@ Map<String, dynamic> _$UserItemToJson(UserItem instance) {
   writeNotNull('gender', instance.gender);
   writeNotNull('onboarded', instance.onboarded);
   writeNotNull('age', instance.age);
-  writeNotNull('number', instance.number);
+  writeNotNull('phoneNumber', instance.phoneNumber);
   writeNotNull('deviceStrength', instance.deviceStrength);
   writeNotNull('created', instance.created);
   writeNotNull('updated', instance.updated);

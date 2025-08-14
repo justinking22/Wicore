@@ -55,7 +55,7 @@ class _PersonalInfoInputScreenState
     _initializeOnboardingStatus();
   }
 
-  // ✅ Improved initialization with better onboarding status checking
+  // ✅ REVERTED: Improved initialization with API onboarding status checking
   void _initializeOnboardingStatus() async {
     final userState = ref.read(userProvider);
     final onboardingManager = ref.read(onboardingManagerProvider);
@@ -65,15 +65,12 @@ class _PersonalInfoInputScreenState
       orElse: () => false,
     );
 
-    final localOnboarded =
-        await onboardingManager.hasCompletedOnboardingLocally();
     final daysSincePrompt = await onboardingManager.daysSinceLastPrompt();
     final shouldShow = await onboardingManager.shouldShowOnboarding(
       isUserOnboarded: apiOnboarded,
     );
 
     print('🔍 PersonalInfo - API onboarded: $apiOnboarded');
-    print('🔍 PersonalInfo - Local onboarded: $localOnboarded');
     print('🔍 PersonalInfo - Days since last prompt: $daysSincePrompt');
     print('🔍 PersonalInfo - Should show onboarding: $shouldShow');
 
@@ -88,7 +85,7 @@ class _PersonalInfoInputScreenState
     }
   }
 
-  // Updated _skipAndContinue method
+  // 🔧 REVERTED: Skip method that marks as shown for today (not completed)
   void _skipAndContinue() async {
     try {
       print('⏭️ PersonalInfo - User clicked skip button');
@@ -107,7 +104,7 @@ class _PersonalInfoInputScreenState
         // Don't mark as fully completed since they skipped - they might want to complete it later
         print('📅 PersonalInfo - Marked onboarding prompt as shown for today');
 
-        // Navigate to home screen instead of phone input
+        // Navigate to main screen instead of phone input
         context.go('/navigation');
       } else {
         print(
@@ -148,145 +145,138 @@ class _PersonalInfoInputScreenState
     );
 
     return Scaffold(
-      body: Container(
-        color: Colors.white,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CustomAppBar(
-              title: '신체정보',
-              showTrailingButton: true,
-              trailingButtonText: '건너뛰기',
-              showBackButton: false,
-              onTrailingPressed: _skipAndContinue,
+      backgroundColor: Colors.white,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CustomAppBar(
+            title: '신체정보',
+            showTrailingButton: true,
+            trailingButtonText: '건너뛰기',
+            showBackButton: false,
+            onTrailingPressed: _skipAndContinue,
+          ),
+
+          // Header section - Fixed height
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  child: Text(
+                    '정보를 입력주시면\n더 잘 도울 수 있어요',
+                    style: TextStyles.kBody,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: Text(
+                    '성별, 키, 몸무게 등을 입력주시면\n로봇이 더 잘 도울 수 있어요.',
+                    style: TextStyles.kMedium,
+                  ),
+                ),
+                const SizedBox(height: 40),
+              ],
             ),
-            const SizedBox(height: 20),
-            Container(
-              color: Colors.white,
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(left: 20),
-                    child: Container(
-                      color: Colors.white,
-                      width: double.infinity,
-                      child: Text(
-                        '정보를 입력주시면\n더 잘 도울 수 있어요',
-                        style: TextStyles.kBody,
+          ),
+
+          // Input section - Expanded to fill remaining space
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              color: CustomColors.lighterGray,
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          InfoField(
+                            hasUnit: false,
+                            label: '성별',
+                            value: selectedGender ?? '입력하기',
+                            isPlaceholder: selectedGender == null,
+                            onTap: () => _showGenderPicker(),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Divider(height: 1, color: Colors.grey[300]),
+                          ),
+                          InfoField(
+                            hasUnit: true,
+                            label: '키',
+                            value:
+                                (selectedMainHeight != null &&
+                                        selectedDecimalHeight != null)
+                                    ? '$selectedMainHeight.$selectedDecimalHeight cm'
+                                    : '입력하기',
+                            isPlaceholder:
+                                selectedMainHeight == null ||
+                                selectedDecimalHeight == null,
+                            onTap: () => _showHeightPicker(),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Divider(height: 1, color: Colors.grey[300]),
+                          ),
+                          InfoField(
+                            hasUnit: true,
+                            label: '체중',
+                            value:
+                                (selectedMainWeight != null &&
+                                        selectedDecimalWeight != null)
+                                    ? '$selectedMainWeight.$selectedDecimalWeight kg'
+                                    : '입력하기',
+                            isPlaceholder:
+                                selectedMainWeight == null ||
+                                selectedDecimalWeight == null,
+                            onTap: () => _showWeightPicker(),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 20),
-                    child: Container(
-                      color: Colors.white,
-                      width: double.infinity,
-                      child: Text(
-                        '성별, 키, 몸무게 등을 입력주시면\n로봇이 더 잘 도울 수 있어요.',
-                        style: TextStyles.kMedium,
+
+                    // Spacer to push button to bottom
+                    const Spacer(),
+
+                    // Button section - Always at bottom
+                    if (_isSaving || isApiLoading)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else
+                      CustomButton(
+                        text: '다음',
+                        isEnabled: _isFormComplete,
+                        onPressed: _isFormComplete ? _saveAndContinue : null,
+                        disabledBackgroundColor: Colors.grey,
                       ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 40),
-            Expanded(
-              child: Container(
-                color: CustomColors.lighterGray,
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 10,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            InfoField(
-                              hasUnit: false,
-                              label: '성별',
-                              value: selectedGender ?? '입력하기',
-                              isPlaceholder: selectedGender == null,
-                              onTap: () => _showGenderPicker(),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                              ),
-                              child: Divider(
-                                height: 1,
-                                color: Colors.grey[300],
-                              ),
-                            ),
-                            InfoField(
-                              hasUnit: true,
-                              label: '키',
-                              value:
-                                  (selectedMainHeight != null &&
-                                          selectedDecimalHeight != null)
-                                      ? '$selectedMainHeight.$selectedDecimalHeight cm'
-                                      : '입력하기',
-                              isPlaceholder:
-                                  selectedMainHeight == null ||
-                                  selectedDecimalHeight == null,
-                              onTap: () => _showHeightPicker(),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                              ),
-                              child: Divider(
-                                height: 1,
-                                color: Colors.grey[300],
-                              ),
-                            ),
-                            InfoField(
-                              hasUnit: true,
-                              label: '체중',
-                              value:
-                                  (selectedMainWeight != null &&
-                                          selectedDecimalWeight != null)
-                                      ? '$selectedMainWeight.$selectedDecimalWeight kg'
-                                      : '입력하기',
-                              isPlaceholder:
-                                  selectedMainWeight == null ||
-                                  selectedDecimalWeight == null,
-                              onTap: () => _showWeightPicker(),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Spacer(),
-                      if (_isSaving || isApiLoading)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          child: CircularProgressIndicator(),
-                        )
-                      else
-                        CustomButton(
-                          text: '다음',
-                          isEnabled: _isFormComplete,
-                          onPressed: _isFormComplete ? _saveAndContinue : null,
-                          disabledBackgroundColor: Colors.grey,
-                        ),
-                    ],
-                  ),
+
+                    // Bottom padding for safe area
+                    const SizedBox(height: 20),
+                  ],
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

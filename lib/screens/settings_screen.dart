@@ -225,7 +225,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               backgroundColor: CustomColors.lighterGray,
               title: '설정',
               trailingButtonIcon: Icons.info_outline,
-              showTrailingButton: true,
+              showTrailingButton: false,
               onTrailingPressed: () {
                 context.push('/onboarding');
               },

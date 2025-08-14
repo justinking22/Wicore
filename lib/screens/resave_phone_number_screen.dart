@@ -55,9 +55,9 @@ class _ResavePhoneNumberScreenState
       final userState = ref.read(userProvider);
       userState.when(
         data: (response) {
-          if (response?.data?.number != null) {
+          if (response?.data?.phoneNumber != null) {
             setState(() {
-              _phoneController.text = response!.data!.number!;
+              _phoneController.text = response!.data!.phoneNumber!;
               _isButtonEnabled = true;
             });
           }

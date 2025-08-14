@@ -39,7 +39,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-// ✅ Helper method for onboarding flow handling
+// ✅ REVERTED: Helper method for onboarding flow handling - API-based
 Future<String?> _handleOnboardingFlow(
   String currentPath,
   dynamic onboardingManager,
@@ -47,12 +47,15 @@ Future<String?> _handleOnboardingFlow(
   Ref ref,
 ) async {
   try {
-    // Check if we should show onboarding today
+    // 🔧 REVERTED: Check API for onboarding status
     final shouldShowOnboarding = await onboardingManager.shouldShowOnboarding(
       isUserOnboarded: isUserOnboarded,
     );
 
-    print('🔄 Router - Should show onboarding: $shouldShowOnboarding');
+    print(
+      '🔄 Router - Should show onboarding (API-based): $shouldShowOnboarding',
+    );
+    print('🔄 Router - User onboarded from API: $isUserOnboarded');
 
     if (shouldShowOnboarding) {
       // Allow staying in onboarding flow
@@ -68,10 +71,10 @@ Future<String?> _handleOnboardingFlow(
       await onboardingManager.markOnboardingPromptShown();
       return '/onboarding';
     } else {
-      // Already showed onboarding today, skip for now
-      print('🔄 Router - Skipping onboarding for today, going to main app');
+      // Already onboarded or showed today, skip for now
+      print('🔄 Router - Skipping onboarding, going to main app');
 
-      // If user is currently on onboarding screens but we're not showing today, redirect to main
+      // If user is currently on onboarding screens but we're not showing, redirect to main
       final onboardingPaths = ['/onboarding', '/phone-input', '/prep-done'];
       if (onboardingPaths.contains(currentPath)) {
         return '/navigation';
@@ -121,7 +124,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Handle authenticated users
       if (isAuthenticated && isInitialized) {
-        // ✅ IMPROVED: Better handling of user data loading states
+        // ✅ REVERTED: Better handling of user data loading states with API checks
         return userAsyncValue.when(
           data: (userResponse) {
             final isUserOnboarded = userResponse?.data?.onboarded ?? false;
@@ -225,7 +228,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         final protectedPaths = [
           '/navigation',
           '/home',
-
           '/onboarding',
           '/phone-input',
           '/prep-done',

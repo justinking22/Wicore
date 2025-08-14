@@ -26,7 +26,7 @@ class UserItem {
   @JsonKey(defaultValue: null, includeIfNull: false)
   final int? age;
   @JsonKey(defaultValue: null, includeIfNull: false)
-  final String? number;
+  final String? phoneNumber;
   @JsonKey(name: 'deviceStrength', defaultValue: null, includeIfNull: false)
   final int? deviceStrength;
   @JsonKey(defaultValue: null, includeIfNull: false)
@@ -48,7 +48,7 @@ class UserItem {
     this.gender,
     this.onboarded,
     this.age,
-    this.number,
+    this.phoneNumber,
     this.deviceStrength,
     this.created,
     this.updated,

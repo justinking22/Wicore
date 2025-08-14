@@ -1,22 +1,27 @@
-// lib/services/onboarding_manager.dart
+// lib/widgets/onboarding_manager.dart
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class OnboardingManager {
   static const String _lastOnboardingPromptKey = 'last_onboarding_prompt';
-  static const String _hasCompletedOnboardingKey = 'has_completed_onboarding';
 
-  // Check if we should show onboarding screen
+  // 🔧 REVERTED: Check API for onboarding status (not SharedPreferences)
   Future<bool> shouldShowOnboarding({
     required bool isUserOnboarded,
     bool forceCheck = false,
   }) async {
-    print('🔍 OnboardingManager - Checking if should show onboarding');
-    print('🔍 OnboardingManager - User onboarded status: $isUserOnboarded');
+    print(
+      '🔍 OnboardingManager - Checking if should show onboarding (API-based)',
+    );
+    print(
+      '🔍 OnboardingManager - User onboarded status from API: $isUserOnboarded',
+    );
 
-    // If user is fully onboarded, never show onboarding screens
+    // If user is fully onboarded according to API, never show onboarding screens
     if (isUserOnboarded) {
-      print('✅ OnboardingManager - User is onboarded, not showing onboarding');
+      print(
+        '✅ OnboardingManager - User is onboarded in API, not showing onboarding',
+      );
       return false;
     }
 
@@ -57,24 +62,18 @@ class OnboardingManager {
     print('📅 OnboardingManager - Marked onboarding prompt as shown today');
   }
 
-  // Mark onboarding as completed (when user finishes the flow)
+  // 🔧 SIMPLIFIED: Just mark as completed (for tracking progress)
   Future<void> markOnboardingCompleted() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_hasCompletedOnboardingKey, true);
-    print('✅ OnboardingManager - Marked onboarding as completed');
-  }
-
-  // Check if user has ever completed onboarding (local storage)
-  Future<bool> hasCompletedOnboardingLocally() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_hasCompletedOnboardingKey) ?? false;
+    print(
+      '✅ OnboardingManager - Onboarding completed (API will be updated separately)',
+    );
+    // Note: The actual onboarded status is managed via API calls in the screens
   }
 
   // Clear onboarding data (for testing or logout)
   Future<void> clearOnboardingData() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_lastOnboardingPromptKey);
-    await prefs.remove(_hasCompletedOnboardingKey);
     print('🧹 OnboardingManager - Cleared onboarding data');
   }
 
@@ -92,8 +91,8 @@ class OnboardingManager {
 
   // Mark personal info step as completed (for tracking progress)
   Future<void> markPersonalInfoCompleted() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('personal_info_completed', true);
+    print('✅ OnboardingManager - Marked personal info step as completed');
+    // This is just for internal progress tracking
   }
 }
 
@@ -102,7 +101,7 @@ final onboardingManagerProvider = Provider<OnboardingManager>((ref) {
   return OnboardingManager();
 });
 
-// Provider to check if onboarding should be shown
+// 🔧 REVERTED: Provider to check if onboarding should be shown (with API dependency)
 final shouldShowOnboardingProvider = FutureProvider.family<bool, bool>((
   ref,
   isUserOnboarded,
