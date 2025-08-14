@@ -156,6 +156,7 @@ class _NotificationSettingsScreenState
                 ],
               ),
             ),
+            SizedBox(height: 120),
           ],
         ),
       ),
