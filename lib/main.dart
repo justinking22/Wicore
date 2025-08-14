@@ -46,7 +46,7 @@ void main() async {
   // Keep the native splash screen visible
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
-  runApp(ProviderScope(child: const WicoreApp()));
+  runApp(ProviderScope(child: const Wicore()));
 }
 
 // App initialization state provider
@@ -345,6 +345,15 @@ class AppInitializationErrorScreen extends StatelessWidget {
   }
 }
 
+class Wicore extends ConsumerWidget {
+  const Wicore({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return AuthInitializationWrapper(child: const WicoreApp());
+  }
+}
+
 class WicoreApp extends ConsumerWidget {
   const WicoreApp({Key? key}) : super(key: key);
 
@@ -451,38 +460,6 @@ class WicoreApp extends ConsumerWidget {
         }
       });
     }
-  }
-}
-
-// Enhanced extension for AuthNotifier
-extension AuthNotifierExtension on AuthNotifier {
-  void setAuthenticatedWithStoredData(Map<String, dynamic> storedTokens) {
-    // Convert stored tokens to UserData
-    final userData = UserData(
-      accessToken: storedTokens['accessToken']!,
-      refreshToken: storedTokens['refreshToken'],
-      expiryDate: storedTokens['expiryDate'],
-      username: storedTokens['username'],
-      id: storedTokens['id'],
-      email: storedTokens['email'],
-    );
-
-    state = AuthState(
-      status: AuthStatus.authenticated,
-      userData: userData,
-      token: userData.accessToken,
-    );
-
-    if (kDebugMode)
-      print('✅ Auth state set with stored data - User ID: ${userData.id}');
-  }
-}
-
-// API service extension for ensuring authentication
-extension ApiServiceExtension on ConsumerWidget {
-  Future<bool> ensureAuthenticated(WidgetRef ref) async {
-    final authNotifier = ref.read(authNotifierProvider.notifier);
-    return await authNotifier.ensureAuthenticated();
   }
 }
 
