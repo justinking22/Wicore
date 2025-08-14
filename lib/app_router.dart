@@ -39,15 +39,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-// ✅ REVERTED: Helper method for onboarding flow handling - API-based
+// ✅ Updated helper method with proper null handling for onboarding flow
 Future<String?> _handleOnboardingFlow(
   String currentPath,
   dynamic onboardingManager,
-  bool isUserOnboarded,
+  bool isUserOnboarded, // This now properly handles null as false
   Ref ref,
 ) async {
   try {
-    // 🔧 REVERTED: Check API for onboarding status
+    // 🔧 Check API for onboarding status (null treated as false)
     final shouldShowOnboarding = await onboardingManager.shouldShowOnboarding(
       isUserOnboarded: isUserOnboarded,
     );
@@ -55,7 +55,7 @@ Future<String?> _handleOnboardingFlow(
     print(
       '🔄 Router - Should show onboarding (API-based): $shouldShowOnboarding',
     );
-    print('🔄 Router - User onboarded from API: $isUserOnboarded');
+    print('🔄 Router - User onboarded from API (null=false): $isUserOnboarded');
 
     if (shouldShowOnboarding) {
       // Allow staying in onboarding flow
@@ -124,16 +124,27 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Handle authenticated users
       if (isAuthenticated && isInitialized) {
-        // ✅ REVERTED: Better handling of user data loading states with API checks
+        // ✅ UPDATED: Better handling with null checking
         return userAsyncValue.when(
           data: (userResponse) {
+            // 🔧 IMPORTANT: Treat null as false for onboarding status
             final isUserOnboarded = userResponse?.data?.onboarded ?? false;
-            print('🔄 Router - User API onboarded status: $isUserOnboarded');
+
+            print(
+              '🔄 Router - User API onboarded status (null treated as false): $isUserOnboarded',
+            );
+            print(
+              '🔄 Router - Raw onboarded value: ${userResponse?.data?.onboarded}',
+            );
             print(
               '🔄 Router - Full user data: ${userResponse?.data?.toJson()}',
             );
 
+            // 🔧 NEW: If onboarded is null or false, show onboarding
             if (!isUserOnboarded) {
+              print(
+                '🔄 Router - User not onboarded (or null), checking onboarding flow',
+              );
               return _handleOnboardingFlow(
                 currentPath,
                 onboardingManager,
@@ -212,11 +223,12 @@ final routerProvider = Provider<GoRouter>((ref) {
               ref.read(userProvider.notifier).getCurrentUserProfile();
             });
 
-            // For now, assume not onboarded and handle accordingly
+            // 🔧 UPDATED: On error, assume not onboarded (false) and handle accordingly
+            print('🔄 Router - API error, treating as not onboarded');
             return _handleOnboardingFlow(
               currentPath,
               onboardingManager,
-              false, // Assume not onboarded on error
+              false, // Treat error as not onboarded
               ref,
             );
           },
@@ -465,6 +477,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   );
 });
 
+// ✅ Complete RouterRefreshStream with proper null handling
 class RouterRefreshStream extends ChangeNotifier {
   final Ref _ref;
   late final ProviderSubscription _authSubscription;
@@ -504,6 +517,7 @@ class RouterRefreshStream extends ChangeNotifier {
       final previousOnboarded = _safeGetOnboardedStatus(previous);
       final nextOnboarded = _safeGetOnboardedStatus(next);
 
+      // 🔧 IMPORTANT: Also trigger when value changes from null to false or vice versa
       if (previousOnboarded != nextOnboarded) {
         print(
           '🔄 Router - User onboarded status changed: $previousOnboarded -> $nextOnboarded',
@@ -533,14 +547,24 @@ class RouterRefreshStream extends ChangeNotifier {
     });
   }
 
+  // ✅ Updated method with proper null handling
   bool? _safeGetOnboardedStatus(AsyncValue<UserResponse?>? asyncValue) {
     if (asyncValue == null) return null;
 
     return asyncValue.when(
       data: (response) {
         final onboarded = response?.data?.onboarded;
-        print('🔄 Router - Extracted onboarded status: $onboarded');
-        return onboarded;
+
+        // 🔧 IMPORTANT: Log both the raw value and the treated value
+        print('🔄 Router - Raw onboarded value from API: $onboarded');
+
+        // Treat null as false for routing decisions
+        final treatedValue = onboarded ?? false;
+        print(
+          '🔄 Router - Treated onboarded status (null=false): $treatedValue',
+        );
+
+        return treatedValue;
       },
       loading: () {
         print('🔄 Router - User state is loading, onboarded status unknown');
@@ -548,9 +572,9 @@ class RouterRefreshStream extends ChangeNotifier {
       },
       error: (error, stackTrace) {
         print(
-          '🔄 Router - User state error, returning null for onboarded status: $error',
+          '🔄 Router - User state error, returning false for onboarded status: $error',
         );
-        return null;
+        return false; // Treat errors as not onboarded
       },
     );
   }

@@ -55,14 +55,17 @@ class _PersonalInfoInputScreenState
     _initializeOnboardingStatus();
   }
 
-  // ✅ REVERTED: Improved initialization with API onboarding status checking
+  // ✅ UPDATED: Improved initialization with null handling for API onboarding status
   void _initializeOnboardingStatus() async {
     final userState = ref.read(userProvider);
     final onboardingManager = ref.read(onboardingManagerProvider);
 
+    // 🔧 IMPORTANT: Treat null as false for onboarding status
     final apiOnboarded = userState.maybeWhen(
-      data: (response) => response?.data?.onboarded ?? false,
-      orElse: () => false,
+      data:
+          (response) =>
+              response?.data?.onboarded ?? false, // null becomes false
+      orElse: () => false, // Any other state (loading, error) becomes false
     );
 
     final daysSincePrompt = await onboardingManager.daysSinceLastPrompt();
@@ -70,7 +73,10 @@ class _PersonalInfoInputScreenState
       isUserOnboarded: apiOnboarded,
     );
 
-    print('🔍 PersonalInfo - API onboarded: $apiOnboarded');
+    print('🔍 PersonalInfo - API onboarded (null=false): $apiOnboarded');
+    print(
+      '🔍 PersonalInfo - Raw onboarded value: ${userState.maybeWhen(data: (response) => response?.data?.onboarded, orElse: () => 'not_loaded')}',
+    );
     print('🔍 PersonalInfo - Days since last prompt: $daysSincePrompt');
     print('🔍 PersonalInfo - Should show onboarding: $shouldShow');
 
@@ -82,6 +88,11 @@ class _PersonalInfoInputScreenState
       if (mounted) {
         context.go('/navigation');
       }
+    } else if (apiOnboarded == false) {
+      print(
+        '🔄 PersonalInfo - User not onboarded (or null), staying on onboarding screen',
+      );
+      // Stay on current screen - this is correct behavior
     }
   }
 

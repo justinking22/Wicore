@@ -303,6 +303,14 @@ class WicoreApp extends ConsumerWidget {
         useMaterial3: true,
         // Add app lifecycle handling
         visualDensity: VisualDensity.adaptivePlatformDensity,
+        progressIndicatorTheme: const ProgressIndicatorThemeData(
+          color: Colors.black,
+        ),
+
+        // 📝 Set all text field cursors to black
+        textSelectionTheme: const TextSelectionThemeData(
+          cursorColor: Colors.black,
+        ),
       ),
       routerConfig: router,
     );
