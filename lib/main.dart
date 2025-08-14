@@ -1,5 +1,6 @@
 import 'package:Wicore/app_router.dart';
 import 'package:Wicore/providers/authentication_provider.dart';
+import 'package:Wicore/providers/fcm_provider.dart';
 import 'package:Wicore/providers/user_provider.dart';
 import 'package:Wicore/states/auth_status.dart';
 import 'package:Wicore/states/app_initialization_state.dart';
@@ -14,10 +15,28 @@ import 'package:flutter_native_splash/flutter_native_splash.dart';
 
 import 'services/config_service.dart';
 import 'models/user_model.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart'; // Add this import
+import 'firebase_options.dart';
+
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
+
+// Add background message handler (must be top-level function)
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  print("Background FCM message received: ${message.messageId}");
+}
 
 void main() async {
   // Ensure Flutter is initialized
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Set up background message handler
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
@@ -27,7 +46,7 @@ void main() async {
   // Keep the native splash screen visible
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
-  runApp(ProviderScope(child: const Wicore()));
+  runApp(ProviderScope(child: const WicoreApp()));
 }
 
 // App initialization state provider
@@ -65,6 +84,9 @@ class AppInitializationNotifier extends StateNotifier<AppInitializationState> {
       // Now configure Amplify
       await _configureAmplify();
 
+      // Initialize FCM after Amplify
+      await _initializeFirebaseMessaging();
+
       // Initialize auth state by checking stored tokens
       await _initializeAuthState();
 
@@ -85,6 +107,92 @@ class AppInitializationNotifier extends StateNotifier<AppInitializationState> {
     } finally {
       // Remove the native splash screen once initialization is complete
       FlutterNativeSplash.remove();
+    }
+  }
+
+  Future<void> _initializeFirebaseMessaging() async {
+    try {
+      print('🔄 Initializing Firebase Messaging...');
+
+      FirebaseMessaging messaging = FirebaseMessaging.instance;
+
+      // Request permissions first
+      NotificationSettings settings = await messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+        carPlay: false,
+        criticalAlert: false,
+        provisional: false,
+        announcement: false,
+      );
+
+      print('📱 FCM Permission status: ${settings.authorizationStatus}');
+
+      // For iOS/macOS, wait for APNS token to be ready
+      if (defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.macOS) {
+        await _waitForAPNSToken();
+      }
+
+      // Initialize FCM token provider after auth is ready
+      Future.microtask(() {
+        try {
+          ref.read(fcmTokenProvider.notifier);
+        } catch (e) {
+          print('❌ Error initializing FCM token provider: $e');
+        }
+      });
+
+      // Set up message handlers
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        print('📩 Foreground FCM message: ${message.notification?.title}');
+        print('📩 Message body: ${message.notification?.body}');
+        print('📩 Message data: ${message.data}');
+      });
+
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+        print('📱 FCM notification opened app: ${message.notification?.title}');
+      });
+
+      RemoteMessage? initialMessage = await messaging.getInitialMessage();
+      if (initialMessage != null) {
+        print('📱 FCM initial message: ${initialMessage.notification?.title}');
+      }
+
+      print('✅ Firebase Messaging initialized successfully');
+    } catch (e) {
+      print('❌ Error initializing Firebase Messaging: $e');
+    }
+  }
+
+  // Add this method (exactly like DiagnoX)
+  Future<void> _waitForAPNSToken() async {
+    FirebaseMessaging messaging = FirebaseMessaging.instance;
+    String? apnsToken;
+    int attempts = 0;
+    const maxAttempts = 20; // Increased attempts for slower devices
+
+    print('🍎 Waiting for APNS token...');
+
+    while (apnsToken == null && attempts < maxAttempts) {
+      try {
+        apnsToken = await messaging.getAPNSToken();
+        if (apnsToken != null) {
+          print('🍎 APNS Token ready: ${apnsToken.substring(0, 10)}...');
+          break;
+        }
+      } catch (e) {
+        print('🍎 Attempt ${attempts + 1}: Waiting for APNS token...');
+      }
+
+      attempts++;
+      await Future.delayed(const Duration(milliseconds: 500));
+    }
+
+    if (apnsToken == null) {
+      print('⚠️ Warning: APNS token not available after $maxAttempts attempts');
+      // Don't throw error, just log warning
     }
   }
 
@@ -158,6 +266,10 @@ class AppInitializationNotifier extends StateNotifier<AppInitializationState> {
     _initializeApp();
   }
 }
+
+// Rest of your existing code remains the same...
+// (All the other classes: AuthInitializationWrapper, AppInitializationErrorScreen,
+//  Wicore, WicoreApp, extensions, etc.)
 
 // Auth initialization wrapper widget
 class AuthInitializationWrapper extends ConsumerWidget {
@@ -233,15 +345,6 @@ class AppInitializationErrorScreen extends StatelessWidget {
   }
 }
 
-class Wicore extends ConsumerWidget {
-  const Wicore({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return AuthInitializationWrapper(child: const WicoreApp());
-  }
-}
-
 class WicoreApp extends ConsumerWidget {
   const WicoreApp({Key? key}) : super(key: key);
 
@@ -291,6 +394,9 @@ class WicoreApp extends ConsumerWidget {
         print('  User ID: ${next.userData?.id}');
         print('  Username: ${next.userData?.username}');
       }
+
+      // 🔥 ADD THIS: Handle FCM token registration on auth state changes
+      _handleFcmTokenOnAuthChange(ref, previous, next);
     });
 
     final router = ref.watch(routerProvider);
@@ -301,19 +407,50 @@ class WicoreApp extends ConsumerWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
         useMaterial3: true,
-        // Add app lifecycle handling
         visualDensity: VisualDensity.adaptivePlatformDensity,
         progressIndicatorTheme: const ProgressIndicatorThemeData(
           color: Colors.black,
         ),
-
-        // 📝 Set all text field cursors to black
         textSelectionTheme: const TextSelectionThemeData(
           cursorColor: Colors.black,
         ),
       ),
       routerConfig: router,
     );
+  }
+
+  // 🔥 ADD THIS METHOD: Handle FCM token registration on auth changes
+  void _handleFcmTokenOnAuthChange(
+    WidgetRef ref,
+    AuthState? previous,
+    AuthState next,
+  ) {
+    // Handle user login - register FCM token
+    if (next.status == AuthStatus.authenticated &&
+        previous?.status != AuthStatus.authenticated) {
+      if (kDebugMode) print('🔥 User authenticated, registering FCM token');
+      Future.microtask(() {
+        try {
+          ref.read(fcmTokenProvider.notifier).registerTokenIfAuthenticated();
+        } catch (e) {
+          print('❌ Error registering FCM token after auth: $e');
+        }
+      });
+    }
+
+    // Handle user logout - cleanup FCM listeners
+    if (next.status == AuthStatus.unauthenticated &&
+        previous?.status == AuthStatus.authenticated) {
+      if (kDebugMode)
+        print('🔥 User logged out, cleaning up FCM token listeners');
+      Future.microtask(() {
+        try {
+          ref.read(fcmTokenProvider.notifier).handleUserLogout();
+        } catch (e) {
+          print('❌ Error cleaning up FCM token after logout: $e');
+        }
+      });
+    }
   }
 }
 

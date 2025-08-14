@@ -42,12 +42,24 @@
 	<string>근처 기기를 찾기 위해 위치 접근을 허용해주세요.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>근처 기기를 찾기 위해 위치 접근을 허용해주세요.</string>
+	
+	<!-- Add Firebase notification permission description -->
+	<key>NSUserNotificationUsageDescription</key>
+	<string>알림을 통해 중요한 업데이트를 받기 위해 알림 접근을 허용해주세요.</string>
+	
+	<!-- Add Firebase auto-initialization -->
+	<key>FirebaseMessagingAutoInitEnabled</key>
+	<true/>
+	
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>bluetooth-central</string>
 		<string>bluetooth-peripheral</string>
+		<string>remote-notification</string>
+		<!-- Add fetch for background app refresh -->
+		<string>fetch</string>
 	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>

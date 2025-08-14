@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:math';
 import 'package:Wicore/repository/auth_repository.dart';
+import 'package:Wicore/repository/fcm_repository.dart';
 import 'package:Wicore/services/config_service.dart';
+import 'package:Wicore/services/fcm_api_client.dart';
 import 'package:Wicore/states/auth_status.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -815,3 +817,16 @@ extension AuthNotifierExtension on AuthNotifier {
       print('✅ Auth state set with stored data - User ID: ${userData.id}');
   }
 }
+
+// FCM API client provider (uses authenticated dio)
+final fcmApiClientProvider = Provider<FcmApiClient>((ref) {
+  final dio = ref.watch(authenticatedDioProvider);
+  final baseUrl = ref.watch(baseUrlProvider);
+  return FcmApiClient(dio, baseUrl: baseUrl);
+});
+
+// FCM Repository provider
+final fcmRepositoryProvider = Provider<FcmRepository>((ref) {
+  final apiClient = ref.watch(fcmApiClientProvider);
+  return FcmRepository(apiClient);
+});
