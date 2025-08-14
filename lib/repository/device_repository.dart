@@ -1,5 +1,6 @@
 import 'package:Wicore/models/active_device_model.dart';
 import 'package:Wicore/models/device_list_response_model.dart';
+import 'package:Wicore/models/device_unpair_response_model.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../models/device_request_model.dart';
@@ -62,20 +63,44 @@ class DeviceRepository {
     }
   }
 
-  // NEW METHOD: Unpair device
-  Future<DeviceListResponse> unpairDevice(String deviceId) async {
+  // UPDATED: Unpair device with proper return type
+  Future<DeviceUnpairResponse> unpairDevice(String deviceId) async {
     try {
       print('🔧 Repository - Unpairing device: $deviceId');
       final response = await _apiClient.unpairDevice(deviceId: deviceId);
       print('🔧 Repository - Unpair response: ${response.code}');
+
+      if (response.isSuccess && response.data != null) {
+        print('🔧 ✅ Device unpaired successfully: ${response.data!.deviceId}');
+        print('🔧 📱 New status: ${response.data!.status}');
+      }
+
       return response;
     } on DioException catch (e) {
       print('🔧 ❌ Repository - Error unpairing device: $e');
-      return _handleDeviceListDioError(e);
+      return _handleUnpairDioError(e);
     } catch (e) {
       if (kDebugMode) print('Error unpairing device: $e');
-      return DeviceListResponse(code: -1, error: e.toString());
+      return DeviceUnpairResponse(code: -1, error: e.toString());
     }
+  }
+
+  DeviceUnpairResponse _handleUnpairDioError(DioException e) {
+    if (e.response != null) {
+      final data = e.response!.data;
+      if (data is Map<String, dynamic>) {
+        try {
+          return DeviceUnpairResponse.fromJson(data);
+        } catch (_) {
+          // Fallback if response doesn't match expected format
+        }
+      }
+    }
+
+    return DeviceUnpairResponse(
+      code: e.response?.statusCode ?? -1,
+      error: e.message,
+    );
   }
 
   DeviceListResponse _handleDeviceListDioError(DioException e) {

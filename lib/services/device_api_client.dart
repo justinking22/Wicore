@@ -1,5 +1,6 @@
 import 'package:Wicore/models/active_device_model.dart';
 import 'package:Wicore/models/device_list_response_model.dart';
+import 'package:Wicore/models/device_unpair_response_model.dart';
 import 'package:dio/dio.dart';
 import 'package:retrofit/retrofit.dart';
 import 'package:Wicore/models/device_request_model.dart';
@@ -26,7 +27,7 @@ abstract class DeviceApiClient {
   });
 
   @DELETE('/device/unpair/{dId}')
-  Future<DeviceListResponse> unpairDevice({
+  Future<DeviceUnpairResponse> unpairDevice({
     @Path('dId') required String deviceId,
   });
 }

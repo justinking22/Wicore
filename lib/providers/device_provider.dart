@@ -1,5 +1,6 @@
 // lib/providers/device_provider.dart - CLEANED VERSION
 import 'package:Wicore/models/active_device_model.dart';
+import 'package:Wicore/models/device_unpair_response_model.dart';
 import 'package:Wicore/providers/authentication_provider.dart';
 import 'package:Wicore/services/device_api_client.dart';
 import 'package:Wicore/states/device_state.dart';
@@ -89,34 +90,86 @@ class DeviceNotifier extends StateNotifier<DeviceState> {
         return false;
       }
 
+      print('🔧 DeviceNotifier - Starting unpair for device: $deviceId');
+
+      // Call repository unpair method (returns DeviceUnpairResponse)
       final response = await _repository.unpairDevice(deviceId);
 
-      if (response.code == 0) {
+      if (response.isSuccess) {
+        print('🔧 ✅ Unpair successful - Code: ${response.code}');
+
+        // Log unpair success details if data is available
+        if (response.data != null) {
+          final data = response.data!;
+          print(
+            '🔧 📱 Device ${data.deviceId} status changed to: ${data.status}',
+          );
+          print('🔧 🕒 Updated at: ${data.updated}');
+          print('🔧 📅 Expires: ${data.expiryDate}');
+
+          // Verify that device is actually unpaired
+          if (data.isUnpaired) {
+            print('🔧 ✅ Device successfully unpaired (status: expired)');
+          } else {
+            print(
+              '🔧 ⚠️  Warning: Device unpaired but status is: ${data.status}',
+            );
+          }
+        }
+
+        // Clear paired device if it matches the unpaired device
         final currentPairedDevice = _ref.read(deviceDataProvider);
         if (currentPairedDevice?.deviceId == deviceId) {
           _ref.read(deviceDataProvider.notifier).state = null;
           state = state.copyWith(pairedDevice: null);
+          print('🔧 🗑️ Cleared paired device from state');
         }
 
-        // ✅ KEEP: Invalidate the simplified providers
+        // Refresh device lists after unpairing
         _ref.invalidate(allDevicesProvider);
         _ref.invalidate(activeDeviceProvider);
+        print('🔧 🔄 Invalidated device providers');
 
         state = state.copyWith(isLoading: false, error: null);
         return true;
       } else {
+        // Handle unpair failure
         final errorMessage = response.error ?? response.msg ?? 'Unpair failed';
+        print(
+          '🔧 ❌ Unpair failed - Code: ${response.code}, Error: $errorMessage',
+        );
+
         state = state.copyWith(isLoading: false, error: errorMessage);
         return false;
       }
     } catch (e) {
-      if (e.toString().contains('Authentication failed')) {
+      print('🔧 ❌ Unpair exception: $e');
+
+      // Handle authentication errors
+      if (e.toString().contains('Authentication failed') ||
+          e.toString().contains('401')) {
         _ref.read(authNotifierProvider.notifier).setUnauthenticated();
+        state = state.copyWith(
+          isLoading: false,
+          error: 'Authentication expired. Please sign in again.',
+        );
+      } else {
+        state = state.copyWith(isLoading: false, error: e.toString());
       }
 
-      state = state.copyWith(isLoading: false, error: e.toString());
       return false;
     }
+  }
+
+  // ✅ NEW: Helper method to get last unpair result if needed
+  bool wasLastUnpairSuccessful() {
+    return state.error == null && !state.isLoading;
+  }
+
+  // You can also add a method to get unpair result details if needed
+  DeviceUnpairData? getLastUnpairResult() {
+    // This could be stored in state if you need to access unpair details in UI
+    return null; // Implement based on your needs
   }
 
   void clearState() {

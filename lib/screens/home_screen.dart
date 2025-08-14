@@ -217,7 +217,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  // ✅ ENHANCED: Comprehensive disconnect/unpair method
+  // ✅ UPDATED: Enhanced disconnect/unpair method for HomeScreen
   Future<void> _disconnectDevice() async {
     print('🏠 _disconnectDevice called');
 
@@ -232,13 +232,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       try {
         print('🏠 Starting device unpair process for: $_activeDeviceId');
 
-        // Call the unpair method from device notifier
+        // Call the unpair method from device notifier (returns bool)
         final success = await ref
             .read(deviceNotifierProvider.notifier)
             .unpairDevice(_activeDeviceId!.trim());
 
         // Hide loading dialog
-        Navigator.of(context).pop();
+        if (mounted) Navigator.of(context).pop();
 
         if (success) {
           print('🏠 ✅ Device unpaired successfully');
@@ -252,45 +252,52 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             _showQRScanner = false;
           });
 
-          // Invalidate providers
+          // Invalidate providers to refresh data
           ref.invalidate(allDevicesProvider);
           ref.invalidate(activeDeviceProvider);
 
           // Show success message
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('기기 연결이 성공적으로 해제되었습니다'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 3),
-            ),
-          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('기기 연결이 성공적으로 해제되었습니다'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
         } else {
           print('🏠 ❌ Device unpair failed');
 
-          final errorMessage =
-              ref.read(deviceNotifierProvider).error ?? '기기 연결 해제에 실패했습니다';
+          // Get error message from device state
+          final deviceState = ref.read(deviceNotifierProvider);
+          final errorMessage = deviceState.error ?? '기기 연결 해제에 실패했습니다';
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(errorMessage),
+                backgroundColor: Colors.red,
+                duration: Duration(seconds: 4),
+              ),
+            );
+          }
+        }
+      } catch (error) {
+        print('🏠 ❌ Error during device unpair: $error');
+
+        // Hide loading dialog if still showing
+        if (mounted) {
+          Navigator.of(context).pop();
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(errorMessage),
+              content: Text('기기 연결 해제 중 오류가 발생했습니다: ${error.toString()}'),
               backgroundColor: Colors.red,
               duration: Duration(seconds: 4),
             ),
           );
         }
-      } catch (error) {
-        print('🏠 ❌ Error during device unpair: $error');
-
-        // Hide loading dialog
-        Navigator.of(context).pop();
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('기기 연결 해제 중 오류가 발생했습니다'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 4),
-          ),
-        );
       }
     } else {
       print('🏠 No valid device ID found, performing simple state clear');
@@ -303,19 +310,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         _showDeviceDetails = false;
       });
 
+      // Refresh providers
       ref.invalidate(allDevicesProvider);
       ref.invalidate(activeDeviceProvider);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('기기 연결이 해제되었습니다.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('기기 연결이 해제되었습니다.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 
-  // ✅ NEW: Show disconnect confirmation dialog
+  // ✅ ENHANCED: Better disconnect confirmation dialog
   Future<bool> _showDisconnectConfirmation(String deviceId) async {
     return await showCupertinoDialog<bool>(
           context: context,
@@ -342,15 +353,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         height: 1.4,
                       ),
                     ),
-                    SizedBox(height: 8),
+                    SizedBox(height: 12),
                     Container(
                       padding: EdgeInsets.symmetric(
                         horizontal: 12,
-                        vertical: 6,
+                        vertical: 8,
                       ),
                       decoration: BoxDecoration(
                         color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey[300]!),
                       ),
                       child: Text(
                         deviceId,
@@ -360,6 +372,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           color: Colors.black87,
                           fontFamily: 'monospace',
                         ),
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      '연결을 해제하면 기기를 다시 스캔해야 합니다.',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                        height: 1.3,
                       ),
                     ),
                   ],
@@ -400,7 +421,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         false;
   }
 
-  // ✅ NEW: Show disconnecting progress dialog
+  // ✅ ENHANCED: Better disconnecting progress dialog
   void _showDisconnectingDialog() {
     showCupertinoDialog(
       context: context,
@@ -408,15 +429,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       builder: (BuildContext context) {
         return CupertinoAlertDialog(
           content: Padding(
-            padding: EdgeInsets.all(20),
+            padding: EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 CupertinoActivityIndicator(radius: 20),
-                SizedBox(height: 16),
+                SizedBox(height: 20),
                 Text(
                   '기기 연결을 해제하는 중...',
-                  style: TextStyle(fontSize: 16, color: Colors.black87),
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.black87,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  '잠시만 기다려주세요',
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                 ),
               ],
             ),
