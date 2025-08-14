@@ -86,9 +86,9 @@ class _NotificationSettingsScreenState
               width: double.infinity,
               color: CustomColors.lighterGray,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              child: const Text(
+              child: Text(
                 '알림을 켜고\n중요 정보를 받으세요 ',
-                style: TextStyles.kSemiBold,
+                style: TextStyles.kSemiBold.copyWith(fontSize: 32),
               ),
             ),
             Container(
