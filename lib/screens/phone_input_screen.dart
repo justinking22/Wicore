@@ -162,152 +162,175 @@ class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
     );
 
     return GestureDetector(
+      // 🔧 FIX: Dismiss keyboard when tapping outside
       onTap: _dismissKeyboard,
       child: Scaffold(
-        // 🔧 FIX: Set background color to prevent red overflow
         backgroundColor: Colors.white,
-        // 🔧 FIX: Allow body to resize for better keyboard handling
+        // 🔧 FIX: Allow body to resize and avoid overflow
         resizeToAvoidBottomInset: true,
-        body: Column(
-          children: [
-            // 🔧 FIX: App Bar - Fixed at top without extra spacing
-            CustomAppBar(
-              title: '보호자 연락처',
-              showTrailingButton: true,
-              trailingButtonText: '건너뛰기',
-              showBackButton: false,
-              onTrailingPressed: _skipAndContinue,
-            ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              // App Bar - Fixed at top
+              CustomAppBar(
+                title: '보호자 연락처',
+                showTrailingButton: true,
+                trailingButtonText: '건너뛰기',
+                showBackButton: false,
+                onTrailingPressed: _skipAndContinue,
+              ),
 
-            // 🔧 FIX: Main content - Expanded to fill remaining space
-            Expanded(
-              child: Column(
-                children: [
-                  // Header section - Fixed height
-                  Container(
-                    color: Colors.white,
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+              // 🔧 FIX: Scrollable content to prevent overflow
+              Expanded(
+                child: SingleChildScrollView(
+                  // 🔧 FIX: Enable scrolling when keyboard appears
+                  physics: const ClampingScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      // 🔧 FIX: Ensure content takes at least full height
+                      minHeight:
+                          MediaQuery.of(context).size.height -
+                          MediaQuery.of(context).padding.top -
+                          kToolbarHeight -
+                          40, // Account for app bar
+                    ),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        SizedBox(
-                          width: double.infinity,
-                          child: Text(
-                            '보호자의 전화번호를\n입력해주세요',
-                            style: TextStyles.kBody,
+                        // Header section
+                        Container(
+                          color: Colors.white,
+                          padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(
+                                width: double.infinity,
+                                child: Text(
+                                  '보호자의 전화번호를\n입력해주세요',
+                                  style: TextStyles.kBody,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: double.infinity,
+                                child: Text(
+                                  '비상연락이 필요한 경우\n작성해주신 연락처로 연락이 갈 예정이에요.',
+                                  style: TextStyles.kMedium,
+                                ),
+                              ),
+                              const SizedBox(height: 40),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        SizedBox(
+
+                        // 🔧 FIX: Input section with flexible height
+                        Container(
                           width: double.infinity,
-                          child: Text(
-                            '비상연락이 필요한 경우\n작성해주신 연락처로 연락이 갈 예정이에요.',
-                            style: TextStyles.kMedium,
+                          color: CustomColors.lighterGray,
+                          // 🔧 FIX: Use intrinsic height instead of Expanded in scroll view
+                          constraints: BoxConstraints(
+                            minHeight: MediaQuery.of(context).size.height * 0.6,
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(20.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 30),
+
+                                Text(
+                                  '보호자 연락처',
+                                  style: TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black,
+                                    fontFamily: TextStyles.kFontFamily,
+                                  ),
+                                ),
+
+                                const SizedBox(height: 12),
+
+                                // Phone input field
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.05),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                      vertical: 12,
+                                    ),
+                                    child: TextField(
+                                      controller: _phoneController,
+                                      focusNode: _phoneFocusNode,
+                                      keyboardType: TextInputType.phone,
+                                      textInputAction: TextInputAction.done,
+                                      onSubmitted: (_) => _dismissKeyboard(),
+                                      decoration: InputDecoration(
+                                        hintText: '예) 010-0000-0000',
+                                        hintStyle: TextStyle(
+                                          color: Colors.grey[500],
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w500,
+                                          fontFamily: TextStyles.kFontFamily,
+                                        ),
+                                        border: InputBorder.none,
+                                        contentPadding: EdgeInsets.zero,
+                                      ),
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.black,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+
+                                // 🔧 FIX: Flexible space that adapts to content
+                                SizedBox(
+                                  height:
+                                      MediaQuery.of(context).size.height * 0.3,
+                                ),
+
+                                // Button section - Always at bottom of container
+                                if (_isSaving || isApiLoading)
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 16),
+                                    child: Center(
+                                      child: CircularProgressIndicator(),
+                                    ),
+                                  )
+                                else
+                                  CustomButton(
+                                    text: '다음',
+                                    isEnabled: _isButtonEnabled,
+                                    onPressed:
+                                        _isButtonEnabled
+                                            ? _saveAndContinue
+                                            : null,
+                                    disabledBackgroundColor: Colors.grey,
+                                  ),
+
+                                // Bottom padding for safe area
+                                const SizedBox(height: 20),
+                              ],
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 40),
                       ],
                     ),
                   ),
-
-                  // 🔧 FIX: Input section - Expanded to fill remaining space
-                  Expanded(
-                    child: Container(
-                      width: double.infinity,
-                      color: CustomColors.lighterGray,
-                      child: Padding(
-                        padding: const EdgeInsets.all(20.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SizedBox(height: 30),
-
-                            Text(
-                              '보호자 연락처',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black,
-                                fontFamily: TextStyles.kFontFamily,
-                              ),
-                            ),
-
-                            const SizedBox(height: 12),
-
-                            // Phone input field
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.05),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 12,
-                                ),
-                                child: TextField(
-                                  controller: _phoneController,
-                                  focusNode: _phoneFocusNode,
-                                  keyboardType: TextInputType.phone,
-                                  textInputAction: TextInputAction.done,
-                                  onSubmitted: (_) => _dismissKeyboard(),
-                                  decoration: InputDecoration(
-                                    hintText: '예) 010-0000-0000',
-                                    hintStyle: TextStyle(
-                                      color: Colors.grey[500],
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w500,
-                                      fontFamily: TextStyles.kFontFamily,
-                                    ),
-                                    border: InputBorder.none,
-                                    contentPadding: EdgeInsets.zero,
-                                  ),
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.black,
-                                  ),
-                                ),
-                              ),
-                            ),
-
-                            // 🔧 FIX: Spacer to push button to bottom
-                            const Spacer(),
-
-                            // 🔧 FIX: Button section - Always at bottom
-                            if (_isSaving || isApiLoading)
-                              const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 16),
-                                child: Center(
-                                  child: CircularProgressIndicator(),
-                                ),
-                              )
-                            else
-                              CustomButton(
-                                text: '다음',
-                                isEnabled: _isButtonEnabled,
-                                onPressed:
-                                    _isButtonEnabled ? _saveAndContinue : null,
-                                disabledBackgroundColor: Colors.grey,
-                              ),
-
-                            // 🔧 FIX: Bottom padding for safe area
-                            const SizedBox(height: 20),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

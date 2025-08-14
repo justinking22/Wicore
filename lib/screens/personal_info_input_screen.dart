@@ -94,7 +94,7 @@ class _PersonalInfoInputScreenState
     }
   }
 
-  // 🔧 SIMPLIFIED: Skip method - just go to main navigation
+  // ✅ FIXED: Skip method that properly marks as onboarded when skipping
   void _skipAndContinue() async {
     try {
       print('⏭️ PersonalInfo - User clicked skip button');
@@ -105,8 +105,34 @@ class _PersonalInfoInputScreenState
       if (shouldSkip == true && mounted) {
         print('⏭️ PersonalInfo - User confirmed to skip personal info');
 
-        // 🔧 SIMPLIFIED: Just navigate to main screen - no daily tracking
-        print('⏭️ PersonalInfo - Skipping to main navigation');
+        // 🔧 FIXED: Mark as onboarded in API when skipping so they don't see onboarding again
+        try {
+          await ref
+              .read(userProvider.notifier)
+              .updateCurrentUserProfile(UserUpdateRequest(onboarded: true));
+          print('✅ PersonalInfo - User marked as onboarded in API (skipped)');
+        } catch (e) {
+          print('⚠️ PersonalInfo - Failed to update API but continuing: $e');
+          // Don't block navigation if API fails
+        }
+
+        // Mark as completed locally (for compatibility)
+        final onboardingManager = ref.read(onboardingManagerProvider);
+        await onboardingManager.markOnboardingCompleted();
+        print('✅ PersonalInfo - User marked as onboarded locally (skipped)');
+
+        // Refresh profile to update the router
+        try {
+          await ref.read(userProvider.notifier).getCurrentUserProfile();
+          print('🔄 PersonalInfo - User profile refreshed');
+        } catch (e) {
+          print(
+            '⚠️ PersonalInfo - Failed to refresh profile but continuing: $e',
+          );
+        }
+
+        // Navigate to main navigation
+        print('🔄 PersonalInfo - Navigating to main navigation');
         context.go('/navigation');
       } else {
         print(
