@@ -76,7 +76,7 @@ class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
 
       print('✅ PhoneInput - User marked as onboarded in API');
 
-      // ✅ Also mark as completed locally (for tracking)
+      // ✅ Mark as completed locally (for compatibility)
       final onboardingManager = ref.read(onboardingManagerProvider);
       await onboardingManager.markOnboardingCompleted();
 
@@ -110,7 +110,7 @@ class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
     }
   }
 
-  // 🔧 REVERTED: Skip method that marks as shown for today (not fully completed)
+  // 🔧 SIMPLIFIED: Skip method - mark as onboarded and go to main app
   void _skipAndContinue() async {
     try {
       print('⏭️ PhoneInput - User clicked skip button');
@@ -121,21 +121,23 @@ class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
       if (shouldSkip == true && mounted) {
         print('⏭️ PhoneInput - User confirmed to skip phone input');
 
-        // ✅ Even when skipping, mark as onboarded so they don't see it again today
+        // ✅ SIMPLIFIED: Mark as onboarded in API so they don't see onboarding again
         await ref
             .read(userProvider.notifier)
             .updateCurrentUserProfile(UserUpdateRequest(onboarded: true));
 
-        print('⏭️ PhoneInput - User marked as onboarded (skipped)');
+        print('✅ PhoneInput - User marked as onboarded (skipped)');
 
-        // Mark as completed locally
+        // Mark as completed locally (for compatibility)
         final onboardingManager = ref.read(onboardingManagerProvider);
         await onboardingManager.markOnboardingCompleted();
 
-        // Refresh profile
+        // Refresh profile to update the router
         await ref.read(userProvider.notifier).getCurrentUserProfile();
 
-        // Navigate to home screen
+        print('🔄 PhoneInput - User profile refreshed, navigating to main app');
+
+        // Navigate to main app
         context.go('/navigation');
       } else {
         print(

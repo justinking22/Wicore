@@ -3,21 +3,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class OnboardingManager {
-  static const String _lastOnboardingPromptKey = 'last_onboarding_prompt';
-
-  // 🔧 REVERTED: Check API for onboarding status (not SharedPreferences)
-  Future<bool> shouldShowOnboarding({
-    required bool isUserOnboarded,
-    bool forceCheck = false,
-  }) async {
+  // 🔧 SIMPLIFIED: Only check API for onboarding status - no daily limits
+  Future<bool> shouldShowOnboarding({required bool isUserOnboarded}) async {
     print(
-      '🔍 OnboardingManager - Checking if should show onboarding (API-based)',
+      '🔍 OnboardingManager - Checking if should show onboarding (API-only)',
     );
     print(
       '🔍 OnboardingManager - User onboarded status from API: $isUserOnboarded',
     );
 
-    // If user is fully onboarded according to API, never show onboarding screens
+    // 🎯 SIMPLE LOGIC: If user is onboarded in API, don't show onboarding
     if (isUserOnboarded) {
       print(
         '✅ OnboardingManager - User is onboarded in API, not showing onboarding',
@@ -25,44 +20,18 @@ class OnboardingManager {
       return false;
     }
 
-    // If forcing check (like app restart), always respect the once-per-day logic
-    if (!forceCheck) {
-      final prefs = await SharedPreferences.getInstance();
-      final lastPrompt = prefs.getString(_lastOnboardingPromptKey);
-
-      if (lastPrompt != null) {
-        final lastPromptDate = DateTime.parse(lastPrompt);
-        final now = DateTime.now();
-        final daysSinceLastPrompt = now.difference(lastPromptDate).inDays;
-
-        print('🔍 OnboardingManager - Last prompt: $lastPromptDate');
-        print(
-          '🔍 OnboardingManager - Days since last prompt: $daysSinceLastPrompt',
-        );
-
-        // Only show once per day
-        if (daysSinceLastPrompt < 1) {
-          print('⏭️ OnboardingManager - Already shown today, skipping');
-          return false;
-        }
-      }
-    }
-
-    print('✅ OnboardingManager - Should show onboarding');
+    // 🎯 If not onboarded (or null treated as false), show onboarding
+    print('✅ OnboardingManager - User not onboarded, should show onboarding');
     return true;
   }
 
-  // Mark that we've shown the onboarding prompt today
+  // 🔧 REMOVED: No more daily prompt tracking - always check API
   Future<void> markOnboardingPromptShown() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-      _lastOnboardingPromptKey,
-      DateTime.now().toIso8601String(),
-    );
-    print('📅 OnboardingManager - Marked onboarding prompt as shown today');
+    print('📅 OnboardingManager - No daily tracking, always check API');
+    // This method is kept for compatibility but does nothing
   }
 
-  // 🔧 SIMPLIFIED: Just mark as completed (for tracking progress)
+  // Mark as completed (for local tracking only)
   Future<void> markOnboardingCompleted() async {
     print(
       '✅ OnboardingManager - Onboarding completed (API will be updated separately)',
@@ -72,21 +41,16 @@ class OnboardingManager {
 
   // Clear onboarding data (for testing or logout)
   Future<void> clearOnboardingData() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_lastOnboardingPromptKey);
-    print('🧹 OnboardingManager - Cleared onboarding data');
+    print(
+      '🧹 OnboardingManager - No local data to clear, everything is API-based',
+    );
+    // This method is kept for compatibility but does nothing since we're API-only
   }
 
-  // Get days since last onboarding prompt
+  // Get days since last onboarding prompt (not used anymore)
   Future<int> daysSinceLastPrompt() async {
-    final prefs = await SharedPreferences.getInstance();
-    final lastPrompt = prefs.getString(_lastOnboardingPromptKey);
-
-    if (lastPrompt == null) return -1; // Never shown
-
-    final lastPromptDate = DateTime.parse(lastPrompt);
-    final now = DateTime.now();
-    return now.difference(lastPromptDate).inDays;
+    print('🔍 OnboardingManager - No daily tracking, returning -1');
+    return -1; // Not applicable since we check API every time
   }
 
   // Mark personal info step as completed (for tracking progress)
@@ -101,7 +65,7 @@ final onboardingManagerProvider = Provider<OnboardingManager>((ref) {
   return OnboardingManager();
 });
 
-// 🔧 REVERTED: Provider to check if onboarding should be shown (with API dependency)
+// 🔧 SIMPLIFIED: Provider to check if onboarding should be shown (API-only)
 final shouldShowOnboardingProvider = FutureProvider.family<bool, bool>((
   ref,
   isUserOnboarded,

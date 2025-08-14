@@ -22,7 +22,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   bool _isAutoLogin = true;
-  bool _isObscurePassword = true;
+  bool _isObscureText = true;
   bool _hasEmailError = false;
   String _emailErrorMessage = '';
   bool _isLoading = false;
@@ -451,7 +451,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         TextFormField(
                           controller: _passwordController,
                           enabled: !_isLoading, // ✅ Disable during loading
-                          obscureText: _isObscurePassword,
+                          obscureText: _isObscureText,
                           decoration: InputDecoration(
                             hintText: '비밀번호를 입력해주세요',
                             hintStyle: TextStyles.kMedium,
@@ -473,22 +473,29 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                             contentPadding: const EdgeInsets.symmetric(
                               vertical: 16,
                             ),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _isObscurePassword
-                                    ? Icons.visibility_off
-                                    : Icons.visibility,
-                                color: const Color(0xFFBDBDBD),
-                              ),
+                            suffixIcon: TextButton(
                               onPressed:
                                   _isLoading
                                       ? null
                                       : () {
                                         setState(() {
-                                          _isObscurePassword =
-                                              !_isObscurePassword;
+                                          _isObscureText = !_isObscureText;
                                         });
                                       },
+                              style: TextButton.styleFrom(
+                                minimumSize: Size.zero,
+                                padding: EdgeInsets.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              child: Text(
+                                _isObscureText ? '보기' : '숨기기',
+                                style: TextStyles.kMedium.copyWith(
+                                  color:
+                                      _isLoading
+                                          ? Colors.grey
+                                          : CustomColors.darkCharcoal,
+                                ),
+                              ),
                             ),
                           ),
                           validator: (value) {

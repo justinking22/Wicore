@@ -55,7 +55,7 @@ class _PersonalInfoInputScreenState
     _initializeOnboardingStatus();
   }
 
-  // ✅ UPDATED: Improved initialization with null handling for API onboarding status
+  // ✅ SIMPLIFIED: Check API status without daily limits
   void _initializeOnboardingStatus() async {
     final userState = ref.read(userProvider);
     final onboardingManager = ref.read(onboardingManagerProvider);
@@ -65,10 +65,9 @@ class _PersonalInfoInputScreenState
       data:
           (response) =>
               response?.data?.onboarded ?? false, // null becomes false
-      orElse: () => false, // Any other state (loading, error) becomes false
+      orElse: () => false, // Any other state becomes false
     );
 
-    final daysSincePrompt = await onboardingManager.daysSinceLastPrompt();
     final shouldShow = await onboardingManager.shouldShowOnboarding(
       isUserOnboarded: apiOnboarded,
     );
@@ -77,10 +76,9 @@ class _PersonalInfoInputScreenState
     print(
       '🔍 PersonalInfo - Raw onboarded value: ${userState.maybeWhen(data: (response) => response?.data?.onboarded, orElse: () => 'not_loaded')}',
     );
-    print('🔍 PersonalInfo - Days since last prompt: $daysSincePrompt');
     print('🔍 PersonalInfo - Should show onboarding: $shouldShow');
 
-    // If user shouldn't see onboarding anymore, redirect to main app
+    // 🔧 SIMPLIFIED: If user is onboarded according to API, redirect to main app
     if (!shouldShow && apiOnboarded) {
       print(
         '🔄 PersonalInfo - User already onboarded, redirecting to main app',
@@ -88,15 +86,15 @@ class _PersonalInfoInputScreenState
       if (mounted) {
         context.go('/navigation');
       }
-    } else if (apiOnboarded == false) {
+    } else {
       print(
-        '🔄 PersonalInfo - User not onboarded (or null), staying on onboarding screen',
+        '🔄 PersonalInfo - User not onboarded, staying on onboarding screen',
       );
       // Stay on current screen - this is correct behavior
     }
   }
 
-  // 🔧 REVERTED: Skip method that marks as shown for today (not completed)
+  // 🔧 SIMPLIFIED: Skip method - just go to main navigation
   void _skipAndContinue() async {
     try {
       print('⏭️ PersonalInfo - User clicked skip button');
@@ -107,15 +105,8 @@ class _PersonalInfoInputScreenState
       if (shouldSkip == true && mounted) {
         print('⏭️ PersonalInfo - User confirmed to skip personal info');
 
-        final onboardingManager = ref.read(onboardingManagerProvider);
-
-        // Mark that we've shown the onboarding today (so they don't see it again today)
-        await onboardingManager.markOnboardingPromptShown();
-
-        // Don't mark as fully completed since they skipped - they might want to complete it later
-        print('📅 PersonalInfo - Marked onboarding prompt as shown for today');
-
-        // Navigate to main screen instead of phone input
+        // 🔧 SIMPLIFIED: Just navigate to main screen - no daily tracking
+        print('⏭️ PersonalInfo - Skipping to main navigation');
         context.go('/navigation');
       } else {
         print(

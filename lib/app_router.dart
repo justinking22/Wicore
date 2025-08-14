@@ -39,7 +39,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-// ✅ Updated helper method with proper null handling for onboarding flow
+// ✅ SIMPLIFIED helper method - Check API every time
 Future<String?> _handleOnboardingFlow(
   String currentPath,
   dynamic onboardingManager,
@@ -47,13 +47,13 @@ Future<String?> _handleOnboardingFlow(
   Ref ref,
 ) async {
   try {
-    // 🔧 Check API for onboarding status (null treated as false)
+    // 🔧 SIMPLIFIED: Only check API for onboarding status - no daily limits
     final shouldShowOnboarding = await onboardingManager.shouldShowOnboarding(
       isUserOnboarded: isUserOnboarded,
     );
 
     print(
-      '🔄 Router - Should show onboarding (API-based): $shouldShowOnboarding',
+      '🔄 Router - Should show onboarding (API-only): $shouldShowOnboarding',
     );
     print('🔄 Router - User onboarded from API (null=false): $isUserOnboarded');
 
@@ -66,15 +66,14 @@ Future<String?> _handleOnboardingFlow(
         return null;
       }
 
-      // Redirect to start of onboarding and mark as shown for today
+      // 🔧 SIMPLIFIED: Redirect to start of onboarding (no daily marking)
       print('🔄 Router - Starting onboarding flow');
-      await onboardingManager.markOnboardingPromptShown();
       return '/onboarding';
     } else {
-      // Already onboarded or showed today, skip for now
-      print('🔄 Router - Skipping onboarding, going to main app');
+      // User is onboarded according to API, go to main app
+      print('🔄 Router - User onboarded, going to main app');
 
-      // If user is currently on onboarding screens but we're not showing, redirect to main
+      // If user is currently on onboarding screens but API says onboarded, redirect to main
       final onboardingPaths = ['/onboarding', '/phone-input', '/prep-done'];
       if (onboardingPaths.contains(currentPath)) {
         return '/navigation';
