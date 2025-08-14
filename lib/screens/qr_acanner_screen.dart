@@ -1,4 +1,4 @@
-// lib/screens/qr_scanner_screen.dart - UPDATED
+// lib/screens/qr_scanner_screen.dart - UPDATED WITH NEW LOGIC
 import 'package:Wicore/models/device_response_model.dart'
     show DeviceResponseData;
 import 'package:Wicore/states/device_state.dart';
@@ -43,11 +43,6 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _initializeController();
-
-    // Check for existing device immediately after widget is built
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkExistingPairedDevice();
-    });
   }
 
   void _initializeController() {
@@ -120,17 +115,8 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
         print('📱 QR Code detected: $code');
 
         try {
-          final deviceState = ref.read(deviceNotifierProvider);
-          final pairedDevice = ref.read(deviceDataProvider);
-
-          if (deviceState.pairedDevice != null || pairedDevice != null) {
-            print('📱 Device already paired, navigating to details');
-            _navigateToDeviceDetails();
-            return;
-          }
-
-          // ✅ NEW: Check if device is active before pairing
-          await _checkDeviceStatusAndPair(code);
+          // ✅ UPDATED: Process QR code with new logic
+          await _processQRCodeWithNewLogic(code);
         } catch (e) {
           print('📱 Error processing QR code: $e');
           _resetScanning();
@@ -139,60 +125,103 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
     }
   }
 
-  void _checkExistingPairedDevice() {
-    final deviceState = ref.read(deviceNotifierProvider);
-    final pairedDevice = ref.read(deviceDataProvider);
-
-    if (deviceState.pairedDevice != null || pairedDevice != null) {
-      String deviceId =
-          deviceState.pairedDevice?.deviceId ?? pairedDevice?.deviceId ?? '';
-      print('📱 Found existing paired device: $deviceId');
-      _navigateToDeviceDetails();
-    }
-  }
-
-  void _navigateToDeviceDetails() {
-    controller?.stop();
-    if (widget.onShowDeviceDetails != null) {
-      widget.onShowDeviceDetails!();
-    }
-  }
-
-  // ✅ NEW: Check device status before pairing
-  Future<void> _checkDeviceStatusAndPair(String deviceId) async {
-    print('📱 🔍 Checking device status for: $deviceId');
+  // ✅ NEW: Process QR code with updated logic
+  Future<void> _processQRCodeWithNewLogic(String deviceId) async {
+    print('📱 === PROCESSING QR CODE WITH NEW LOGIC ===');
+    print('📱 Device ID: $deviceId');
 
     try {
-      // First, try to check if device is active by fetching active device data
+      // Step 1: Pair the device
+      print('📱 Step 1: Pairing device...');
+      final timeZoneOffset = DateTime.now().timeZoneOffset.inMinutes;
+
+      // Call the pairing method
+      ref
+          .read(deviceNotifierProvider.notifier)
+          .pairDevice(deviceId, timeZoneOffset);
+
+      // Wait a moment for pairing to complete
+      await Future.delayed(Duration(milliseconds: 1500));
+
+      // Step 2: Check if pairing was successful by checking device state
+      final deviceState = ref.read(deviceNotifierProvider);
+      if (deviceState.error != null) {
+        print('📱 ❌ Pairing failed: ${deviceState.error}');
+
+        if (deviceState.error!.contains('already paired') ||
+            deviceState.error!.contains('-106')) {
+          print('📱 Device already paired, proceeding to check active status');
+        } else {
+          _showPairingErrorDialog(deviceState.error!);
+          return;
+        }
+      }
+
+      // Step 3: Check device/active endpoint after pairing
+      print('📱 Step 2: Checking device/active endpoint...');
+      await _checkDeviceActiveStatus(deviceId);
+    } catch (error) {
+      print('📱 ❌ Error in processQRCodeWithNewLogic: $error');
+      _showPairingErrorDialog('페어링 중 오류가 발생했습니다');
+    }
+  }
+
+  // ✅ NEW: Check device active status after pairing
+  Future<void> _checkDeviceActiveStatus(String deviceId) async {
+    print('📱 🔍 Checking device active status for: $deviceId');
+
+    try {
+      // Clear cache and check device/active endpoint
       ref.invalidate(activeDeviceProvider);
       final activeDevice = await ref.read(activeDeviceProvider.future);
 
       print('📱 Active device response: ${activeDevice?.safeDeviceId}');
 
-      // Check if the scanned device is the currently active device
+      // Check if the paired device is now active
       if (activeDevice != null && activeDevice.safeDeviceId == deviceId) {
-        print('📱 ✅ Device is active, proceeding with pairing');
-        await _processQRCode(deviceId);
+        print('📱 ✅ Device is active, proceeding to device details');
+        _handleSuccessfulPairing(deviceId);
       } else {
-        print('📱 ❌ Device is not active or not found, showing turn on dialog');
+        print(
+          '📱 ❌ Device is not active after pairing, showing turn on dialog',
+        );
         _showDeviceTurnOnDialog(deviceId);
       }
     } catch (e) {
-      print('📱 ❌ Error checking device status: $e');
+      print('📱 ❌ Error checking device active status: $e');
       // If there's an error checking status, show the turn on dialog
       _showDeviceTurnOnDialog(deviceId);
     }
   }
 
-  // ✅ NEW: Show iOS-style dialog for device turn on
-  void _showDeviceTurnOnDialog(String deviceId) {
+  // ✅ NEW: Handle successful pairing
+  void _handleSuccessfulPairing(String deviceId) {
+    print('📱 ✅ Handling successful pairing for: $deviceId');
+
+    setState(() {
+      _isProcessing = false;
+    });
+
+    // Notify parent that QR was successfully scanned and device is active
+    if (widget.onQRScanned != null) {
+      widget.onQRScanned!(deviceId);
+    }
+
+    // Also trigger the show device details callback
+    if (widget.onShowDeviceDetails != null) {
+      widget.onShowDeviceDetails!();
+    }
+  }
+
+  // ✅ NEW: Show pairing error dialog
+  void _showPairingErrorDialog(String errorMessage) {
     showCupertinoDialog(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
         return CupertinoAlertDialog(
           title: Text(
-            '기기를 켜주세요',
+            '페어링 실패',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
@@ -202,7 +231,7 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
           content: Padding(
             padding: EdgeInsets.only(top: 12),
             child: Text(
-              '스캔하신 기기가 꺼져있거나 연결되지 않았습니다.\n기기를 켜고 다시 스캔해주세요.',
+              errorMessage,
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.black87,
@@ -231,7 +260,54 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
     );
   }
 
-  // ✅ NEW: Reset scanning after dialog
+  // ✅ UPDATED: Show device turn on dialog (updated message)
+  void _showDeviceTurnOnDialog(String deviceId) {
+    showCupertinoDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return CupertinoAlertDialog(
+          title: Text(
+            '기기를 켜주세요',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.black,
+            ),
+          ),
+          content: Padding(
+            padding: EdgeInsets.only(top: 12),
+            child: Text(
+              '페어링된 기기가 꺼져있거나 연결되지 않았습니다.\n기기를 켜고 다시 스캔해주세요.',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.black87,
+                height: 1.4,
+              ),
+            ),
+          ),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _resetScanningAfterDialog();
+              },
+              child: Text(
+                '확인',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                  color: CupertinoColors.systemBlue,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ✅ UPDATED: Reset scanning after dialog
   void _resetScanningAfterDialog() {
     setState(() {
       _isProcessing = false;
@@ -246,23 +322,12 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
     });
   }
 
-  Future<void> _processQRCode(String code) async {
-    final timeZoneOffset = DateTime.now().timeZoneOffset.inMinutes;
-    ref.read(deviceNotifierProvider.notifier).pairDevice(code, timeZoneOffset);
-  }
-
   void _resetScanning() {
     setState(() {
       _isProcessing = false;
     });
     _lastScannedCode = null;
     controller?.start();
-  }
-
-  void _handleSuccess(DeviceResponseData device) {
-    if (widget.onQRScanned != null) {
-      widget.onQRScanned!(device.deviceId);
-    }
   }
 
   void _startScanning() {
@@ -272,25 +337,7 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
 
   @override
   Widget build(BuildContext context) {
-    final deviceState = ref.watch(deviceNotifierProvider);
-
-    ref.listen<DeviceState>(deviceNotifierProvider, (previous, next) {
-      if (next.pairedDevice != null && previous?.pairedDevice == null) {
-        print('📱 Device just paired: ${next.pairedDevice?.deviceId}');
-        _handleSuccess(next.pairedDevice!);
-        _navigateToDeviceDetails();
-      }
-
-      if (next.error != null && previous?.error == null) {
-        if (next.error!.contains('already paired') ||
-            next.error!.contains('-106')) {
-          print('📱 Device already paired error detected, attempting redirect');
-          _navigateToDeviceDetails();
-        } else {
-          _resetScanning();
-        }
-      }
-    });
+    // ✅ REMOVED: Device state listener (no longer needed with new logic)
 
     if (controller == null) {
       return Container(
@@ -478,7 +525,7 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
                 ),
               ),
 
-              // ✅ NEW: Processing overlay
+              // ✅ UPDATED: Processing overlay with new messaging
               if (_isProcessing)
                 Positioned.fill(
                   child: Container(
@@ -494,7 +541,7 @@ class _QRScannerWidgetState extends ConsumerState<QRScannerWidget>
                           ),
                           SizedBox(height: 16),
                           Text(
-                            '기기 상태를 확인 중...',
+                            '기기를 페어링하고 있습니다...',
                             style: TextStyles.kMedium.copyWith(
                               fontSize: 16,
                               color: Colors.white,

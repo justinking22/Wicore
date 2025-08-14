@@ -225,7 +225,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         final protectedPaths = [
           '/navigation',
           '/home',
-          '/personal-info-input',
+
           '/onboarding',
           '/phone-input',
           '/prep-done',

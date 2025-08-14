@@ -12,7 +12,7 @@ class SignupCompleteScreen extends StatefulWidget {
 
 class _SignupCompleteScreenState extends State<SignupCompleteScreen> {
   void _handleNext() {
-    context.push('/personal-info-input');
+    context.push('/onboarding');
   }
 
   @override

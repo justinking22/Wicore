@@ -1,4 +1,4 @@
-// lib/screens/home_screen.dart - UPDATED WITH UNPAIR INTEGRATION
+// lib/screens/home_screen.dart - UPDATED WITH DEVICE/ACTIVE ENDPOINT LOGIC
 import 'package:Wicore/screens/qr_acanner_screen.dart';
 import 'package:Wicore/widgets/device_details_widget.dart';
 import 'package:Wicore/styles/colors.dart';
@@ -23,95 +23,175 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _showQRScanner = false;
   bool _showDeviceDetails = false;
+  bool _isCheckingActiveDevice = true;
+  String? _activeDeviceId;
 
   @override
   void initState() {
     super.initState();
-    // Check for paired device on initialization
+    // Check for active device on initialization
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkExistingDevice();
-      _debugDeviceState();
+      _checkActiveDeviceStatus();
     });
   }
 
-  void _checkExistingDevice() {
-    String? deviceId;
+  // ✅ NEW: Check device/active endpoint first
+  Future<void> _checkActiveDeviceStatus() async {
+    print('🏠 === CHECKING ACTIVE DEVICE STATUS ===');
 
-    // First try paired device provider
-    final pairedDevice = ref.read(deviceDataProvider);
-    if (pairedDevice != null) {
-      deviceId = pairedDevice.deviceId;
-      print('🔧 Using paired device ID: $deviceId');
-    } else {
-      // Try device state
-      final deviceState = ref.read(deviceNotifierProvider);
-      if (deviceState.pairedDevice != null) {
-        deviceId = deviceState.pairedDevice!.deviceId;
-        print('🔧 Using device from state: $deviceId');
+    setState(() {
+      _isCheckingActiveDevice = true;
+    });
+
+    try {
+      // Clear any cached data first
+      ref.invalidate(activeDeviceProvider);
+
+      // Check the device/active endpoint
+      final activeDevice = await ref.read(activeDeviceProvider.future);
+
+      if (activeDevice != null && activeDevice.safeDeviceId.isNotEmpty) {
+        // Active device found - show device details
+        print('🏠 ✅ Active device found: ${activeDevice.safeDeviceId}');
+        setState(() {
+          _activeDeviceId = activeDevice.safeDeviceId;
+          _showDeviceDetails = true;
+          _showQRScanner = false;
+          _isCheckingActiveDevice = false;
+        });
+      } else {
+        // No active device - show QR scanner after home content
+        print('🏠 ❌ No active device found - will show QR scanner');
+        setState(() {
+          _activeDeviceId = null;
+          _showDeviceDetails = false;
+          _showQRScanner = false;
+          _isCheckingActiveDevice = false;
+        });
       }
-    }
-
-    print('🏠 Checking for existing paired device');
-    print('  - deviceId: $deviceId');
-
-    if (deviceId != null) {
-      print('🏠 Found existing paired device, showing device details');
+    } catch (error) {
+      print('🏠 ❌ Error checking active device: $error');
+      // On error, assume no active device
       setState(() {
-        _showDeviceDetails = true;
+        _activeDeviceId = null;
+        _showDeviceDetails = false;
         _showQRScanner = false;
+        _isCheckingActiveDevice = false;
       });
     }
   }
 
-  void _debugDeviceState() {
-    final deviceState = ref.read(deviceNotifierProvider);
-    final pairedDevice = ref.read(deviceDataProvider);
-    print('🏠 HOME SCREEN DEBUG - Initial state:');
-    print(
-      '  - deviceState.pairedDevice: ${deviceState.pairedDevice?.deviceId}',
-    );
-    print('  - pairedDevice: ${pairedDevice?.deviceId}');
-    print('  - isLoading: ${deviceState.isLoading}');
-    print('  - error: ${deviceState.error}');
-    print('  - _showQRScanner: $_showQRScanner');
-    print('  - _showDeviceDetails: $_showDeviceDetails');
-  }
-
-  void _handleQRScanned(String qrData) {
+  void _handleQRScanned(String qrData) async {
     print('🏠 _handleQRScanned called with: $qrData');
 
-    // Always navigate to device details when QR is successfully processed
-    setState(() {
-      _showQRScanner = false;
-      _showDeviceDetails = true;
-    });
+    // After QR scanning, check if device/active returns data
+    await _recheckActiveDeviceAfterPairing();
+  }
 
-    // Show success message
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('기기 연결 완료'),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 2),
-      ),
+  // ✅ NEW: Recheck active device after pairing
+  Future<void> _recheckActiveDeviceAfterPairing() async {
+    print('🏠 === RECHECKING ACTIVE DEVICE AFTER PAIRING ===');
+
+    try {
+      // Wait a moment for the pairing to complete
+      await Future.delayed(Duration(milliseconds: 1000));
+
+      // Clear cache and check device/active again
+      ref.invalidate(activeDeviceProvider);
+      final activeDevice = await ref.read(activeDeviceProvider.future);
+
+      if (activeDevice != null && activeDevice.safeDeviceId.isNotEmpty) {
+        // Device is now active - show device details
+        print('🏠 ✅ Device is now active: ${activeDevice.safeDeviceId}');
+
+        setState(() {
+          _activeDeviceId = activeDevice.safeDeviceId;
+          _showQRScanner = false;
+          _showDeviceDetails = true;
+        });
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('기기 연결 완료'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      } else {
+        // Device still not active - show turn on dialog
+        print('🏠 ❌ Device still not active after pairing');
+        _showDeviceTurnOnDialog();
+      }
+    } catch (error) {
+      print('🏠 ❌ Error rechecking active device: $error');
+      _showDeviceTurnOnDialog();
+    }
+  }
+
+  // ✅ NEW: Show device turn on dialog and return to QR scanner
+  void _showDeviceTurnOnDialog() {
+    showCupertinoDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return CupertinoAlertDialog(
+          title: Text(
+            '기기를 켜주세요',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.black,
+            ),
+          ),
+          content: Padding(
+            padding: EdgeInsets.only(top: 12),
+            child: Text(
+              '페어링된 기기가 꺼져있거나 연결되지 않았습니다.\n기기를 켜고 다시 스캔해주세요.',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.black87,
+                height: 1.4,
+              ),
+            ),
+          ),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _returnToQRScanner();
+              },
+              child: Text(
+                '확인',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                  color: CupertinoColors.systemBlue,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
+  }
+
+  // ✅ NEW: Return to QR scanner
+  void _returnToQRScanner() {
+    setState(() {
+      _showDeviceDetails = false;
+      _showQRScanner = true;
+    });
   }
 
   void _navigateToDeviceDetails() {
-    final deviceState = ref.read(deviceNotifierProvider);
-    final pairedDevice = ref.read(deviceDataProvider);
-    print('🏠 _navigateToDeviceDetails called');
-    print(
-      '  - deviceState.pairedDevice: ${deviceState.pairedDevice?.deviceId}',
-    );
-    print('  - pairedDevice: ${pairedDevice?.deviceId}');
-
-    if (deviceState.pairedDevice != null || pairedDevice != null) {
+    if (_activeDeviceId != null) {
       setState(() {
         _showDeviceDetails = true;
         _showQRScanner = false;
       });
     } else {
-      print('🏠 ❌ No paired device found, cannot navigate to details');
+      print('🏠 ❌ No active device ID found, cannot navigate to details');
     }
   }
 
@@ -125,62 +205,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void _startQRScanning() async {
     print('🏠 _startQRScanning called');
 
-    // Check if device is already paired before showing QR scanner
-    final deviceState = ref.read(deviceNotifierProvider);
-    final pairedDevice = ref.read(deviceDataProvider);
-    print('🏠 Device state check:');
-    print(
-      '  - deviceState.pairedDevice: ${deviceState.pairedDevice?.deviceId}',
-    );
-    print('  - pairedDevice: ${pairedDevice?.deviceId}');
+    // Always recheck active device before showing QR scanner
+    await _checkActiveDeviceStatus();
 
-    if (deviceState.pairedDevice != null || pairedDevice != null) {
-      print('🏠 Device already paired, going to device details');
+    // If still no active device, show QR scanner
+    if (_activeDeviceId == null) {
+      print('🏠 No active device, showing QR scanner');
       setState(() {
-        _showDeviceDetails = true;
-        _showQRScanner = false;
+        _showQRScanner = true;
       });
-      return;
     }
-
-    print('🏠 No device paired, showing QR scanner');
-    setState(() {
-      _showQRScanner = true;
-    });
   }
 
   // ✅ ENHANCED: Comprehensive disconnect/unpair method
   Future<void> _disconnectDevice() async {
     print('🏠 _disconnectDevice called');
 
-    final beforeDeviceState = ref.read(deviceNotifierProvider);
-    final beforePairedDevice = ref.read(deviceDataProvider);
-    print('🏠 Before disconnect:');
-    print(
-      '  - deviceState.pairedDevice: ${beforeDeviceState.pairedDevice?.deviceId}',
-    );
-    print('  - pairedDevice: ${beforePairedDevice?.deviceId}');
-
-    // Get device ID before clearing state
-    String? deviceId =
-        beforeDeviceState.pairedDevice?.deviceId ??
-        beforePairedDevice?.deviceId;
-
-    if (deviceId?.trim().isNotEmpty == true) {
+    if (_activeDeviceId?.trim().isNotEmpty == true) {
       // Show confirmation dialog first
-      final confirmed = await _showDisconnectConfirmation(deviceId!);
+      final confirmed = await _showDisconnectConfirmation(_activeDeviceId!);
       if (!confirmed) return;
 
       // Show loading state
       _showDisconnectingDialog();
 
       try {
-        print('🏠 Starting device unpair process for: $deviceId');
+        print('🏠 Starting device unpair process for: $_activeDeviceId');
 
         // Call the unpair method from device notifier
         final success = await ref
             .read(deviceNotifierProvider.notifier)
-            .unpairDevice(deviceId.trim());
+            .unpairDevice(_activeDeviceId!.trim());
 
         // Hide loading dialog
         Navigator.of(context).pop();
@@ -192,6 +247,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ref.read(deviceNotifierProvider.notifier).clearState();
 
           setState(() {
+            _activeDeviceId = null;
             _showDeviceDetails = false;
             _showQRScanner = false;
           });
@@ -243,6 +299,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ref.read(deviceNotifierProvider.notifier).clearState();
 
       setState(() {
+        _activeDeviceId = null;
         _showDeviceDetails = false;
       });
 
@@ -256,17 +313,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       );
     }
-
-    // Debug state after disconnect
-    Future.delayed(Duration(milliseconds: 100), () {
-      final afterDeviceState = ref.read(deviceNotifierProvider);
-      final afterPairedDevice = ref.read(deviceDataProvider);
-      print('🏠 After disconnect:');
-      print(
-        '  - deviceState.pairedDevice: ${afterDeviceState.pairedDevice?.deviceId}',
-      );
-      print('  - pairedDevice: ${afterPairedDevice?.deviceId}');
-    });
   }
 
   // ✅ NEW: Show disconnect confirmation dialog
@@ -396,6 +442,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.read(deviceNotifierProvider.notifier).clearState();
 
     setState(() {
+      _activeDeviceId = null;
       _showQRScanner = false;
       _showDeviceDetails = false;
     });
@@ -410,29 +457,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         backgroundColor: Colors.red,
       ),
     );
+  }
 
-    Future.delayed(Duration(milliseconds: 100), () {
-      final afterDeviceState = ref.read(deviceNotifierProvider);
-      final afterPairedDevice = ref.read(deviceDataProvider);
-      print('🏠 After force clear:');
-      print(
-        '  - deviceState.pairedDevice: ${afterDeviceState.pairedDevice?.deviceId}',
-      );
-      print('  - pairedDevice: ${afterPairedDevice?.deviceId}');
-    });
+  // ✅ NEW: Loading screen while checking active device
+  Widget _buildLoadingScreen() {
+    return Container(
+      color: Colors.white,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+            ),
+            SizedBox(height: 16),
+            Text(
+              '기기 상태를 확인하고 있습니다...',
+              style: TextStyles.kMedium.copyWith(
+                fontSize: 16,
+                color: Colors.black87,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildHomeContent() {
-    final deviceState = ref.watch(deviceNotifierProvider);
-    final pairedDevice = ref.watch(deviceDataProvider);
-
-    print('🏠 _buildHomeContent called');
-    print(
-      '  - deviceState.pairedDevice: ${deviceState.pairedDevice?.deviceId}',
-    );
-    print('  - pairedDevice: ${pairedDevice?.deviceId}');
-    print('  - _showDeviceDetails: $_showDeviceDetails');
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final availableHeight = constraints.maxHeight;
@@ -569,35 +621,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       onBackPressed: _onBackFromQRScanner,
       onShowDeviceDetails: () {
         print('🏠 QR Scanner callback - onShowDeviceDetails called');
-        setState(() {
-          _showQRScanner = false;
-          _showDeviceDetails = true;
-        });
+        // Trigger recheck instead of direct navigation
+        _recheckActiveDeviceAfterPairing();
       },
     );
   }
 
   Widget _buildDeviceDetailsContent() {
-    String? deviceId;
-
-    final deviceState = ref.read(deviceNotifierProvider);
-    if (deviceState.pairedDevice != null) {
-      deviceId = deviceState.pairedDevice!.deviceId;
-      print('🔧 Using device from state: $deviceId');
-    }
-
-    if (deviceId == null) {
-      final pairedDevice = ref.read(deviceDataProvider);
-      if (pairedDevice != null) {
-        deviceId = pairedDevice.deviceId;
-        print('🔧 Using paired device ID: $deviceId');
-      }
-    }
-
     print('🏠 _buildDeviceDetailsContent called');
-    print('  - deviceId: $deviceId');
+    print('  - _activeDeviceId: $_activeDeviceId');
 
-    if (deviceId == null) {
+    if (_activeDeviceId == null) {
       return Container(
         color: Colors.white,
         child: Center(
@@ -606,15 +640,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             children: [
               Icon(Icons.error, size: 64, color: Colors.red),
               const SizedBox(height: 16),
-              Text('기기 정보를 찾을 수 없습니다'),
+              Text('활성 기기를 찾을 수 없습니다'),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () {
-                  setState(() {
-                    _showDeviceDetails = false;
-                  });
+                  _checkActiveDeviceStatus();
                 },
-                child: Text('돌아가기'),
+                child: Text('다시 확인'),
               ),
             ],
           ),
@@ -628,8 +660,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         CustomAppBar(
           title: 'wicore',
           trailingButtonText: '연결 해제',
-          onTrailingPressed:
-              _disconnectDevice, // ✅ This now properly unpairs the device
+          onTrailingPressed: _disconnectDevice,
           showTrailingButton: true,
           trailingButtonColor: Colors.red,
           showBackButton: false,
@@ -637,12 +668,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         Expanded(
           child: DeviceDetailsWidget(
-            deviceId: deviceId,
-            onDisconnect:
-                _disconnectDevice, // ✅ Pass the enhanced disconnect method
+            deviceId: _activeDeviceId!,
+            onDisconnect: _disconnectDevice,
             onUnpaired: () {
               // ✅ Additional callback when unpaired from within widget
               setState(() {
+                _activeDeviceId = null;
                 _showDeviceDetails = false;
                 _showQRScanner = false;
               });
@@ -655,28 +686,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final deviceState = ref.watch(deviceNotifierProvider);
-    final pairedDevice = ref.watch(deviceDataProvider);
-
-    bool isDeviceConnected =
-        deviceState.pairedDevice != null || pairedDevice != null;
-
     print('🏠 BUILD called:');
-    print(
-      '  - deviceState.pairedDevice: ${deviceState.pairedDevice?.deviceId}',
-    );
-    print('  - pairedDevice: ${pairedDevice?.deviceId}');
-    print('  - isDeviceConnected: $isDeviceConnected');
+    print('  - _isCheckingActiveDevice: $_isCheckingActiveDevice');
+    print('  - _activeDeviceId: $_activeDeviceId');
     print('  - _showQRScanner: $_showQRScanner');
     print('  - _showDeviceDetails: $_showDeviceDetails');
 
+    // Show loading screen while checking active device
+    if (_isCheckingActiveDevice) {
+      return Scaffold(body: _buildLoadingScreen());
+    }
+
     String screenToShow = 'UNKNOWN';
+    Widget screenWidget;
+
     if (_showQRScanner) {
       screenToShow = 'QR_SCANNER';
-    } else if (isDeviceConnected || _showDeviceDetails) {
+      screenWidget = _buildQRScannerContent();
+    } else if (_showDeviceDetails && _activeDeviceId != null) {
       screenToShow = 'DEVICE_DETAILS';
+      screenWidget = _buildDeviceDetailsContent();
     } else {
       screenToShow = 'HOME_CONTENT';
+      screenWidget = _buildHomeContent();
     }
 
     print('  - Final screen: $screenToShow');
@@ -686,12 +718,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         duration: const Duration(milliseconds: 300),
         switchInCurve: Curves.easeInOut,
         switchOutCurve: Curves.easeInOut,
-        child:
-            _showQRScanner
-                ? _buildQRScannerContent()
-                : (isDeviceConnected || _showDeviceDetails)
-                ? _buildDeviceDetailsContent()
-                : _buildHomeContent(),
+        child: screenWidget,
       ),
     );
   }
