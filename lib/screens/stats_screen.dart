@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:custom_refresh_indicator/custom_refresh_indicator.dart';
 
 class StatsScreen extends ConsumerStatefulWidget {
   const StatsScreen({super.key});
@@ -45,6 +46,21 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
 
     print('🔧 Loading stats for date: $dateString'); // Debug log
     ref.read(statsNotifierProvider.notifier).loadStatsForDate(dateString);
+  }
+
+  Future<void> _refreshData() async {
+    try {
+      // Add a small delay for better UX
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      // Reload data for the currently selected date
+      _loadStatsForSelectedDate();
+
+      // Wait for the API call to complete
+      await Future.delayed(const Duration(milliseconds: 800));
+    } catch (e) {
+      if (kDebugMode) print('🔧 ❌ Error during refresh: $e');
+    }
   }
 
   void _navigateToNextDay() {
@@ -161,6 +177,78 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     return selectedDateOnly.isAfter(todayDate);
   }
 
+  Widget _buildCustomIndicator(
+    IndicatorController controller,
+    bool isSmallScreen,
+  ) {
+    final size = isSmallScreen ? 40.0 : 50.0;
+
+    return Container(
+      width: size + 20,
+      height: size + 20,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Center(child: _buildIndicatorContent(controller, size)),
+    );
+  }
+
+  Widget _buildIndicatorContent(IndicatorController controller, double size) {
+    switch (controller.state) {
+      case IndicatorState.dragging:
+      case IndicatorState.armed:
+        // Show progress indicator based on pull distance
+        return SizedBox(
+          width: size * 0.6,
+          height: size * 0.6,
+          child: CircularProgressIndicator(
+            value: controller.value.clamp(0.0, 1.0),
+            strokeWidth: 3.0,
+            color: CustomColors.limeGreen,
+            backgroundColor: Colors.grey.shade300,
+          ),
+        );
+
+      case IndicatorState.loading:
+        // Show spinning indicator during refresh
+        return SizedBox(
+          width: size * 0.6,
+          height: size * 0.6,
+          child: CircularProgressIndicator(
+            strokeWidth: 3.0,
+            color: CustomColors.limeGreen,
+          ),
+        );
+
+      case IndicatorState.complete:
+        // Show checkmark when complete
+        return Icon(
+          Icons.check,
+          size: size * 0.6,
+          color: CustomColors.limeGreen,
+        );
+
+      case IndicatorState.canceling:
+      case IndicatorState.finalizing:
+        // Show fading indicator
+        return Opacity(
+          opacity: controller.value,
+          child: Icon(Icons.refresh, size: size * 0.6, color: Colors.grey),
+        );
+
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final statsState = ref.watch(statsNotifierProvider);
@@ -189,35 +277,75 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
         backgroundColor: Colors.white,
       ),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final horizontalPadding = isSmallScreen ? 16.0 : 24.0;
-            final verticalPadding = isSmallScreen ? 8.0 : 12.0;
-
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                horizontalPadding,
-                verticalPadding,
-                horizontalPadding,
-                verticalPadding,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Date navigation - made more responsive
-                  _buildDateNavigation(isSmallScreen),
-                  SizedBox(height: isSmallScreen ? 16 : 20),
-                  Expanded(
-                    child: _buildContent(
-                      statsState,
-                      isSmallScreen,
-                      constraints,
-                    ),
+        child: CustomRefreshIndicator(
+          onRefresh: _refreshData,
+          // Custom duration settings
+          durations: const RefreshIndicatorDurations(
+            settleDuration: Duration(milliseconds: 150),
+            cancelDuration: Duration(milliseconds: 200),
+            finalizeDuration: Duration(milliseconds: 300),
+            completeDuration: Duration(
+              milliseconds: 500,
+            ), // Shows complete state
+          ),
+          // Trigger from top edge only
+          trigger: IndicatorTrigger.leadingEdge,
+          triggerMode: IndicatorTriggerMode.onEdge,
+          // Customization
+          offsetToArmed: 80.0, // Distance to pull before triggering
+          autoRebuild: true,
+          // Custom indicator builder
+          builder: (context, child, controller) {
+            return Stack(
+              alignment: Alignment.topCenter,
+              children: [
+                // Main content
+                Transform.translate(
+                  offset: Offset(
+                    0,
+                    controller.value * 60,
+                  ), // Moves content down during pull
+                  child: child,
+                ),
+                // Custom refresh indicator
+                if (controller.state != IndicatorState.idle)
+                  Positioned(
+                    top: controller.value * 50 - 50, // Slides in from top
+                    child: _buildCustomIndicator(controller, isSmallScreen),
                   ),
-                ],
-              ),
+              ],
             );
           },
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final horizontalPadding = isSmallScreen ? 16.0 : 24.0;
+              final verticalPadding = isSmallScreen ? 8.0 : 12.0;
+
+              return SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Container(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  padding: EdgeInsets.fromLTRB(
+                    horizontalPadding,
+                    verticalPadding,
+                    horizontalPadding,
+                    verticalPadding,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Date navigation
+                      _buildDateNavigation(isSmallScreen),
+                      SizedBox(height: isSmallScreen ? 16 : 20),
+
+                      // Main content
+                      _buildContent(statsState, isSmallScreen, constraints),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
@@ -523,100 +651,95 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     final stats = statsState.statsData;
     final cardSpacing = isSmallScreen ? 12.0 : 16.0;
 
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          _buildInfoCard(
-            title: '로봇 이용 시간',
-            value: _formatTimeDifference(
-              stats?.dataStartTime,
-              stats?.dataEndTime,
-            ),
-            unit: '',
-            isSmallScreen: isSmallScreen,
+    return Column(
+      children: [
+        _buildInfoCard(
+          title: '로봇 이용 시간',
+          value: _formatTimeDifference(
+            stats?.dataStartTime,
+            stats?.dataEndTime,
           ),
-          SizedBox(height: cardSpacing),
-          _buildInfoCard(
-            title: '총 활동량',
-            value: (stats?.totalCalories ?? 0).toString(),
-            unit: '칼로리',
-            showProgressBar: true,
-            progressValue: 0.8,
-            progressColor: Colors.grey.shade800,
-            isSmallScreen: isSmallScreen,
+          unit: '',
+          isSmallScreen: isSmallScreen,
+        ),
+        SizedBox(height: cardSpacing),
+        _buildInfoCard(
+          title: '총 활동량',
+          value: (stats?.totalCalories ?? 0).toString(),
+          unit: '칼로리',
+          showProgressBar: true,
+          progressValue: 0.8,
+          progressColor: Colors.grey.shade800,
+          isSmallScreen: isSmallScreen,
+        ),
+        SizedBox(height: cardSpacing),
+        _buildInfoCard(
+          title: '작업자세 점수',
+          value: (stats?.postureScore ?? 0).toString(),
+          unit: '점',
+          showButton: true,
+          buttonText: _getPostureGradeText(
+            stats?.postureGrade,
+            stats?.postureScore ?? 0,
           ),
-          SizedBox(height: cardSpacing),
-          _buildInfoCard(
-            title: '작업자세 점수',
-            value: (stats?.postureScore ?? 0).toString(),
-            unit: '점',
-            showButton: true,
-            buttonText: _getPostureGradeText(
-              stats?.postureGrade,
-              stats?.postureScore ?? 0,
-            ),
-            buttonColor: _getPostureGradeColor(
-              stats?.postureGrade,
-              stats?.postureScore ?? 0,
-            ),
-            isSmallScreen: isSmallScreen,
+          buttonColor: _getPostureGradeColor(
+            stats?.postureGrade,
+            stats?.postureScore ?? 0,
           ),
-          SizedBox(height: cardSpacing),
-          _buildInfoCard(
-            title: '총 활동량에서 로봇이 도와준 활동량',
-            value: (stats?.lmaCalories ?? 0).toString(),
-            unit: '칼로리',
-            showProgressBar: true,
-            progressValue: 0.8,
-            progressColor: Colors.grey.shade800,
-            hasStripes: true,
-            stripeWidth: ((stats?.lmaCalories ?? 0) /
-                    (stats?.totalCalories ?? 1))
-                .clamp(0.0, 0.8),
-            stripeColor: CustomColors.limeGreen,
-            isSmallScreen: isSmallScreen,
-          ),
-          SizedBox(height: cardSpacing),
-          _buildInfoCard(
-            isSmallScreen: isSmallScreen,
-            title: '호흡(분당)',
-            value: _formatBreathRange(stats?.breathMean, stats?.breathStd),
-            unit: '회',
-            showProgressBar: true,
-            // Update these values to represent start and end points of range
-            progressMinValue:
-                ((stats?.breathMean ?? 0.0) - (stats?.breathStd ?? 0.0)).clamp(
-                  0.0,
-                  40.0,
-                ) /
+          isSmallScreen: isSmallScreen,
+        ),
+        SizedBox(height: cardSpacing),
+        _buildInfoCard(
+          title: '총 활동량에서 로봇이 도와준 활동량',
+          value: (stats?.lmaCalories ?? 0).toString(),
+          unit: '칼로리',
+          showProgressBar: true,
+          progressValue: 0.8,
+          progressColor: Colors.grey.shade800,
+          hasStripes: true,
+          stripeWidth: ((stats?.lmaCalories ?? 0) / (stats?.totalCalories ?? 1))
+              .clamp(0.0, 0.8),
+          stripeColor: CustomColors.limeGreen,
+          isSmallScreen: isSmallScreen,
+        ),
+        SizedBox(height: cardSpacing),
+        _buildInfoCard(
+          isSmallScreen: isSmallScreen,
+          title: '호흡(분당)',
+          value: _formatBreathRange(stats?.breathMean, stats?.breathStd),
+          unit: '회',
+          showProgressBar: true,
+          progressMinValue:
+              ((stats?.breathMean ?? 0.0) - (stats?.breathStd ?? 0.0)).clamp(
+                0.0,
                 40.0,
-            progressValue:
-                ((stats?.breathMean ?? 0.0) + (stats?.breathStd ?? 0.0)).clamp(
-                  0.0,
-                  40.0,
-                ) /
+              ) /
+              40.0,
+          progressValue:
+              ((stats?.breathMean ?? 0.0) + (stats?.breathStd ?? 0.0)).clamp(
+                0.0,
                 40.0,
-            progressColor: Colors.grey.shade800,
-          ),
-
-          const SizedBox(height: 16),
-          _buildInfoCard(
-            title: '걸음',
-            value: (stats?.totalSteps ?? 0).toStringAsFixed(0),
-            unit: '걸음',
-            isSmallScreen: isSmallScreen,
-          ),
-          SizedBox(height: cardSpacing),
-          _buildInfoCard(
-            title: '이동거리',
-            value: (stats?.totalDistance ?? 0.0).toStringAsFixed(1),
-            unit: '키로미터',
-            isSmallScreen: isSmallScreen,
-          ),
-          // Add bottom padding to ensure last item is not cut off
-          SizedBox(height: isSmallScreen ? 16 : 24),
-        ],
-      ),
+              ) /
+              40.0,
+          progressColor: Colors.grey.shade800,
+        ),
+        const SizedBox(height: 16),
+        _buildInfoCard(
+          title: '걸음',
+          value: (stats?.totalSteps ?? 0).toStringAsFixed(0),
+          unit: '걸음',
+          isSmallScreen: isSmallScreen,
+        ),
+        SizedBox(height: cardSpacing),
+        _buildInfoCard(
+          title: '이동거리',
+          value: (stats?.totalDistance ?? 0.0).toStringAsFixed(1),
+          unit: '키로미터',
+          isSmallScreen: isSmallScreen,
+        ),
+        // Add bottom padding to ensure last item is not cut off
+        SizedBox(height: isSmallScreen ? 16 : 24),
+      ],
     );
   }
 

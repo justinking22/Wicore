@@ -1,5 +1,4 @@
 import 'package:Wicore/dialogs/confirmation_dialog.dart';
-
 import 'package:Wicore/providers/authentication_provider.dart';
 import 'package:Wicore/utilities/sign_up_form_state.dart';
 import 'package:Wicore/styles/text_styles.dart';
@@ -74,7 +73,6 @@ class _EmailInputScreenState extends ConsumerState<EmailInputScreen> {
     return RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
   }
 
-  // ✅ Simple approach: Just validate and store email, proceed to next step
   Future<void> _handleNext() async {
     if (!_isButtonEnabled || _isCheckingEmail) return;
 
@@ -91,6 +89,13 @@ class _EmailInputScreenState extends ConsumerState<EmailInputScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ✅ APPLY: Same pattern as NameInputScreen
+    final mediaQuery = MediaQuery.of(context);
+    final screenHeight = mediaQuery.size.height;
+    final keyboardHeight = mediaQuery.viewInsets.bottom;
+    final isKeyboardVisible = keyboardHeight > 0;
+    final availableHeight = screenHeight - keyboardHeight;
+
     return GestureDetector(
       onTap: () {
         // Dismiss keyboard when tapping outside
@@ -98,6 +103,7 @@ class _EmailInputScreenState extends ConsumerState<EmailInputScreen> {
       },
       child: Scaffold(
         backgroundColor: Colors.white,
+        // ✅ KEEP: Overflow protection
         resizeToAvoidBottomInset: false,
         appBar: CustomAppBar(
           title: '회원가입',
@@ -110,108 +116,136 @@ class _EmailInputScreenState extends ConsumerState<EmailInputScreen> {
             );
           },
         ),
-        body: SingleChildScrollView(
-          child: SizedBox(
-            height:
-                MediaQuery.of(context).size.height -
-                MediaQuery.of(context).padding.top -
-                kToolbarHeight,
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 40),
-                  // Title text
-                  Text('회원님이 사용중인', style: TextStyles.kBody),
-                  const SizedBox(height: 8),
-                  Text('이메일을 입력해주세요', style: TextStyles.kBody),
-                  const SizedBox(height: 24),
-                  // Subtitle text
-                  Text('인증번호가 발송될 예정이니', style: TextStyles.kSecondBody),
-                  const SizedBox(height: 4),
-                  Text('정확한 이메일 주소를 확인해주세요.', style: TextStyles.kSecondBody),
-                  const SizedBox(height: 60),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            child: ConstrainedBox(
+              // ✅ APPLY: Same height calculation pattern
+              constraints: BoxConstraints(
+                minHeight:
+                    availableHeight -
+                    (MediaQuery.of(context).padding.top + kToolbarHeight),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ✅ APPLY: Keyboard-aware top spacing
+                    SizedBox(height: isKeyboardVisible ? 20 : 40),
 
-                  // Email exists error message
-                  if (_emailExistsError != null) ...[
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFF2F2), // Light pink background
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: const Color(0xFFFFCDD2), // Pink border
-                          width: 1,
+                    // Title text
+                    Text('회원님이 사용중인', style: TextStyles.kBody),
+                    const SizedBox(height: 8),
+                    Text('이메일을 입력해주세요', style: TextStyles.kBody),
+
+                    // ✅ APPLY: Condensed spacing when keyboard visible
+                    SizedBox(height: isKeyboardVisible ? 16 : 24),
+
+                    // Subtitle text
+                    Text('인증번호가 발송될 예정이니', style: TextStyles.kSecondBody),
+                    const SizedBox(height: 4),
+                    Text('정확한 이메일 주소를 확인해주세요.', style: TextStyles.kSecondBody),
+
+                    // ✅ APPLY: Adaptive spacing before input field
+                    SizedBox(height: isKeyboardVisible ? 30 : 60),
+
+                    // Email exists error message
+                    if (_emailExistsError != null) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                        decoration: BoxDecoration(
+                          color: const Color(
+                            0xFFFFF2F2,
+                          ), // Light pink background
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: const Color(0xFFFFCDD2), // Pink border
+                            width: 1,
+                          ),
+                        ),
+                        child: Text(
+                          _emailExistsError!,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                            color: Color(0xFFD32F2F), // Red text
+                          ),
                         ),
                       ),
-                      child: Text(
-                        _emailExistsError!,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w400,
-                          color: Color(0xFFD32F2F), // Red text
+                      SizedBox(height: isKeyboardVisible ? 16 : 24),
+                    ],
+
+                    // Input field label
+                    Text('이메일', style: TextStyles.kHeader),
+                    const SizedBox(height: 8),
+
+                    // Email input field
+                    TextField(
+                      controller: _emailController,
+                      decoration: InputDecoration(
+                        hintText: '예) withforce@naver.com',
+                        hintStyle: TextStyles.kMedium,
+                        border: UnderlineInputBorder(
+                          borderSide: BorderSide(
+                            color: Colors.grey[300]!,
+                            width: 1,
+                          ),
+                        ),
+                        enabledBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(
+                            color: Colors.grey[300]!,
+                            width: 1,
+                          ),
+                        ),
+                        focusedBorder: const UnderlineInputBorder(
+                          borderSide: BorderSide(color: Colors.black, width: 2),
+                        ),
+                        focusedErrorBorder: const UnderlineInputBorder(
+                          borderSide: BorderSide(color: Colors.red, width: 2),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 0,
                         ),
                       ),
+                      style: TextStyles.kInputText,
+                      keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) {
+                        if (_isButtonEnabled) {
+                          _handleNext();
+                        }
+                      },
                     ),
-                    const SizedBox(height: 24),
+
+                    // ✅ APPLY: Flexible spacing that adapts to keyboard
+                    SizedBox(
+                      height:
+                          isKeyboardVisible
+                              ? 40 // Minimal spacing when keyboard up
+                              : availableHeight -
+                                  400, // Flexible when keyboard down
+                    ),
+
+                    // Next button
+                    CustomButton(
+                      text: _isCheckingEmail ? '확인 중...' : '다음',
+                      isEnabled: _isButtonEnabled && !_isCheckingEmail,
+                      onPressed:
+                          (_isButtonEnabled && !_isCheckingEmail)
+                              ? _handleNext
+                              : null,
+                      disabledBackgroundColor: Colors.grey,
+                    ),
+
+                    // ✅ APPLY: Same bottom padding pattern as NameInputScreen
+                    SizedBox(
+                      height: isKeyboardVisible ? keyboardHeight + 20 : 32,
+                    ),
                   ],
-
-                  // Input field label
-                  Text('이메일', style: TextStyles.kHeader),
-                  const SizedBox(height: 8),
-                  // Email input field
-                  TextField(
-                    controller: _emailController,
-                    decoration: InputDecoration(
-                      hintText: '예) withforce@naver.com',
-                      hintStyle: TextStyles.kMedium,
-                      border: UnderlineInputBorder(
-                        borderSide: BorderSide(
-                          color: Colors.grey[300]!,
-                          width: 1,
-                        ),
-                      ),
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(
-                          color: Colors.grey[300]!,
-                          width: 1,
-                        ),
-                      ),
-                      focusedBorder: const UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.black, width: 2),
-                      ),
-                      focusedErrorBorder: const UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.red, width: 2),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 12,
-                        horizontal: 0,
-                      ),
-                    ),
-                    style: TextStyles.kInputText,
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (_) {
-                      if (_isButtonEnabled) {
-                        _handleNext(); // ✅ Use the simple approach by default
-                      }
-                    },
-                  ),
-                  const Spacer(),
-                  // Next button
-                  CustomButton(
-                    text: _isCheckingEmail ? '확인 중...' : '다음',
-                    isEnabled: _isButtonEnabled && !_isCheckingEmail,
-                    onPressed:
-                        (_isButtonEnabled && !_isCheckingEmail)
-                            ? _handleNext // ✅ Use simple approach by default
-                            : null,
-                    disabledBackgroundColor: Colors.grey,
-                  ),
-                  const SizedBox(height: 32),
-                ],
+                ),
               ),
             ),
           ),

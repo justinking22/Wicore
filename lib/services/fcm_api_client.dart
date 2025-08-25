@@ -1,3 +1,4 @@
+import 'package:Wicore/models/emergency_resolve_model.dart';
 import 'package:dio/dio.dart';
 import 'package:retrofit/retrofit.dart';
 import 'package:Wicore/models/fcm_notification_model.dart';
@@ -10,4 +11,7 @@ abstract class FcmApiClient {
 
   @POST('/notifications/register')
   Future<FcmServerResponse> registerFcmToken(@Body() FcmTokenRequest request);
+
+  @POST('/notifications/resolve')
+  Future<EmergencyResolveResponse> resolveEmergency();
 }
