@@ -76,7 +76,6 @@ class _PasswordConfirmationScreenState
     return hasLetter && hasNumber;
   }
 
-  // Update your _validatePassword method
   void _validatePassword(String confirmPassword) {
     setState(() {
       if (confirmPassword.isEmpty) {
@@ -89,7 +88,6 @@ class _PasswordConfirmationScreenState
     });
   }
 
-  // Updated _handleNext method without profile update logic
   Future<void> _handleNext() async {
     if (!_isButtonEnabled || _isSigningUp) return;
 
@@ -134,7 +132,6 @@ class _PasswordConfirmationScreenState
       if (result.isSuccess) {
         print('✅ Account created successfully');
 
-        // Note: Name will be updated when user logs in
         print(
           '📝 Name "${signUpForm.name}" stored for later profile update on login',
         );
@@ -147,7 +144,6 @@ class _PasswordConfirmationScreenState
         } else {
           if (mounted) {
             print('🎉 Account created and activated - redirecting to login');
-            // Redirect to login screen where profile will be updated
             context.push('/sign-up-complete');
           }
         }
@@ -173,14 +169,10 @@ class _PasswordConfirmationScreenState
     }
   }
 
-  // Remove the _updateUserProfileAfterSignUp method entirely
-
-  // Simplified error handling
   void _handleSignUpError(SignUpServerResponse result) {
     final errorCode = result.code ?? -1;
     String userFriendlyMessage;
 
-    // Handle specific error codes with localized messages
     switch (errorCode) {
       case ApiErrorCode.userNameAlreadyExist:
         userFriendlyMessage = '이미 사용 중인 이메일입니다. 다른 이메일을 사용해주세요.';
@@ -207,7 +199,6 @@ class _PasswordConfirmationScreenState
         break;
 
       default:
-        // For unknown errors, use the server message or fallback
         userFriendlyMessage =
             result.errorMessage.isNotEmpty
                 ? result.errorMessage
@@ -217,7 +208,6 @@ class _PasswordConfirmationScreenState
     _showErrorSnackBar(userFriendlyMessage);
   }
 
-  // Simple error snackbar
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -238,6 +228,13 @@ class _PasswordConfirmationScreenState
   Widget build(BuildContext context) {
     final signUpForm = ref.watch(signUpFormProvider);
 
+    // ✅ APPLY: Same pattern as NameInputScreen
+    final mediaQuery = MediaQuery.of(context);
+    final screenHeight = mediaQuery.size.height;
+    final keyboardHeight = mediaQuery.viewInsets.bottom;
+    final isKeyboardVisible = keyboardHeight > 0;
+    final availableHeight = screenHeight - keyboardHeight;
+
     ref.listen<AuthState>(authNotifierProvider, (previous, next) {
       if (next.status == AuthStatus.needsConfirmation) {
         context.push('/email-verification');
@@ -252,6 +249,7 @@ class _PasswordConfirmationScreenState
       },
       child: Scaffold(
         backgroundColor: Colors.white,
+        // ✅ KEEP: Overflow protection
         resizeToAvoidBottomInset: false,
         appBar: CustomAppBar(
           title: '회원가입',
@@ -264,183 +262,211 @@ class _PasswordConfirmationScreenState
             );
           },
         ),
-        body: SingleChildScrollView(
-          child: SizedBox(
-            height:
-                MediaQuery.of(context).size.height -
-                MediaQuery.of(context).padding.top -
-                kToolbarHeight,
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 40),
-                  // Title text
-                  Text('비밀번호를', style: TextStyles.kBody),
-                  const SizedBox(height: 8),
-                  Text('다시 한 번 입력해주세요', style: TextStyles.kBody),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            child: ConstrainedBox(
+              // ✅ APPLY: Same height calculation pattern
+              constraints: BoxConstraints(
+                minHeight:
+                    availableHeight -
+                    (MediaQuery.of(context).padding.top + kToolbarHeight),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ✅ APPLY: Keyboard-aware top spacing
+                    SizedBox(height: isKeyboardVisible ? 20 : 40),
 
-                  // Show password criteria or error message
-                  if (_passwordMismatchError != null) ...[
-                    const SizedBox(height: 24),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                      decoration: BoxDecoration(
-                        color: CustomColors.translucentRedOrange,
-                        borderRadius: BorderRadius.circular(6),
+                    // Title text
+                    Text('비밀번호를', style: TextStyles.kBody),
+                    const SizedBox(height: 8),
+                    Text('다시 한 번 입력해주세요', style: TextStyles.kBody),
+
+                    // Show password criteria or error message
+                    if (_passwordMismatchError != null) ...[
+                      // ✅ APPLY: Condensed spacing when keyboard visible
+                      SizedBox(height: isKeyboardVisible ? 16 : 24),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                        decoration: BoxDecoration(
+                          color: CustomColors.translucentRedOrange,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          _passwordMismatchError!,
+                          style: TextStyles.kError,
+                        ),
                       ),
-                      child: Text(
-                        _passwordMismatchError!,
-                        style: TextStyles.kError,
+                      // ✅ APPLY: Adaptive spacing before input field
+                      SizedBox(height: isKeyboardVisible ? 30 : 60),
+                    ] else if (!_isPasswordValid(
+                          _confirmPasswordController.text,
+                        ) &&
+                        _confirmPasswordController.text.isNotEmpty) ...[
+                      // ✅ APPLY: Condensed spacing when keyboard visible
+                      SizedBox(height: isKeyboardVisible ? 16 : 24),
+                      // Password criteria container
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                        decoration: BoxDecoration(
+                          color: const Color(
+                            0xFFFFF4F4,
+                          ), // Light pink background
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '영문과 숫자를 포함하여 7자 이상 입력해주세요.',
+                          style: TextStyles.kError,
+                        ),
                       ),
+                      // ✅ APPLY: Adaptive spacing before input field
+                      SizedBox(height: isKeyboardVisible ? 30 : 60),
+                    ] else ...[
+                      // ✅ APPLY: Combined spacing when no error
+                      SizedBox(
+                        height: isKeyboardVisible ? 46 : 84,
+                      ), // 24 + 60 combined
+                    ],
+
+                    // Input field label
+                    Text('비밀번호', style: TextStyles.kHeader),
+                    const SizedBox(height: 8),
+
+                    // Password confirmation input field
+                    TextField(
+                      controller: _confirmPasswordController,
+                      enabled: !_isSigningUp,
+                      obscureText: _obscureText,
+                      obscuringCharacter: '\u2B24',
+                      decoration: InputDecoration(
+                        hintText: '비밀번호를 입력해주세요',
+                        hintStyle: TextStyles.kMedium,
+                        errorText: _errorText,
+                        suffixIcon: TextButton(
+                          onPressed:
+                              _isSigningUp
+                                  ? null
+                                  : () {
+                                    setState(() {
+                                      _obscureText = !_obscureText;
+                                    });
+                                  },
+                          style: TextButton.styleFrom(
+                            minimumSize: Size.zero,
+                            padding: EdgeInsets.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: Text(
+                            _obscureText ? '보기' : '숨기기',
+                            style: TextStyles.kMedium.copyWith(
+                              color: CustomColors.darkCharcoal,
+                            ),
+                          ),
+                        ),
+                        border: UnderlineInputBorder(
+                          borderSide: BorderSide(
+                            color: Colors.grey[300]!,
+                            width: 1,
+                          ),
+                        ),
+                        enabledBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(
+                            color: Colors.grey[300]!,
+                            width: 1,
+                          ),
+                        ),
+                        focusedBorder: const UnderlineInputBorder(
+                          borderSide: BorderSide(color: Colors.black, width: 2),
+                        ),
+                        disabledBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(
+                            color: Colors.grey[400]!,
+                            width: 1,
+                          ),
+                        ),
+                        errorBorder: const UnderlineInputBorder(
+                          borderSide: BorderSide(color: Colors.red, width: 1),
+                        ),
+                        focusedErrorBorder: const UnderlineInputBorder(
+                          borderSide: BorderSide(color: Colors.red, width: 2),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 0,
+                        ),
+                      ),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w400,
+                        color: _isSigningUp ? Colors.grey : Colors.black,
+                        letterSpacing: 1.5,
+                      ),
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) {
+                        if (_isButtonEnabled && !_isSigningUp) {
+                          _handleNext();
+                        }
+                      },
                     ),
-                    const SizedBox(height: 60),
-                  ] else if (!_isPasswordValid(
-                        _confirmPasswordController.text,
-                      ) &&
-                      _confirmPasswordController.text.isNotEmpty) ...[
-                    const SizedBox(height: 24),
-                    // Password criteria container
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFF4F4), // Light pink background
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        '영문과 숫자를 포함하여 7자 이상 입력해주세요.',
-                        style: TextStyles.kError,
-                      ),
-                    ),
-                    const SizedBox(height: 60),
-                  ] else ...[
-                    const SizedBox(
-                      height: 24 + 60,
-                    ), // Add spacing when criteria is met
-                  ],
-                  // Input field label
-                  Text('비밀번호', style: TextStyles.kHeader),
-                  const SizedBox(height: 8),
-                  // Password confirmation input field
-                  TextField(
-                    controller: _confirmPasswordController,
-                    enabled: !_isSigningUp,
-                    obscureText: _obscureText,
-                    obscuringCharacter: '\u2B24',
-                    decoration: InputDecoration(
-                      hintText: '비밀번호를 입력해주세요',
-                      hintStyle: TextStyles.kMedium,
-                      errorText: _errorText,
-                      suffixIcon: TextButton(
+
+                    // ✅ APPLY: Keyboard-aware spacing for forgot password button
+                    SizedBox(height: isKeyboardVisible ? 8 : 16),
+
+                    // Right-aligned "비밀번호를 까먹었어요" button
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
                         onPressed:
                             _isSigningUp
                                 ? null
-                                : () {
-                                  setState(() {
-                                    _obscureText = !_obscureText;
-                                  });
+                                : () async {
+                                  final shouldGoBack =
+                                      await ForgotPasswordDialog.show(context);
+                                  if (shouldGoBack == true && mounted) {
+                                    Navigator.pop(context);
+                                  }
                                 },
-                        style: TextButton.styleFrom(
-                          minimumSize: Size.zero, // Remove default min size
-                          padding: EdgeInsets.zero, // Remove default padding
-                          tapTargetSize:
-                              MaterialTapTargetSize
-                                  .shrinkWrap, // Reduce hit area if needed
-                        ),
                         child: Text(
-                          _obscureText ? '보기' : '숨기기',
-                          style: TextStyles.kMedium.copyWith(
-                            color: CustomColors.darkCharcoal,
+                          '비밀번호를 까먹었어요',
+                          style: TextStyles.kRegular.copyWith(
+                            color: _isSigningUp ? Colors.grey : Colors.black54,
+                            decoration: TextDecoration.underline,
                           ),
                         ),
                       ),
-                      border: UnderlineInputBorder(
-                        borderSide: BorderSide(
-                          color: Colors.grey[300]!,
-                          width: 1,
-                        ),
-                      ),
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(
-                          color: Colors.grey[300]!,
-                          width: 1,
-                        ),
-                      ),
-                      focusedBorder: const UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.black, width: 2),
-                      ),
-                      disabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(
-                          color: Colors.grey[400]!,
-                          width: 1,
-                        ),
-                      ),
-                      errorBorder: const UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.red, width: 1),
-                      ),
-                      focusedErrorBorder: const UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.red, width: 2),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 12,
-                        horizontal: 0,
-                      ),
                     ),
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w400,
-                      color: _isSigningUp ? Colors.grey : Colors.black,
-                      letterSpacing: 1.5,
-                    ),
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (_) {
-                      if (_isButtonEnabled && !_isSigningUp) {
-                        _handleNext();
-                      }
-                    },
-                  ),
-                  // ✅ FIXED: Right-aligned "비밀번호를 까먹었어요" button
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed:
-                          _isSigningUp
-                              ? null
-                              : () async {
-                                final shouldGoBack =
-                                    await ForgotPasswordDialog.show(context);
-                                if (shouldGoBack == true && mounted) {
-                                  Navigator.pop(
-                                    context,
-                                  ); // Go back to password setup screen
-                                }
-                              },
-                      child: Text(
-                        '비밀번호를 까먹었어요',
-                        style: TextStyles.kRegular.copyWith(
-                          color: _isSigningUp ? Colors.grey : Colors.black54,
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
-                    ),
-                  ),
 
-                  const Spacer(),
-                  // Next button
-                  CustomButton(
-                    text: _isSigningUp ? '회원가입 중...' : '다음',
-                    isEnabled: _isButtonEnabled && !_isSigningUp,
-                    onPressed:
-                        (_isButtonEnabled && !_isSigningUp)
-                            ? _handleNext
-                            : null,
-                    disabledBackgroundColor: Colors.grey,
-                  ),
-                  const SizedBox(height: 32),
-                ],
+                    // ✅ APPLY: Flexible spacing that adapts to keyboard
+                    SizedBox(
+                      height:
+                          isKeyboardVisible
+                              ? 20 // Minimal spacing when keyboard up
+                              : availableHeight -
+                                  500, // Flexible when keyboard down (adjusted for additional button)
+                    ),
+
+                    // Next button
+                    CustomButton(
+                      text: _isSigningUp ? '회원가입 중...' : '다음',
+                      isEnabled: _isButtonEnabled && !_isSigningUp,
+                      onPressed:
+                          (_isButtonEnabled && !_isSigningUp)
+                              ? _handleNext
+                              : null,
+                      disabledBackgroundColor: Colors.grey,
+                    ),
+
+                    // ✅ APPLY: Same bottom padding pattern as NameInputScreen
+                    SizedBox(
+                      height: isKeyboardVisible ? keyboardHeight + 20 : 32,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

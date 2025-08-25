@@ -24,6 +24,16 @@ class StatsNotifier extends StateNotifier<StatsState> {
   final StatsRepository _repository;
   final Ref _ref;
 
+  // Cache management
+  final Map<String, StatsResponse> _statsCache = {};
+  final Map<String, DateTime> _cacheTimestamps = {};
+  static const Duration _cacheValidDuration = Duration(
+    minutes: 5,
+  ); // Cache valid for 5 minutes
+  static const Duration _currentDateCacheValidDuration = Duration(
+    minutes: 1,
+  ); // Current date cache valid for 1 minute
+
   StatsNotifier(this._repository, this._ref) : super(const StatsState());
 
   Future<void> loadTodayStats({bool refresh = false}) async {
@@ -71,6 +81,12 @@ class StatsNotifier extends StateNotifier<StatsState> {
       final today = DateTime.now();
       final todayString = '${today.year}-${today.month}-${today.day}';
 
+      // Update cache
+      if (response.data != null) {
+        _statsCache[todayString] = response;
+        _cacheTimestamps[todayString] = DateTime.now();
+      }
+
       state = state.copyWith(
         currentStats: response.data != null ? response : null,
         isLoading: false,
@@ -101,14 +117,21 @@ class StatsNotifier extends StateNotifier<StatsState> {
     }
   }
 
-  Future<void> loadStatsForDate(String date, {bool refresh = false}) async {
-    if (state.isLoading && !refresh) return;
+  Future<void> loadStatsForDate(
+    String date, {
+    bool forceRefresh = false,
+  }) async {
+    if (state.isLoading && !forceRefresh) return;
 
     final authState = _ref.watch(authNotifierProvider);
-    if (kDebugMode)
-      print('🔧 ❌ Stats authentication failed: ${authState.isAuthenticated}');
+    if (kDebugMode) {
+      print(
+        '🔧 Stats - Auth check for date $date - isAuthenticated: ${authState.isAuthenticated}',
+      );
+    }
 
     if (!authState.isAuthenticated) {
+      if (kDebugMode) print('🔧 ❌ Stats authentication failed');
       state = state.copyWith(
         error: 'User not authenticated',
         isLoading: false,
@@ -117,11 +140,30 @@ class StatsNotifier extends StateNotifier<StatsState> {
       return;
     }
 
-    if (kDebugMode) print('🔧 ✅ Loading stats for date: $date');
+    // Check if we can use cached data
+    if (!forceRefresh && _shouldUseCachedData(date)) {
+      if (kDebugMode) print('🔧 📱 Using cached data for date: $date');
+      final cachedResponse = _statsCache[date]!;
+      state = state.copyWith(
+        currentStats: cachedResponse,
+        isLoading: false,
+        isRefreshing: false,
+        error: null,
+        selectedDate: date,
+        timeRange: StatsTimeRange.custom,
+      );
+      return;
+    }
+
+    if (kDebugMode) {
+      print(
+        '🔧 ✅ Loading stats for date: $date ${forceRefresh ? '(force refresh)' : ''}',
+      );
+    }
 
     state = state.copyWith(
-      isLoading: !refresh,
-      isRefreshing: refresh,
+      isLoading: !forceRefresh,
+      isRefreshing: forceRefresh,
       error: null,
       timeRange: StatsTimeRange.custom,
     );
@@ -140,6 +182,13 @@ class StatsNotifier extends StateNotifier<StatsState> {
 
       final request = StatsRequest(date: date);
       final response = await _repository.getStats(request);
+
+      // Update cache
+      if (response.data != null) {
+        _statsCache[date] = response;
+        _cacheTimestamps[date] = DateTime.now();
+        if (kDebugMode) print('🔧 📱 Cached data for date: $date');
+      }
 
       state = state.copyWith(
         currentStats: response.data != null ? response : null,
@@ -171,14 +220,56 @@ class StatsNotifier extends StateNotifier<StatsState> {
     }
   }
 
+  bool _shouldUseCachedData(String date) {
+    if (!_statsCache.containsKey(date) || !_cacheTimestamps.containsKey(date)) {
+      return false;
+    }
+
+    final now = DateTime.now();
+    final cacheTime = _cacheTimestamps[date]!;
+    final currentDateString =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+    // Use shorter cache duration for current date, longer for historical dates
+    final validDuration =
+        date == currentDateString
+            ? _currentDateCacheValidDuration
+            : _cacheValidDuration;
+
+    final isValid = now.difference(cacheTime) < validDuration;
+
+    if (kDebugMode) {
+      print(
+        '🔧 📱 Cache check for $date: ${isValid ? 'VALID' : 'EXPIRED'} (age: ${now.difference(cacheTime).inMinutes} min)',
+      );
+    }
+
+    return isValid;
+  }
+
+  void clearCache() {
+    _statsCache.clear();
+    _cacheTimestamps.clear();
+    if (kDebugMode) print('🔧 🗑️ Stats cache cleared');
+  }
+
+  void clearCacheForDate(String date) {
+    _statsCache.remove(date);
+    _cacheTimestamps.remove(date);
+    if (kDebugMode) print('🔧 🗑️ Stats cache cleared for date: $date');
+  }
+
   Future<void> loadWeeklyStats({bool refresh = false}) async {
     if (state.isLoading && !refresh) return;
 
     final authState = _ref.watch(authNotifierProvider);
     if (kDebugMode)
-      print('🔧 ❌ Stats authentication failed: ${authState.isAuthenticated}');
+      print(
+        '🔧 Stats - Auth check for weekly - isAuthenticated: ${authState.isAuthenticated}',
+      );
 
     if (!authState.isAuthenticated) {
+      if (kDebugMode) print('🔧 ❌ Stats authentication failed');
       state = state.copyWith(
         error: 'User not authenticated',
         isLoading: false,
@@ -250,9 +341,12 @@ class StatsNotifier extends StateNotifier<StatsState> {
 
     final authState = _ref.watch(authNotifierProvider);
     if (kDebugMode)
-      print('🔧 ❌ Stats authentication failed: ${authState.isAuthenticated}');
+      print(
+        '🔧 Stats - Auth check for monthly - isAuthenticated: ${authState.isAuthenticated}',
+      );
 
     if (!authState.isAuthenticated) {
+      if (kDebugMode) print('🔧 ❌ Stats authentication failed');
       state = state.copyWith(
         error: 'User not authenticated',
         isLoading: false,
@@ -325,6 +419,7 @@ class StatsNotifier extends StateNotifier<StatsState> {
 
   void clearState() {
     state = const StatsState();
+    clearCache(); // Also clear cache when clearing state
   }
 
   void setTimeRange(StatsTimeRange timeRange) {

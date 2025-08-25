@@ -2,6 +2,7 @@ import 'package:Wicore/app_router.dart';
 import 'package:Wicore/providers/authentication_provider.dart';
 import 'package:Wicore/providers/fcm_provider.dart';
 import 'package:Wicore/providers/user_provider.dart';
+import 'package:Wicore/services/notification_service.dart';
 import 'package:Wicore/states/auth_status.dart';
 import 'package:Wicore/states/app_initialization_state.dart';
 import 'package:flutter/foundation.dart';
@@ -122,7 +123,8 @@ class AppInitializationNotifier extends StateNotifier<AppInitializationState> {
         badge: true,
         sound: true,
         carPlay: false,
-        criticalAlert: false,
+        criticalAlert:
+            false, // Changed to false since we don't need critical alerts
         provisional: false,
         announcement: false,
       );
@@ -135,6 +137,9 @@ class AppInitializationNotifier extends StateNotifier<AppInitializationState> {
         await _waitForAPNSToken();
       }
 
+      // 🔥 ADD: Initialize the NotificationService
+      await NotificationService.initialize(ref);
+
       // Initialize FCM token provider after auth is ready
       Future.microtask(() {
         try {
@@ -144,17 +149,7 @@ class AppInitializationNotifier extends StateNotifier<AppInitializationState> {
         }
       });
 
-      // Set up message handlers
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        print('📩 Foreground FCM message: ${message.notification?.title}');
-        print('📩 Message body: ${message.notification?.body}');
-        print('📩 Message data: ${message.data}');
-      });
-
-      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-        print('📱 FCM notification opened app: ${message.notification?.title}');
-      });
-
+      // Handle initial message when app is opened from terminated state
       RemoteMessage? initialMessage = await messaging.getInitialMessage();
       if (initialMessage != null) {
         print('📱 FCM initial message: ${initialMessage.notification?.title}');

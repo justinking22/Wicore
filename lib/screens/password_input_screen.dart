@@ -103,12 +103,20 @@ class _PasswordInputScreenState extends ConsumerState<PasswordInputScreen> {
   Widget build(BuildContext context) {
     final signUpForm = ref.watch(signUpFormProvider);
 
+    // ✅ APPLY: Same pattern as NameInputScreen
+    final mediaQuery = MediaQuery.of(context);
+    final screenHeight = mediaQuery.size.height;
+    final keyboardHeight = mediaQuery.viewInsets.bottom;
+    final isKeyboardVisible = keyboardHeight > 0;
+    final availableHeight = screenHeight - keyboardHeight;
+
     return GestureDetector(
       onTap: () {
         // Dismiss keyboard when tapping outside
         FocusScope.of(context).unfocus();
       },
       child: Scaffold(
+        // ✅ KEEP: Overflow protection
         resizeToAvoidBottomInset: false,
         backgroundColor: Colors.white,
         appBar: CustomAppBar(
@@ -122,129 +130,154 @@ class _PasswordInputScreenState extends ConsumerState<PasswordInputScreen> {
             );
           },
         ),
-        body: SingleChildScrollView(
-          child: SizedBox(
-            height:
-                MediaQuery.of(context).size.height -
-                MediaQuery.of(context).padding.top -
-                kToolbarHeight,
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 40),
-                  // Title text
-                  Text('안전한 비밀번호를', style: TextStyles.kBody),
-                  const SizedBox(height: 8),
-                  Text('만들어주세요', style: TextStyles.kBody),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            child: ConstrainedBox(
+              // ✅ APPLY: Same height calculation pattern
+              constraints: BoxConstraints(
+                minHeight:
+                    availableHeight -
+                    (MediaQuery.of(context).padding.top + kToolbarHeight),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ✅ APPLY: Keyboard-aware top spacing
+                    SizedBox(height: isKeyboardVisible ? 20 : 40),
 
-                  // Show password criteria error or normal subtitle
-                  if (_showPasswordCriteria) ...[
-                    const SizedBox(height: 24),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                      decoration: BoxDecoration(
-                        color: CustomColors.translucentRedOrange,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        '영문과 숫자를 포함하여 7자 이상 인지 다시 확인해주세요.',
-                        style: TextStyles.kError,
-                      ),
-                    ),
-                    const SizedBox(height: 60),
-                  ] else ...[
-                    const SizedBox(height: 24),
-                    // Subtitle text (only shown when no errors)
-                    Text('비밀번호는 7자 이상,', style: TextStyles.kThirdBody),
-                    const SizedBox(height: 4),
-                    Text('영문과 숫자를 포함해 만들어주세요.', style: TextStyles.kThirdBody),
-                    const SizedBox(height: 60),
-                  ],
+                    // Title text
+                    Text('안전한 비밀번호를', style: TextStyles.kBody),
+                    const SizedBox(height: 8),
+                    Text('만들어주세요', style: TextStyles.kBody),
 
-                  // Input field label
-                  Text('비밀번호', style: TextStyles.kHeader),
-                  const SizedBox(height: 8),
-                  // Password input field
-                  TextField(
-                    controller: _passwordController,
-                    obscureText: _obscureText,
-                    obscuringCharacter: '●',
-                    decoration: InputDecoration(
-                      hintText: '비밀번호를 입력해주세요',
-                      hintStyle: TextStyles.kMedium,
-                      errorText: _errorText,
-                      suffixIcon: TextButton(
-                        onPressed: () {
-                          setState(() {
-                            _obscureText = !_obscureText;
-                          });
-                        },
-                        style: TextButton.styleFrom(
-                          minimumSize: Size.zero, // Remove default min size
-                          padding: EdgeInsets.zero, // Remove default padding
-                          tapTargetSize:
-                              MaterialTapTargetSize
-                                  .shrinkWrap, // Reduce hit area if needed
+                    // Show password criteria error or normal subtitle
+                    if (_showPasswordCriteria) ...[
+                      // ✅ APPLY: Condensed spacing when keyboard visible
+                      SizedBox(height: isKeyboardVisible ? 16 : 24),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                        decoration: BoxDecoration(
+                          color: CustomColors.translucentRedOrange,
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          _obscureText ? '보기' : '숨기기',
-                          style: TextStyles.kMedium.copyWith(
-                            color: CustomColors.darkCharcoal,
+                          '영문과 숫자를 포함하여 7자 이상 인지 다시 확인해주세요.',
+                          style: TextStyles.kError,
+                        ),
+                      ),
+                      // ✅ APPLY: Adaptive spacing before input field
+                      SizedBox(height: isKeyboardVisible ? 30 : 60),
+                    ] else ...[
+                      // ✅ APPLY: Condensed spacing when keyboard visible
+                      SizedBox(height: isKeyboardVisible ? 16 : 24),
+                      // Subtitle text (only shown when no errors)
+                      Text('비밀번호는 7자 이상,', style: TextStyles.kThirdBody),
+                      const SizedBox(height: 4),
+                      Text('영문과 숫자를 포함해 만들어주세요.', style: TextStyles.kThirdBody),
+                      // ✅ APPLY: Adaptive spacing before input field
+                      SizedBox(height: isKeyboardVisible ? 30 : 60),
+                    ],
+
+                    // Input field label
+                    Text('비밀번호', style: TextStyles.kHeader),
+                    const SizedBox(height: 8),
+
+                    // Password input field
+                    TextField(
+                      controller: _passwordController,
+                      obscureText: _obscureText,
+                      obscuringCharacter: '●',
+                      decoration: InputDecoration(
+                        hintText: '비밀번호를 입력해주세요',
+                        hintStyle: TextStyles.kMedium,
+                        errorText: _errorText,
+                        suffixIcon: TextButton(
+                          onPressed: () {
+                            setState(() {
+                              _obscureText = !_obscureText;
+                            });
+                          },
+                          style: TextButton.styleFrom(
+                            minimumSize: Size.zero, // Remove default min size
+                            padding: EdgeInsets.zero, // Remove default padding
+                            tapTargetSize:
+                                MaterialTapTargetSize
+                                    .shrinkWrap, // Reduce hit area if needed
+                          ),
+                          child: Text(
+                            _obscureText ? '보기' : '숨기기',
+                            style: TextStyles.kMedium.copyWith(
+                              color: CustomColors.darkCharcoal,
+                            ),
                           ),
                         ),
-                      ),
-                      border: UnderlineInputBorder(
-                        borderSide: BorderSide(
-                          color: Colors.grey[300]!,
-                          width: 1,
+                        border: UnderlineInputBorder(
+                          borderSide: BorderSide(
+                            color: Colors.grey[300]!,
+                            width: 1,
+                          ),
+                        ),
+                        enabledBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(
+                            color: Colors.grey[300]!,
+                            width: 1,
+                          ),
+                        ),
+                        focusedBorder: const UnderlineInputBorder(
+                          borderSide: BorderSide(color: Colors.black, width: 2),
+                        ),
+                        errorBorder: const UnderlineInputBorder(
+                          borderSide: BorderSide(color: Colors.red, width: 1),
+                        ),
+                        focusedErrorBorder: const UnderlineInputBorder(
+                          borderSide: BorderSide(color: Colors.red, width: 2),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 0,
                         ),
                       ),
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(
-                          color: Colors.grey[300]!,
-                          width: 1,
-                        ),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w400,
+                        color: Colors.black,
+                        letterSpacing: 1.5,
                       ),
-                      focusedBorder: const UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.black, width: 2),
-                      ),
-                      errorBorder: const UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.red, width: 1),
-                      ),
-                      focusedErrorBorder: const UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.red, width: 2),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 12,
-                        horizontal: 0,
-                      ),
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) {
+                        if (_isButtonEnabled) {
+                          _handleNext();
+                        }
+                      },
                     ),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w400,
-                      color: Colors.black,
-                      letterSpacing: 1.5,
+
+                    // ✅ APPLY: Flexible spacing that adapts to keyboard
+                    SizedBox(
+                      height:
+                          isKeyboardVisible
+                              ? 40 // Minimal spacing when keyboard up
+                              : availableHeight -
+                                  450, // Flexible when keyboard down (adjusted for password criteria)
                     ),
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (_) {
-                      if (_isButtonEnabled) {
-                        _handleNext();
-                      }
-                    },
-                  ),
-                  const Spacer(),
-                  // Next button
-                  CustomButton(
-                    text: '다음',
-                    isEnabled: _isButtonEnabled,
-                    onPressed: _isButtonEnabled ? _handleNext : null,
-                    disabledBackgroundColor: Colors.grey,
-                  ),
-                  const SizedBox(height: 32),
-                ],
+
+                    // Next button
+                    CustomButton(
+                      text: '다음',
+                      isEnabled: _isButtonEnabled,
+                      onPressed: _isButtonEnabled ? _handleNext : null,
+                      disabledBackgroundColor: Colors.grey,
+                    ),
+
+                    // ✅ APPLY: Same bottom padding pattern as NameInputScreen
+                    SizedBox(
+                      height: isKeyboardVisible ? keyboardHeight + 20 : 32,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

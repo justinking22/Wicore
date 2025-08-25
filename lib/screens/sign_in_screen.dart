@@ -1,7 +1,7 @@
 import 'package:Wicore/providers/authentication_provider.dart';
-import 'package:Wicore/utilities/sign_up_form_state.dart'; // Add this import
-import 'package:Wicore/providers/user_provider.dart'; // Add this import
-import 'package:Wicore/models/user_update_request_model.dart'; // Add this import
+import 'package:Wicore/utilities/sign_up_form_state.dart';
+import 'package:Wicore/providers/user_provider.dart';
+import 'package:Wicore/models/user_update_request_model.dart';
 import 'package:Wicore/styles/colors.dart';
 import 'package:Wicore/styles/text_styles.dart';
 import 'package:Wicore/states/auth_status.dart';
@@ -21,6 +21,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final ScrollController _scrollController =
+      ScrollController(); // ✅ ADD: Scroll controller
   bool _isAutoLogin = true;
   bool _isObscureText = true;
   bool _hasEmailError = false;
@@ -31,8 +33,39 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _scrollController.dispose(); // ✅ ADD: Dispose scroll controller
     super.dispose();
   }
+
+  // ✅ ADD: Method to scroll to focused field when keyboard appears
+  void _scrollToField(GlobalKey fieldKey) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (fieldKey.currentContext != null) {
+        final RenderBox renderBox =
+            fieldKey.currentContext!.findRenderObject() as RenderBox;
+        final position = renderBox.localToGlobal(Offset.zero);
+        final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+        final screenHeight = MediaQuery.of(context).size.height;
+        final fieldBottom = position.dy + renderBox.size.height;
+        final visibleHeight = screenHeight - keyboardHeight;
+
+        if (fieldBottom > visibleHeight - 100) {
+          // 100px buffer
+          final scrollOffset =
+              fieldBottom - visibleHeight + 150; // Extra buffer
+          _scrollController.animateTo(
+            _scrollController.offset + scrollOffset,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+        }
+      }
+    });
+  }
+
+  // ✅ ADD: Global keys for form fields
+  final GlobalKey _emailFieldKey = GlobalKey();
+  final GlobalKey _passwordFieldKey = GlobalKey();
 
   void _validateEmail(String value) {
     if (value.isEmpty) {
@@ -62,21 +95,17 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     );
   }
 
-  // NEW: Method to update user profile with stored name from signup
   Future<void> _updateUserProfileAfterLogin() async {
     try {
       final signUpForm = ref.read(signUpFormProvider);
 
-      // Check if there's a name stored from recent signup
       if (signUpForm.name.isNotEmpty) {
         print(
           '🔄 Login successful, updating profile with stored name: ${signUpForm.name}',
         );
 
-        // Small delay to ensure authentication is fully established
         await Future.delayed(const Duration(milliseconds: 300));
 
-        // Update the user profile with the stored name
         await ref
             .read(userProvider.notifier)
             .updateCurrentUserProfile(
@@ -85,18 +114,14 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
 
         print('✅ User profile updated with name after login');
 
-        // Clear the stored signup form data after successful update
         ref.read(signUpFormProvider.notifier).reset();
 
-        // Show success message
         if (mounted) {
           _showMessage('프로필이 업데이트되었습니다!', backgroundColor: Colors.green);
         }
       }
     } catch (e) {
       print('⚠️ Failed to update profile after login: $e');
-      // Don't show error to user since login was successful
-      // They can update their name later in settings
     }
   }
 
@@ -115,13 +140,10 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
 
       if (mounted) {
         if (result.isSuccess) {
-          // Save auto-login preference if enabled
           if (_isAutoLogin) {
-            // You can implement auto-login storage here
             print('Auto-login enabled for user');
           }
 
-          // NEW: Update user profile with stored name if available
           await _updateUserProfileAfterLogin();
 
           _showMessage('로그인 성공!', backgroundColor: Colors.green);
@@ -132,7 +154,6 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
             _emailErrorMessage = '잘못된 이메일 또는 비밀번호입니다.';
           });
         } else {
-          // Handle specific error cases
           if (result.message?.contains('invalid') == true ||
               result.message?.contains('incorrect') == true ||
               result.message?.contains('wrong') == true) {
@@ -258,13 +279,6 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   Future<void> _handleGoogleLogin() async {
     try {
       _showMessage('Google 로그인 기능을 준비 중입니다.', backgroundColor: Colors.orange);
-
-      // TODO: Implement Google OAuth login
-      // When implementing, add the same profile update logic:
-      // if (result.isSuccess) {
-      //   await _updateUserProfileAfterLogin();
-      //   context.go('/navigation');
-      // }
     } catch (e) {
       if (mounted) {
         _showMessage('Google 로그인 오류: $e');
@@ -275,13 +289,6 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   Future<void> _handleAppleLogin() async {
     try {
       _showMessage('Apple 로그인 기능을 준비 중입니다.', backgroundColor: Colors.orange);
-
-      // TODO: Implement Apple Sign In
-      // When implementing, add the same profile update logic:
-      // if (result.isSuccess) {
-      //   await _updateUserProfileAfterLogin();
-      //   context.go('/navigation');
-      // }
     } catch (e) {
       if (mounted) {
         _showMessage('Apple 로그인 오류: $e');
@@ -291,28 +298,30 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
 
   void _handleContinueWithoutLogin() {
     _showMessage('게스트 모드 기능을 준비 중입니다.', backgroundColor: Colors.orange);
-
-    // TODO: Navigate to guest mode or limited features
-    // context.go('/guest-mode');
   }
 
   @override
   Widget build(BuildContext context) {
-    // Watch auth state for automatic navigation
     ref.listen<AuthState>(authNotifierProvider, (previous, next) {
       if (next.isAuthenticated && mounted) {
         context.go('/navigation');
       }
     });
 
+    // ✅ APPLY: Same pattern as NameInputScreen
+    final mediaQuery = MediaQuery.of(context);
+    final screenHeight = mediaQuery.size.height;
+    final keyboardHeight = mediaQuery.viewInsets.bottom;
+    final isKeyboardVisible = keyboardHeight > 0;
+    final availableHeight = screenHeight - keyboardHeight;
+
     return GestureDetector(
       onTap: () {
-        // Dismiss keyboard when tapping outside
         FocusScope.of(context).unfocus();
       },
       child: Scaffold(
         backgroundColor: Colors.white,
-        // Add this to prevent screen resize when keyboard appears
+        // ✅ KEEP: Overflow protection like NameInputScreen
         resizeToAvoidBottomInset: false,
         appBar: AppBar(
           backgroundColor: Colors.white,
@@ -350,236 +359,284 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         ),
         body: SafeArea(
           child: SingleChildScrollView(
-            // Add scroll behavior
             physics: const ClampingScrollPhysics(),
-            child: Container(
-              // Use container with minimum height
+            child: ConstrainedBox(
+              // ✅ APPLY: Same height calculation pattern
               constraints: BoxConstraints(
                 minHeight:
-                    MediaQuery.of(context).size.height -
-                    MediaQuery.of(context).viewInsets.bottom -
-                    AppBar().preferredSize.height -
-                    MediaQuery.of(context).padding.top,
+                    availableHeight -
+                    (MediaQuery.of(context).padding.top + kToolbarHeight),
               ),
-              padding: const EdgeInsets.all(24.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('반갑습니다\n로그인을 해주세요', style: TextStyles.kBody),
-                    const SizedBox(height: 8),
-                    if (_hasEmailError)
-                      Container(
-                        padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFEBEE),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          _emailErrorMessage,
-                          style: const TextStyle(
-                            color: Color(0xFFD32F2F),
-                            fontSize: 14,
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ✅ APPLY: Keyboard-aware top spacing
+                      SizedBox(height: isKeyboardVisible ? 20 : 40),
+
+                      Text('반갑습니다\n로그인을 해주세요', style: TextStyles.kBody),
+
+                      // ✅ APPLY: Dynamic spacing after title
+                      SizedBox(height: isKeyboardVisible ? 16 : 32),
+
+                      if (_hasEmailError)
+                        Container(
+                          padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFEBEE),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            _emailErrorMessage,
+                            style: const TextStyle(
+                              color: Color(0xFFD32F2F),
+                              fontSize: 14,
+                            ),
                           ),
                         ),
+
+                      // ✅ APPLY: Smart spacing adjustment
+                      SizedBox(
+                        height:
+                            _hasEmailError
+                                ? (isKeyboardVisible ? 16 : 24)
+                                : (isKeyboardVisible ? 32 : 80),
                       ),
-                    SizedBox(
-                      height: _hasEmailError ? 24 : 80,
-                    ), // Adjust spacing
-                    // Email Field
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('이메일', style: TextStyles.kSemiBold),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          controller: _emailController,
-                          enabled: !_isLoading, // ✅ Disable during loading
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: InputDecoration(
-                            hintText: '이메일주소를 입력해주세요',
-                            hintStyle: TextStyles.kMedium,
-                            border: const UnderlineInputBorder(
-                              borderSide: BorderSide(color: Color(0xFFE0E0E0)),
-                            ),
-                            focusedBorder: const UnderlineInputBorder(
-                              borderSide: BorderSide(
-                                color: CustomColors.darkCharcoal,
-                                width: 2,
-                              ),
-                            ),
-                            errorBorder: const UnderlineInputBorder(
-                              borderSide: BorderSide(color: Color(0xFFD32F2F)),
-                            ),
-                            enabledBorder: const UnderlineInputBorder(
-                              borderSide: BorderSide(color: Color(0xFFE0E0E0)),
-                            ),
-                            disabledBorder: const UnderlineInputBorder(
-                              borderSide: BorderSide(color: Color(0xFFBDBDBD)),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              vertical: 16,
-                            ),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return '이메일을 입력해주세요';
-                            }
-                            if (!RegExp(
-                              r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                            ).hasMatch(value)) {
-                              return '유효한 이메일 주소를 입력해주세요';
-                            }
-                            return null;
-                          },
-                          onChanged: (value) {
-                            if (!_isLoading) {
-                              _validateEmail(value);
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 32),
-                    // Password Field
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('비밀번호', style: TextStyles.kSemiBold),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          controller: _passwordController,
-                          enabled: !_isLoading, // ✅ Disable during loading
-                          obscureText: _isObscureText,
-                          decoration: InputDecoration(
-                            hintText: '비밀번호를 입력해주세요',
-                            hintStyle: TextStyles.kMedium,
-                            border: const UnderlineInputBorder(
-                              borderSide: BorderSide(color: Color(0xFFE0E0E0)),
-                            ),
-                            focusedBorder: const UnderlineInputBorder(
-                              borderSide: BorderSide(
-                                color: CustomColors.darkCharcoal,
-                                width: 2,
-                              ),
-                            ),
-                            enabledBorder: const UnderlineInputBorder(
-                              borderSide: BorderSide(color: Color(0xFFE0E0E0)),
-                            ),
-                            disabledBorder: const UnderlineInputBorder(
-                              borderSide: BorderSide(color: Color(0xFFBDBDBD)),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              vertical: 16,
-                            ),
-                            suffixIcon: TextButton(
-                              onPressed:
-                                  _isLoading
-                                      ? null
-                                      : () {
-                                        setState(() {
-                                          _isObscureText = !_isObscureText;
-                                        });
-                                      },
-                              style: TextButton.styleFrom(
-                                minimumSize: Size.zero,
-                                padding: EdgeInsets.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              child: Text(
-                                _isObscureText ? '보기' : '숨기기',
-                                style: TextStyles.kMedium.copyWith(
-                                  color:
-                                      _isLoading
-                                          ? Colors.grey
-                                          : CustomColors.darkCharcoal,
+
+                      // Email Field
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('이메일', style: TextStyles.kSemiBold),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _emailController,
+                            enabled: !_isLoading,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: InputDecoration(
+                              hintText: '이메일주소를 입력해주세요',
+                              hintStyle: TextStyles.kMedium,
+                              border: const UnderlineInputBorder(
+                                borderSide: BorderSide(
+                                  color: Color(0xFFE0E0E0),
                                 ),
                               ),
+                              focusedBorder: const UnderlineInputBorder(
+                                borderSide: BorderSide(
+                                  color: CustomColors.darkCharcoal,
+                                  width: 2,
+                                ),
+                              ),
+                              errorBorder: const UnderlineInputBorder(
+                                borderSide: BorderSide(
+                                  color: Color(0xFFD32F2F),
+                                ),
+                              ),
+                              enabledBorder: const UnderlineInputBorder(
+                                borderSide: BorderSide(
+                                  color: Color(0xFFE0E0E0),
+                                ),
+                              ),
+                              disabledBorder: const UnderlineInputBorder(
+                                borderSide: BorderSide(
+                                  color: Color(0xFFBDBDBD),
+                                ),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 16,
+                              ),
                             ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return '이메일을 입력해주세요';
+                              }
+                              if (!RegExp(
+                                r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                              ).hasMatch(value)) {
+                                return '유효한 이메일 주소를 입력해주세요';
+                              }
+                              return null;
+                            },
+                            onChanged: (value) {
+                              if (!_isLoading) {
+                                _validateEmail(value);
+                              }
+                            },
                           ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return '비밀번호를 입력해주세요';
-                            }
-                            return null;
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    // Auto Login and Password Reset
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            SizedBox(
-                              height: 32,
-                              width: 32,
-                              child: Checkbox(
-                                value: _isAutoLogin,
-                                onChanged:
+                        ],
+                      ),
+
+                      // ✅ APPLY: Keyboard-aware spacing between fields
+                      SizedBox(height: isKeyboardVisible ? 24 : 32),
+
+                      // Password Field
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('비밀번호', style: TextStyles.kSemiBold),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _passwordController,
+                            enabled: !_isLoading,
+                            obscureText: _isObscureText,
+                            decoration: InputDecoration(
+                              hintText: '비밀번호를 입력해주세요',
+                              hintStyle: TextStyles.kMedium,
+                              border: const UnderlineInputBorder(
+                                borderSide: BorderSide(
+                                  color: Color(0xFFE0E0E0),
+                                ),
+                              ),
+                              focusedBorder: const UnderlineInputBorder(
+                                borderSide: BorderSide(
+                                  color: CustomColors.darkCharcoal,
+                                  width: 2,
+                                ),
+                              ),
+                              enabledBorder: const UnderlineInputBorder(
+                                borderSide: BorderSide(
+                                  color: Color(0xFFE0E0E0),
+                                ),
+                              ),
+                              disabledBorder: const UnderlineInputBorder(
+                                borderSide: BorderSide(
+                                  color: Color(0xFFBDBDBD),
+                                ),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 16,
+                              ),
+                              suffixIcon: TextButton(
+                                onPressed:
                                     _isLoading
                                         ? null
-                                        : (value) {
+                                        : () {
                                           setState(() {
-                                            _isAutoLogin = value ?? false;
+                                            _isObscureText = !_isObscureText;
                                           });
                                         },
-                                activeColor: CustomColors.darkCharcoal,
-                                checkColor: CustomColors.limeGreen,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(4.0),
+                                style: TextButton.styleFrom(
+                                  minimumSize: Size.zero,
+                                  padding: EdgeInsets.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                child: Text(
+                                  _isObscureText ? '보기' : '숨기기',
+                                  style: TextStyles.kMedium.copyWith(
+                                    color:
+                                        _isLoading
+                                            ? Colors.grey
+                                            : CustomColors.darkCharcoal,
+                                  ),
                                 ),
                               ),
                             ),
-                            const Text('자동로그인', style: TextStyles.kRegular),
-                          ],
-                        ),
-                        TextButton(
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return '비밀번호를 입력해주세요';
+                              }
+                              return null;
+                            },
+                          ),
+                        ],
+                      ),
+
+                      // ✅ APPLY: Condensed spacing when keyboard visible
+                      SizedBox(height: isKeyboardVisible ? 16 : 24),
+
+                      // Auto Login and Password Reset
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              SizedBox(
+                                height: 32,
+                                width: 32,
+                                child: Checkbox(
+                                  value: _isAutoLogin,
+                                  onChanged:
+                                      _isLoading
+                                          ? null
+                                          : (value) {
+                                            setState(() {
+                                              _isAutoLogin = value ?? false;
+                                            });
+                                          },
+                                  activeColor: CustomColors.darkCharcoal,
+                                  checkColor: CustomColors.limeGreen,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(4.0),
+                                  ),
+                                ),
+                              ),
+                              const Text('자동로그인', style: TextStyles.kRegular),
+                            ],
+                          ),
+                          TextButton(
+                            onPressed:
+                                _isLoading
+                                    ? null
+                                    : () {
+                                      context.push('/password-reset');
+                                    },
+                            child: const Text(
+                              '비밀번호 재설정',
+                              style:
+                                  TextStyles.kTrailingBottomButtonWithUnderline,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      // ✅ APPLY: Flexible spacing like NameInputScreen
+                      SizedBox(
+                        height:
+                            isKeyboardVisible
+                                ? 20 // Minimal spacing when keyboard up
+                                : availableHeight -
+                                    600, // Flexible when keyboard down
+                      ),
+
+                      // Social Login Link
+                      Center(
+                        child: TextButton(
                           onPressed:
-                              _isLoading
-                                  ? null
-                                  : () {
-                                    context.push('/password-reset');
-                                  },
+                              _isLoading ? null : _showSocialLoginBottomSheet,
                           child: const Text(
-                            '비밀번호 재설정',
+                            '구글 또는 애플아이디로 로그인하기',
                             style:
                                 TextStyles.kTrailingBottomButtonWithUnderline,
                           ),
                         ),
-                      ],
-                    ),
-                    // Use flexible spacing instead of Spacer
-                    SizedBox(height: MediaQuery.of(context).size.height * 0.05),
-                    // Social Login Link
-                    Center(
-                      child: TextButton(
-                        onPressed:
-                            _isLoading ? null : _showSocialLoginBottomSheet,
-                        child: const Text(
-                          '구글 또는 애플아이디로 로그인하기',
-                          style: TextStyles.kTrailingBottomButtonWithUnderline,
-                        ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    // Login Button
-                    CustomButton(
-                      text: _isLoading ? '로그인 중...' : '로그인',
-                      onPressed: _isLoading ? null : _handleLogin,
-                      isEnabled:
-                          _emailController.text.isNotEmpty &&
-                          _passwordController.text.isNotEmpty &&
-                          !_isLoading,
-                      backgroundColor: Colors.black,
-                      disabledBackgroundColor: const Color(0xFFBDBDBD),
-                      disabledTextColor: Colors.white,
-                    ),
-                    const SizedBox(height: 32),
-                  ],
+
+                      // ✅ APPLY: Reduced spacing when keyboard visible
+                      SizedBox(height: isKeyboardVisible ? 8 : 16),
+
+                      // Login Button
+                      CustomButton(
+                        text: _isLoading ? '로그인 중...' : '로그인',
+                        onPressed: _isLoading ? null : _handleLogin,
+                        isEnabled:
+                            _emailController.text.isNotEmpty &&
+                            _passwordController.text.isNotEmpty &&
+                            !_isLoading,
+                        backgroundColor: Colors.black,
+                        disabledBackgroundColor: const Color(0xFFBDBDBD),
+                        disabledTextColor: Colors.white,
+                      ),
+
+                      // ✅ APPLY: Same bottom padding pattern as NameInputScreen
+                      SizedBox(
+                        height: isKeyboardVisible ? keyboardHeight + 20 : 32,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

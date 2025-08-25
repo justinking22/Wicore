@@ -18,6 +18,9 @@ import UserNotifications
       UNUserNotificationCenter.current().delegate = self
     }
 
+    // 🔥 ADD: Configure notification categories for action buttons
+    configureNotificationCategories()
+
     // Register for remote notifications (FCM)
     application.registerForRemoteNotifications()
 
@@ -28,6 +31,35 @@ import UserNotifications
     GeneratedPluginRegistrant.register(with: self)
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  // 🔥 ADD: Configure notification categories
+  func configureNotificationCategories() {
+    let resolveAction = UNNotificationAction(
+      identifier: "resolve_action",
+      title: "Mark Emergency Resolved",
+      options: [.foreground]
+    )
+
+    let resolveCategory = UNNotificationCategory(
+      identifier: "resolveCategory",
+      actions: [resolveAction],
+      intentIdentifiers: [],
+      options: []
+    )
+
+    UNUserNotificationCenter.current().setNotificationCategories([resolveCategory])
+
+    // Request permissions
+    UNUserNotificationCenter.current().requestAuthorization(
+      options: [.alert, .badge, .sound]
+    ) { granted, error in
+      if granted {
+        print("✅ iOS notification permissions granted")
+      } else {
+        print("❌ iOS notification permissions denied: \(error?.localizedDescription ?? "Unknown")")
+      }
+    }
   }
 
   // Handle successful APNs token registration (for FCM)
