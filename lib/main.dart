@@ -134,7 +134,16 @@ class AppInitializationNotifier extends StateNotifier<AppInitializationState> {
       // For iOS/macOS, wait for APNS token to be ready
       if (defaultTargetPlatform == TargetPlatform.iOS ||
           defaultTargetPlatform == TargetPlatform.macOS) {
-        await _waitForAPNSToken();
+        // await _waitForAPNSToken();
+
+          // Get FCM token with null check
+      String? token = await messaging.getToken();
+      if (token != null) {
+        print('📱 FCM Token Sergey: $token');
+        // await _sendTokenToServer(token);
+      } else {
+        print('📱 Failed to get FCM token');
+      }
       }
 
       // 🔥 ADD: Initialize the NotificationService
