@@ -180,6 +180,51 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     }
   }
 
+  Widget _buildRefreshIndicator(
+    RefreshIndicatorMode refreshState,
+    double progress,
+  ) {
+    switch (refreshState) {
+      case RefreshIndicatorMode.inactive:
+        // Show nothing when inactive
+        return const SizedBox.shrink();
+
+      case RefreshIndicatorMode.drag:
+        // Show activity indicator while dragging
+        return CupertinoActivityIndicator(
+          radius:
+              10.0 + (progress * 4.0), // Scale indicator based on pull distance
+          color: Colors.grey.shade600,
+        );
+
+      case RefreshIndicatorMode.armed:
+        // Show activity indicator when armed (ready to refresh)
+        return const CupertinoActivityIndicator(
+          radius: 14.0,
+          color: Colors.black87,
+        );
+
+      case RefreshIndicatorMode.refresh:
+        // Show spinning indicator during refresh
+        return const CupertinoActivityIndicator(
+          radius: 14.0,
+          color: Colors.black87,
+        );
+
+      case RefreshIndicatorMode.done:
+        // Show completion indicator briefly
+        return Container(
+          width: 28.0,
+          height: 28.0,
+          decoration: BoxDecoration(
+            color: Colors.green.shade600,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.check, color: Colors.white, size: 16.0),
+        );
+    }
+  }
+
   bool _isFutureDate() {
     final today = DateTime.now();
     final todayDate = DateTime(today.year, today.month, today.day);
@@ -188,7 +233,17 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
       selectedDate.month,
       selectedDate.day,
     );
-    return selectedDateOnly.isAfter(todayDate);
+    return selectedDateOnly.isAtSameMomentAs(todayDate) ||
+        selectedDateOnly.isAfter(todayDate);
+  }
+
+  bool _canNavigateToNextDay() {
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+    final nextDay = selectedDate.add(const Duration(days: 1));
+    final nextDateOnly = DateTime(nextDay.year, nextDay.month, nextDay.day);
+    return nextDateOnly.isAtSameMomentAs(todayDate) ||
+        nextDateOnly.isBefore(todayDate);
   }
 
   @override
@@ -219,47 +274,60 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
         backgroundColor: Colors.white,
       ),
       body: SafeArea(
-        child: RefreshIndicator(
-          key: _refreshIndicatorKey,
-          onRefresh: _onRefresh,
-          // Use iOS-style indicator
-          color: Theme.of(context).primaryColor,
-          backgroundColor: Colors.white,
-          strokeWidth: 2.0,
-          displacement: 40.0,
-          // Custom refresh indicator builder for iOS-style
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final horizontalPadding = isSmallScreen ? 16.0 : 24.0;
-              final verticalPadding = isSmallScreen ? 8.0 : 12.0;
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final horizontalPadding = isSmallScreen ? 16.0 : 24.0;
+            final verticalPadding = isSmallScreen ? 8.0 : 12.0;
 
-              return CustomScrollView(
-                // Always allow scrolling for pull-to-refresh to work
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        horizontalPadding,
-                        verticalPadding,
-                        horizontalPadding,
-                        verticalPadding,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Date navigation - made more responsive
-                          _buildDateNavigation(isSmallScreen),
-                          SizedBox(height: isSmallScreen ? 16 : 20),
-                          _buildContent(statsState, isSmallScreen, constraints),
-                        ],
-                      ),
+            return CustomScrollView(
+              // Always allow scrolling for pull-to-refresh to work
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                // iOS-style refresh control
+                CupertinoSliverRefreshControl(
+                  onRefresh: _onRefresh,
+                  refreshTriggerPullDistance: 100.0,
+                  refreshIndicatorExtent: 60.0,
+                  builder: (
+                    context,
+                    refreshState,
+                    pulledExtent,
+                    refreshTriggerPullDistance,
+                    refreshIndicatorExtent,
+                  ) {
+                    // Calculate progress based on pull distance
+                    final double progress = (pulledExtent /
+                            refreshTriggerPullDistance)
+                        .clamp(0.0, 1.0);
+
+                    return Container(
+                      alignment: Alignment.center,
+                      child: _buildRefreshIndicator(refreshState, progress),
+                    );
+                  },
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      horizontalPadding,
+                      verticalPadding,
+                      horizontalPadding,
+                      verticalPadding,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Date navigation - made more responsive
+                        _buildDateNavigation(isSmallScreen),
+                        SizedBox(height: isSmallScreen ? 16 : 20),
+                        _buildContent(statsState, isSmallScreen, constraints),
+                      ],
                     ),
                   ),
-                ],
-              );
-            },
-          ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -307,7 +375,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
         ),
         const SizedBox(width: 16),
         GestureDetector(
-          onTap: _isFutureDate() ? null : _navigateToNextDay,
+          onTap: _canNavigateToNextDay() ? _navigateToNextDay : null,
           child: Container(
             width: isSmallScreen ? 36 : 44,
             height: isSmallScreen ? 36 : 44,
@@ -319,9 +387,9 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color:
-                      _isFutureDate()
-                          ? const Color.fromRGBO(194, 194, 194, 1)
-                          : Colors.black,
+                      _canNavigateToNextDay()
+                          ? Colors.black
+                          : const Color.fromRGBO(194, 194, 194, 1),
                 ),
                 child: Icon(
                   Icons.chevron_right,
