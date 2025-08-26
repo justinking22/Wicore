@@ -177,8 +177,10 @@ class _DateStatsScreenState extends ConsumerState<DateStatsScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        scrolledUnderElevation: 0, // Add this line
+        surfaceTintColor: Colors.transparent, // Add this line too
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black),
+          icon: Icon(Icons.chevron_left, size: 34, color: Colors.black),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(

@@ -8,10 +8,10 @@ import 'package:Wicore/utilities/diagonal_stripes_painter.dart';
 import 'package:Wicore/widgets/reusable_app_bar.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:custom_refresh_indicator/custom_refresh_indicator.dart';
 
 class StatsScreen extends ConsumerStatefulWidget {
   const StatsScreen({super.key});
@@ -22,6 +22,8 @@ class StatsScreen extends ConsumerStatefulWidget {
 
 class _StatsScreenState extends ConsumerState<StatsScreen> {
   DateTime selectedDate = DateTime.now();
+  final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
+      GlobalKey<RefreshIndicatorState>();
 
   @override
   void initState() {
@@ -40,27 +42,39 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     ref.read(statsNotifierProvider.notifier).loadStatsForDate(dateString);
   }
 
+  // Method for pull-to-refresh
+  Future<void> _onRefresh() async {
+    try {
+      // Add a small delay to show the refresh indicator
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      _loadStatsForSelectedDate();
+
+      // Wait for the stats to load (you might need to adjust this based on your provider)
+      // This assumes your provider has a way to check if loading is complete
+      final statsNotifier = ref.read(statsNotifierProvider.notifier);
+
+      // Wait a bit more to ensure data is loaded
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      if (kDebugMode) {
+        print(
+          '🔧 Pull-to-refresh completed for date: ${selectedDate.toString()}',
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('🔧 ❌ Error during pull-to-refresh: $e');
+      }
+    }
+  }
+
   // Alternative using DateFormat (more robust)
   void _loadStatsForSelectedDateAlternative() {
     final dateString = DateFormat('yyyy-MM-dd').format(selectedDate);
 
     print('🔧 Loading stats for date: $dateString'); // Debug log
     ref.read(statsNotifierProvider.notifier).loadStatsForDate(dateString);
-  }
-
-  Future<void> _refreshData() async {
-    try {
-      // Add a small delay for better UX
-      await Future.delayed(const Duration(milliseconds: 300));
-
-      // Reload data for the currently selected date
-      _loadStatsForSelectedDate();
-
-      // Wait for the API call to complete
-      await Future.delayed(const Duration(milliseconds: 800));
-    } catch (e) {
-      if (kDebugMode) print('🔧 ❌ Error during refresh: $e');
-    }
   }
 
   void _navigateToNextDay() {
@@ -177,78 +191,6 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     return selectedDateOnly.isAfter(todayDate);
   }
 
-  Widget _buildCustomIndicator(
-    IndicatorController controller,
-    bool isSmallScreen,
-  ) {
-    final size = isSmallScreen ? 40.0 : 50.0;
-
-    return Container(
-      width: size + 20,
-      height: size + 20,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Center(child: _buildIndicatorContent(controller, size)),
-    );
-  }
-
-  Widget _buildIndicatorContent(IndicatorController controller, double size) {
-    switch (controller.state) {
-      case IndicatorState.dragging:
-      case IndicatorState.armed:
-        // Show progress indicator based on pull distance
-        return SizedBox(
-          width: size * 0.6,
-          height: size * 0.6,
-          child: CircularProgressIndicator(
-            value: controller.value.clamp(0.0, 1.0),
-            strokeWidth: 3.0,
-            color: CustomColors.limeGreen,
-            backgroundColor: Colors.grey.shade300,
-          ),
-        );
-
-      case IndicatorState.loading:
-        // Show spinning indicator during refresh
-        return SizedBox(
-          width: size * 0.6,
-          height: size * 0.6,
-          child: CircularProgressIndicator(
-            strokeWidth: 3.0,
-            color: CustomColors.limeGreen,
-          ),
-        );
-
-      case IndicatorState.complete:
-        // Show checkmark when complete
-        return Icon(
-          Icons.check,
-          size: size * 0.6,
-          color: CustomColors.limeGreen,
-        );
-
-      case IndicatorState.canceling:
-      case IndicatorState.finalizing:
-        // Show fading indicator
-        return Opacity(
-          opacity: controller.value,
-          child: Icon(Icons.refresh, size: size * 0.6, color: Colors.grey),
-        );
-
-      default:
-        return const SizedBox.shrink();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final statsState = ref.watch(statsNotifierProvider);
@@ -277,72 +219,44 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
         backgroundColor: Colors.white,
       ),
       body: SafeArea(
-        child: CustomRefreshIndicator(
-          onRefresh: _refreshData,
-          // Custom duration settings
-          durations: const RefreshIndicatorDurations(
-            settleDuration: Duration(milliseconds: 150),
-            cancelDuration: Duration(milliseconds: 200),
-            finalizeDuration: Duration(milliseconds: 300),
-            completeDuration: Duration(
-              milliseconds: 500,
-            ), // Shows complete state
-          ),
-          // Trigger from top edge only
-          trigger: IndicatorTrigger.leadingEdge,
-          triggerMode: IndicatorTriggerMode.onEdge,
-          // Customization
-          offsetToArmed: 80.0, // Distance to pull before triggering
-          autoRebuild: true,
-          // Custom indicator builder
-          builder: (context, child, controller) {
-            return Stack(
-              alignment: Alignment.topCenter,
-              children: [
-                // Main content
-                Transform.translate(
-                  offset: Offset(
-                    0,
-                    controller.value * 60,
-                  ), // Moves content down during pull
-                  child: child,
-                ),
-                // Custom refresh indicator
-                if (controller.state != IndicatorState.idle)
-                  Positioned(
-                    top: controller.value * 50 - 50, // Slides in from top
-                    child: _buildCustomIndicator(controller, isSmallScreen),
-                  ),
-              ],
-            );
-          },
+        child: RefreshIndicator(
+          key: _refreshIndicatorKey,
+          onRefresh: _onRefresh,
+          // Use iOS-style indicator
+          color: Theme.of(context).primaryColor,
+          backgroundColor: Colors.white,
+          strokeWidth: 2.0,
+          displacement: 40.0,
+          // Custom refresh indicator builder for iOS-style
           child: LayoutBuilder(
             builder: (context, constraints) {
               final horizontalPadding = isSmallScreen ? 16.0 : 24.0;
               final verticalPadding = isSmallScreen ? 8.0 : 12.0;
 
-              return SingleChildScrollView(
+              return CustomScrollView(
+                // Always allow scrolling for pull-to-refresh to work
                 physics: const AlwaysScrollableScrollPhysics(),
-                child: Container(
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                  padding: EdgeInsets.fromLTRB(
-                    horizontalPadding,
-                    verticalPadding,
-                    horizontalPadding,
-                    verticalPadding,
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        horizontalPadding,
+                        verticalPadding,
+                        horizontalPadding,
+                        verticalPadding,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Date navigation - made more responsive
+                          _buildDateNavigation(isSmallScreen),
+                          SizedBox(height: isSmallScreen ? 16 : 20),
+                          _buildContent(statsState, isSmallScreen, constraints),
+                        ],
+                      ),
+                    ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Date navigation
-                      _buildDateNavigation(isSmallScreen),
-                      SizedBox(height: isSmallScreen ? 16 : 20),
-
-                      // Main content
-                      _buildContent(statsState, isSmallScreen, constraints),
-                    ],
-                  ),
-                ),
+                ],
               );
             },
           ),
@@ -428,7 +342,10 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     BoxConstraints constraints,
   ) {
     if (statsState.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return SizedBox(
+        height: constraints.maxHeight * 0.6,
+        child: const Center(child: CircularProgressIndicator()),
+      );
     }
 
     // Handle errors
@@ -446,7 +363,163 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
           errorMessage.contains('empty') ||
           errorMessage.contains('null')) {
         // Show the "no data" widget for data-related errors
-        return Column(
+        return SizedBox(
+          height: constraints.maxHeight * 0.6,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Flexible(
+                child: Text(
+                  '아직은',
+                  style: TextStyles.kSemiBold.copyWith(
+                    fontSize: isSmallScreen ? 24 : 32,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Flexible(
+                child: Text(
+                  '기록된 내용이 없어요',
+                  style: TextStyles.kSemiBold.copyWith(
+                    fontSize: isSmallScreen ? 24 : 32,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+
+      // Check for network/connection errors
+      if (errorMessage.contains('network') ||
+          errorMessage.contains('connection') ||
+          errorMessage.contains('timeout') ||
+          errorMessage.contains('네트워크') ||
+          errorMessage.contains('연결') ||
+          errorMessage.contains('인터넷')) {
+        return SizedBox(
+          height: constraints.maxHeight * 0.6,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Flexible(
+                child: Text(
+                  '네트워크 오류',
+                  style: TextStyles.kSemiBold.copyWith(
+                    fontSize: isSmallScreen ? 24 : 32,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
+                ),
+              ),
+              SizedBox(height: isSmallScreen ? 12 : 16),
+              Flexible(
+                child: Text(
+                  '인터넷 연결을 확인해주세요',
+                  style: TextStyles.kRegular,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 3,
+                ),
+              ),
+              SizedBox(height: isSmallScreen ? 12 : 16),
+              ElevatedButton(
+                onPressed: _loadStatsForSelectedDate,
+                child: const Text('다시 시도'),
+              ),
+            ],
+          ),
+        );
+      }
+
+      // Check for authentication errors
+      if (errorMessage.contains('unauthorized') ||
+          errorMessage.contains('auth') ||
+          errorMessage.contains('login') ||
+          errorMessage.contains('401') ||
+          errorMessage.contains('403') ||
+          errorMessage.contains('권한') ||
+          errorMessage.contains('인증')) {
+        return SizedBox(
+          height: constraints.maxHeight * 0.6,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Flexible(
+                child: Text(
+                  '인증 오류',
+                  style: TextStyles.kSemiBold.copyWith(
+                    fontSize: isSmallScreen ? 24 : 32,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
+                ),
+              ),
+              SizedBox(height: isSmallScreen ? 12 : 16),
+              Flexible(
+                child: Text(
+                  '다시 로그인해주세요',
+                  style: TextStyles.kRegular,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 3,
+                ),
+              ),
+              SizedBox(height: isSmallScreen ? 12 : 16),
+              ElevatedButton(
+                onPressed: () {
+                  // Navigate to login or refresh auth
+                  context.go('/login');
+                },
+                child: const Text('로그인'),
+              ),
+            ],
+          ),
+        );
+      }
+
+      // Check for server errors
+      if (errorMessage.contains('500') ||
+          errorMessage.contains('server') ||
+          errorMessage.contains('internal') ||
+          errorMessage.contains('서버')) {
+        return SizedBox(
+          height: constraints.maxHeight * 0.6,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Flexible(
+                child: Text(
+                  '서버 오류',
+                  style: TextStyles.kSemiBold.copyWith(
+                    fontSize: isSmallScreen ? 24 : 32,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
+                ),
+              ),
+              SizedBox(height: isSmallScreen ? 12 : 16),
+              Flexible(
+                child: Text(
+                  '잠시 후 다시 시도해주세요',
+                  style: TextStyles.kRegular,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 3,
+                ),
+              ),
+              SizedBox(height: isSmallScreen ? 12 : 16),
+              ElevatedButton(
+                onPressed: _loadStatsForSelectedDate,
+                child: const Text('다시 시도'),
+              ),
+            ],
+          ),
+        );
+      }
+
+      // For any other error, show the "no data" widget as fallback
+      return SizedBox(
+        height: constraints.maxHeight * 0.6,
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Flexible(
@@ -468,175 +541,37 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
               ),
             ),
           ],
-        );
-      }
-
-      // Check for network/connection errors
-      if (errorMessage.contains('network') ||
-          errorMessage.contains('connection') ||
-          errorMessage.contains('timeout') ||
-          errorMessage.contains('네트워크') ||
-          errorMessage.contains('연결') ||
-          errorMessage.contains('인터넷')) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Flexible(
-              child: Text(
-                '네트워크 오류',
-                style: TextStyles.kSemiBold.copyWith(
-                  fontSize: isSmallScreen ? 24 : 32,
-                ),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 2,
-              ),
-            ),
-            SizedBox(height: isSmallScreen ? 12 : 16),
-            Flexible(
-              child: Text(
-                '인터넷 연결을 확인해주세요',
-                style: TextStyles.kRegular,
-                overflow: TextOverflow.ellipsis,
-                maxLines: 3,
-              ),
-            ),
-            SizedBox(height: isSmallScreen ? 12 : 16),
-            ElevatedButton(
-              onPressed: _loadStatsForSelectedDate,
-              child: const Text('다시 시도'),
-            ),
-          ],
-        );
-      }
-
-      // Check for authentication errors
-      if (errorMessage.contains('unauthorized') ||
-          errorMessage.contains('auth') ||
-          errorMessage.contains('login') ||
-          errorMessage.contains('401') ||
-          errorMessage.contains('403') ||
-          errorMessage.contains('권한') ||
-          errorMessage.contains('인증')) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Flexible(
-              child: Text(
-                '인증 오류',
-                style: TextStyles.kSemiBold.copyWith(
-                  fontSize: isSmallScreen ? 24 : 32,
-                ),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 2,
-              ),
-            ),
-            SizedBox(height: isSmallScreen ? 12 : 16),
-            Flexible(
-              child: Text(
-                '다시 로그인해주세요',
-                style: TextStyles.kRegular,
-                overflow: TextOverflow.ellipsis,
-                maxLines: 3,
-              ),
-            ),
-            SizedBox(height: isSmallScreen ? 12 : 16),
-            ElevatedButton(
-              onPressed: () {
-                // Navigate to login or refresh auth
-                context.go('/login');
-              },
-              child: const Text('로그인'),
-            ),
-          ],
-        );
-      }
-
-      // Check for server errors
-      if (errorMessage.contains('500') ||
-          errorMessage.contains('server') ||
-          errorMessage.contains('internal') ||
-          errorMessage.contains('서버')) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Flexible(
-              child: Text(
-                '서버 오류',
-                style: TextStyles.kSemiBold.copyWith(
-                  fontSize: isSmallScreen ? 24 : 32,
-                ),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 2,
-              ),
-            ),
-            SizedBox(height: isSmallScreen ? 12 : 16),
-            Flexible(
-              child: Text(
-                '잠시 후 다시 시도해주세요',
-                style: TextStyles.kRegular,
-                overflow: TextOverflow.ellipsis,
-                maxLines: 3,
-              ),
-            ),
-            SizedBox(height: isSmallScreen ? 12 : 16),
-            ElevatedButton(
-              onPressed: _loadStatsForSelectedDate,
-              child: const Text('다시 시도'),
-            ),
-          ],
-        );
-      }
-
-      // For any other error, show the "no data" widget as fallback
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Flexible(
-            child: Text(
-              '아직은',
-              style: TextStyles.kSemiBold.copyWith(
-                fontSize: isSmallScreen ? 24 : 32,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Flexible(
-            child: Text(
-              '기록된 내용이 없어요',
-              style: TextStyles.kSemiBold.copyWith(
-                fontSize: isSmallScreen ? 24 : 32,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
+        ),
       );
     }
 
     // Handle no data case (when API succeeds but returns empty/null data)
     if (!statsState.hasData) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Flexible(
-            child: Text(
-              '아직은',
-              style: TextStyles.kSemiBold.copyWith(
-                fontSize: isSmallScreen ? 24 : 32,
+      return SizedBox(
+        height: constraints.maxHeight * 0.6,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Flexible(
+              child: Text(
+                '아직은',
+                style: TextStyles.kSemiBold.copyWith(
+                  fontSize: isSmallScreen ? 24 : 32,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
-              overflow: TextOverflow.ellipsis,
             ),
-          ),
-          Flexible(
-            child: Text(
-              '기록된 내용이 없어요',
-              style: TextStyles.kSemiBold.copyWith(
-                fontSize: isSmallScreen ? 24 : 32,
+            Flexible(
+              child: Text(
+                '기록된 내용이 없어요',
+                style: TextStyles.kSemiBold.copyWith(
+                  fontSize: isSmallScreen ? 24 : 32,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
-              overflow: TextOverflow.ellipsis,
             ),
-          ),
-        ],
+          ],
+        ),
       );
     }
 
@@ -709,6 +644,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
           value: _formatBreathRange(stats?.breathMean, stats?.breathStd),
           unit: '회',
           showProgressBar: true,
+          // Update these values to represent start and end points of range
           progressMinValue:
               ((stats?.breathMean ?? 0.0) - (stats?.breathStd ?? 0.0)).clamp(
                 0.0,
@@ -723,6 +659,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
               40.0,
           progressColor: Colors.grey.shade800,
         ),
+
         const SizedBox(height: 16),
         _buildInfoCard(
           title: '걸음',

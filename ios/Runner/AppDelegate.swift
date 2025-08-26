@@ -18,11 +18,8 @@ import UserNotifications
       UNUserNotificationCenter.current().delegate = self
     }
 
-    // 🔥 ADD: Configure notification categories for action buttons
+    // 🔥 UPDATED: Configure notification categories for action buttons
     configureNotificationCategories()
-
-    // Register for remote notifications (FCM)
-    application.registerForRemoteNotifications()
 
     // Set messaging delegate
     Messaging.messaging().delegate = self
@@ -33,7 +30,7 @@ import UserNotifications
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
-  // 🔥 ADD: Configure notification categories
+  // 🔥 UPDATED: Configure notification categories with proper permission flow
   func configureNotificationCategories() {
     let resolveAction = UNNotificationAction(
       identifier: "resolve_action",
@@ -50,38 +47,62 @@ import UserNotifications
 
     UNUserNotificationCenter.current().setNotificationCategories([resolveCategory])
 
-    // Request permissions
+    // 🔥 FIXED: Request permissions and register for remote notifications in the callback
     UNUserNotificationCenter.current().requestAuthorization(
       options: [.alert, .badge, .sound]
-    ) { granted, error in
+    ) { [weak self] granted, error in
+      print("🔔 Notification permission request completed")
       if granted {
         print("✅ iOS notification permissions granted")
+        // 🔥 IMPORTANT: Register for remote notifications AFTER permission is granted
+        DispatchQueue.main.async {
+          UIApplication.shared.registerForRemoteNotifications()
+          print("📱 Requesting APNS token registration...")
+        }
       } else {
         print("❌ iOS notification permissions denied: \(error?.localizedDescription ?? "Unknown")")
       }
     }
   }
 
-  // Handle successful APNs token registration (for FCM)
+  // 🔥 UPDATED: Handle successful APNs token registration
   override func application(
     _ application: UIApplication,
     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
   ) {
+    print("🎉 ===========================")
+    print("🎉 APNS TOKEN RECEIVED!")
+    print("🎉 ===========================")
+
     // CRITICAL: Set the APNs token for Firebase Messaging
     Messaging.messaging().apnsToken = deviceToken
 
     let tokenString = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
-    print("APNs Token: \(tokenString)")
+    print("📱 APNs Token: \(tokenString)")
 
+    // Call super to ensure proper handling
     super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
   }
 
-  // Handle APNs registration failure
+  // 🔥 UPDATED: Handle APNs registration failure with more details
   override func application(
     _ application: UIApplication,
     didFailToRegisterForRemoteNotificationsWithError error: Error
   ) {
-    print("Failed to register for APNs: \(error.localizedDescription)")
+    print("❌ ===========================")
+    print("❌ APNS REGISTRATION FAILED!")
+    print("❌ Error: \(error.localizedDescription)")
+    print("❌ ===========================")
+
+    // Check for common issues
+    if error.localizedDescription.contains("aps-environment") {
+      print("💡 SOLUTION: Add Push Notifications capability in Xcode")
+      print("💡 1. Open ios/Runner.xcworkspace in Xcode")
+      print("💡 2. Select Runner project")
+      print("💡 3. Go to Signing & Capabilities")
+      print("💡 4. Add '+' > Push Notifications")
+    }
+
     super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
   }
 
@@ -91,7 +112,7 @@ import UserNotifications
     willPresent notification: UNNotification,
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
-    print("iOS notification received in foreground")
+    print("📱 iOS notification received in foreground")
     if #available(iOS 14.0, *) {
       completionHandler([[.banner, .sound]])
     } else {
@@ -105,7 +126,7 @@ import UserNotifications
     didReceive response: UNNotificationResponse,
     withCompletionHandler completionHandler: @escaping () -> Void
   ) {
-    print("iOS notification tapped")
+    print("📱 iOS notification tapped - Action: \(response.actionIdentifier)")
     completionHandler()
   }
 }
@@ -115,8 +136,8 @@ extension AppDelegate: MessagingDelegate {
   // Handle FCM token refresh
   func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
     print("🔥 =========================")
-    print("🔥 FCM TOKEN (iOS):")
-    print("🔥 \(String(describing: fcmToken))")
+    print("🔥 FCM TOKEN RECEIVED!")
+    print("🔥 Token: \(String(describing: fcmToken))")
     print("🔥 =========================")
 
     // You can send this token to your server here
