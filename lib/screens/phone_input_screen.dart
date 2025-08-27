@@ -110,48 +110,48 @@ class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
     }
   }
 
-  // 🔧 SIMPLIFIED: Skip method - mark as onboarded and go to main app
-  void _skipAndContinue() async {
-    try {
-      print('⏭️ PhoneInput - User clicked skip button');
+  // // 🔧 SIMPLIFIED: Skip method - mark as onboarded and go to main app
+  // void _skipAndContinue() async {
+  //   try {
+  //     print('⏭️ PhoneInput - User clicked skip button');
 
-      // Show confirmation dialog first
-      final shouldSkip = await SkipPersonalInfoDialog.show(context);
+  //     // Show confirmation dialog first
+  //     final shouldSkip = await SkipPersonalInfoDialog.show(context);
 
-      if (shouldSkip == true && mounted) {
-        print('⏭️ PhoneInput - User confirmed to skip phone input');
+  //     if (shouldSkip == true && mounted) {
+  //       print('⏭️ PhoneInput - User confirmed to skip phone input');
 
-        // ✅ SIMPLIFIED: Mark as onboarded in API so they don't see onboarding again
-        await ref
-            .read(userProvider.notifier)
-            .updateCurrentUserProfile(UserUpdateRequest(onboarded: true));
+  //       // ✅ SIMPLIFIED: Mark as onboarded in API so they don't see onboarding again
+  //       await ref
+  //           .read(userProvider.notifier)
+  //           .updateCurrentUserProfile(UserUpdateRequest(onboarded: true));
 
-        print('✅ PhoneInput - User marked as onboarded (skipped)');
+  //       print('✅ PhoneInput - User marked as onboarded (skipped)');
 
-        // Mark as completed locally (for compatibility)
-        final onboardingManager = ref.read(onboardingManagerProvider);
-        await onboardingManager.markOnboardingCompleted();
+  //       // Mark as completed locally (for compatibility)
+  //       final onboardingManager = ref.read(onboardingManagerProvider);
+  //       await onboardingManager.markOnboardingCompleted();
 
-        // Refresh profile to update the router
-        await ref.read(userProvider.notifier).getCurrentUserProfile();
+  //       // Refresh profile to update the router
+  //       await ref.read(userProvider.notifier).getCurrentUserProfile();
 
-        print('🔄 PhoneInput - User profile refreshed, navigating to main app');
+  //       print('🔄 PhoneInput - User profile refreshed, navigating to main app');
 
-        // Navigate to main app
-        context.go('/navigation');
-      } else {
-        print(
-          '⏭️ PhoneInput - User chose to stay and continue with phone input',
-        );
-      }
-    } catch (e) {
-      print('❌ PhoneInput - Error during skip: $e');
-      if (mounted) {
-        // Even if there's an error, let them continue to home if they confirmed
-        context.go('/navigation');
-      }
-    }
-  }
+  //       // Navigate to main app
+  //       context.go('/navigation');
+  //     } else {
+  //       print(
+  //         '⏭️ PhoneInput - User chose to stay and continue with phone input',
+  //       );
+  //     }
+  //   } catch (e) {
+  //     print('❌ PhoneInput - Error during skip: $e');
+  //     if (mounted) {
+  //       // Even if there's an error, let them continue to home if they confirmed
+  //       context.go('/navigation');
+  //     }
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -174,10 +174,10 @@ class _PhoneInputScreenState extends ConsumerState<PhoneInputScreen> {
               // App Bar - Fixed at top
               CustomAppBar(
                 title: '보호자 연락처',
-                showTrailingButton: true,
+                showTrailingButton: false,
                 trailingButtonText: '건너뛰기',
                 showBackButton: false,
-                onTrailingPressed: _skipAndContinue,
+                // onTrailingPressed: _skipAndContinue,
               ),
 
               // 🔧 FIX: Scrollable content to prevent overflow

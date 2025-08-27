@@ -1,4 +1,6 @@
 // lib/services/user_api_client.dart
+import 'package:Wicore/models/incognito_user_request.dart';
+import 'package:Wicore/models/incognito_user_response.dart';
 import 'package:Wicore/models/user_response_model.dart';
 import 'package:Wicore/models/user_request_model.dart';
 import 'package:Wicore/models/user_update_request_model.dart';
@@ -11,11 +13,15 @@ part 'user_api_client.g.dart';
 abstract class UserApiClient {
   factory UserApiClient(Dio dio) = _UserApiClient;
 
-  @POST('/user')
-  Future<UserResponse> createUser(@Body() UserRequest request);
-
   @GET('/user/{userId}')
   Future<UserResponse> getUser(@Path('userId') String userId);
+
+  /// Create/Update incognito user via POST /user
+
+  @POST('/user')
+  Future<IncognitoUserResponse> createOrUpdateIncognitoUser(
+    @Body() IncognitoUserRequest request,
+  );
 
   @PATCH('/user/{userId}')
   Future<UserResponse> updateUser(

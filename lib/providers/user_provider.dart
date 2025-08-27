@@ -24,24 +24,24 @@ class UserNotifier extends StateNotifier<AsyncValue<UserResponse?>> {
   UserNotifier(this._repository, this._ref)
     : super(const AsyncValue.data(null));
 
-  Future<void> createUser(UserRequest request) async {
-    state = const AsyncValue.loading();
-    try {
-      final authNotifier = _ref.read(authNotifierProvider.notifier);
-      final token = await authNotifier.getValidToken();
-      if (token == null) {
-        throw Exception('No valid authentication token available');
-      }
+  // Future<void> createUser(UserRequest request) async {
+  //   state = const AsyncValue.loading();
+  //   try {
+  //     final authNotifier = _ref.read(authNotifierProvider.notifier);
+  //     final token = await authNotifier.getValidToken();
+  //     if (token == null) {
+  //       throw Exception('No valid authentication token available');
+  //     }
 
-      final response = await _repository.createUser(request);
-      state = AsyncValue.data(response);
+  //     final response = await _repository.createUser(request);
+  //     state = AsyncValue.data(response);
 
-      print('🔧 ✅ UserNotifier - User created successfully');
-    } catch (error, stackTrace) {
-      print('🔧 ❌ UserNotifier - Error creating user: $error');
-      state = AsyncValue.error(error, stackTrace);
-    }
-  }
+  //     print('🔧 ✅ UserNotifier - User created successfully');
+  //   } catch (error, stackTrace) {
+  //     print('🔧 ❌ UserNotifier - Error creating user: $error');
+  //     state = AsyncValue.error(error, stackTrace);
+  //   }
+  // }
 
   Future<void> getUser(String userId) async {
     state = const AsyncValue.loading();

@@ -39,51 +39,33 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-// ✅ SIMPLIFIED helper method - Check API every time
 Future<String?> _handleOnboardingFlow(
   String currentPath,
   dynamic onboardingManager,
-  bool isUserOnboarded, // This now properly handles null as false
+  bool isUserOnboarded,
   Ref ref,
 ) async {
   try {
-    // 🔧 SIMPLIFIED: Only check API for onboarding status - no daily limits
-    final shouldShowOnboarding = await onboardingManager.shouldShowOnboarding(
-      isUserOnboarded: isUserOnboarded,
-    );
-
-    print(
-      '🔄 Router - Should show onboarding (API-only): $shouldShowOnboarding',
-    );
-    print('🔄 Router - User onboarded from API (null=false): $isUserOnboarded');
-
-    if (shouldShowOnboarding) {
-      // Allow staying in onboarding flow
-      final onboardingPaths = ['/onboarding', '/phone-input', '/prep-done'];
-
-      if (onboardingPaths.contains(currentPath)) {
-        print('🔄 Router - User in onboarding flow, staying on current screen');
-        return null;
-      }
-
-      // 🔧 SIMPLIFIED: Redirect to start of onboarding (no daily marking)
-      print('🔄 Router - Starting onboarding flow');
-      return '/onboarding';
-    } else {
-      // User is onboarded according to API, go to main app
-      print('🔄 Router - User onboarded, going to main app');
-
-      // If user is currently on onboarding screens but API says onboarded, redirect to main
-      final onboardingPaths = ['/onboarding', '/phone-input', '/prep-done'];
-      if (onboardingPaths.contains(currentPath)) {
-        return '/navigation';
-      }
+    // If already onboarded according to API, never show onboarding
+    if (isUserOnboarded) {
+      print(
+        '🔄 Router - API says user is onboarded, redirecting to navigation',
+      );
+      return '/navigation';
     }
 
-    return null;
+    // Handle users in onboarding flow
+    final onboardingPaths = ['/onboarding', '/phone-input', '/prep-done'];
+    if (onboardingPaths.contains(currentPath)) {
+      print('🔄 Router - User in onboarding flow, staying on current screen');
+      return null;
+    }
+
+    // Not onboarded and not in onboarding flow - start onboarding
+    print('🔄 Router - Starting onboarding flow');
+    return '/onboarding';
   } catch (error) {
-    print('🔄 Router - Error in onboarding flow: $error');
-    // On error, default to showing onboarding
+    print('❌ Router - Error in onboarding flow: $error');
     return '/onboarding';
   }
 }
@@ -125,68 +107,53 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (isAuthenticated && isInitialized) {
         // ✅ UPDATED: Better handling with null checking
         return userAsyncValue.when(
-          data: (userResponse) {
-            // 🔧 IMPORTANT: Treat null as false for onboarding status
-            final isUserOnboarded = userResponse?.data?.onboarded ?? false;
-
+          data: (userResponse) async {
+            // Debug logging
+            print('🔄 Router - Current path: $currentPath');
             print(
-              '🔄 Router - User API onboarded status (null treated as false): $isUserOnboarded',
-            );
-            print(
-              '🔄 Router - Raw onboarded value: ${userResponse?.data?.onboarded}',
+              '🔄 Router - User onboarded status: ${userResponse?.data?.onboarded}',
             );
             print(
               '🔄 Router - Full user data: ${userResponse?.data?.toJson()}',
             );
 
-            // 🔧 NEW: If onboarded is null or false, show onboarding
-            if (!isUserOnboarded) {
+            final isUserOnboarded = userResponse?.data?.onboarded ?? false;
+
+            // If user is onboarded, they should never see onboarding screens
+            if (isUserOnboarded) {
+              print('🔄 Router - User is onboarded, checking current path');
+
+              // List of onboarding screens
+              final onboardingScreens = [
+                '/onboarding',
+                '/phone-input',
+                '/prep-done',
+                '/personal-info-input',
+              ];
+
+              // If on any onboarding screen but user is onboarded, redirect to main app
+              if (onboardingScreens.contains(currentPath)) {
+                print(
+                  '🔄 Router - Redirecting onboarded user from onboarding to navigation',
+                );
+                return '/navigation';
+              }
+
+              // If already on a main app screen, stay there
               print(
-                '🔄 Router - User not onboarded (or null), checking onboarding flow',
+                '🔄 Router - User is onboarded and on valid screen, staying put',
               );
-              return _handleOnboardingFlow(
-                currentPath,
-                onboardingManager,
-                isUserOnboarded,
-                ref,
-              );
+              return null;
             }
 
-            // ✅ FIX: Handle splash screen for authenticated, onboarded users
-            if (currentPath == '/splash') {
-              print(
-                '🔄 Router - Authenticated, onboarded user on splash, redirecting to navigation',
-              );
-              return '/navigation';
-            }
-
-            // User is fully onboarded - redirect from auth screens to main app
-            final authScreens = [
-              '/login',
-              '/register',
-              '/welcome',
-              '/name-input',
-              '/email-input',
-              '/password-input',
-              '/password-re-enter',
-              '/forgot-password',
-            ];
-
-            if (authScreens.contains(currentPath)) {
-              print(
-                '🔄 Router - Redirecting authenticated user from auth screen to navigation',
-              );
-              return '/navigation';
-            }
-
-            // Redirect /home to /navigation
-            if (currentPath == '/home') {
-              print('🔄 Router - Redirecting /home to /navigation');
-              return '/navigation';
-            }
-
-            // ✅ Allow staying on current screen if it's a valid app screen
-            return null;
+            // If not onboarded, handle onboarding flow
+            print('🔄 Router - User not onboarded, checking onboarding flow');
+            return await _handleOnboardingFlow(
+              currentPath,
+              onboardingManager,
+              isUserOnboarded,
+              ref,
+            );
           },
           loading: () {
             print('🔄 Router - User data still loading...');

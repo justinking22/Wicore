@@ -78,6 +78,9 @@ dependencies:
   custom_refresh_indicator: ^4.0.1
   google_sign_in: ^7.1.1
   sign_in_with_apple: ^7.0.1
+  crypto: ^3.0.6
+  url_launcher: ^6.3.2
+  webview_flutter: ^4.13.0
   
   
 

@@ -1,6 +1,11 @@
+// lib/services/token_storage_service.dart
+import 'dart:convert';
+
 import 'package:Wicore/models/user_model.dart';
+import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
+import 'package:amplify_flutter/amplify_flutter.dart';
 
 class TokenStorageService {
   static const String _accessTokenKey = 'access_token';
@@ -10,6 +15,8 @@ class TokenStorageService {
   static const String _idKey = 'id';
   static const String _emailKey = 'email';
   static const String _refreshTokenExpiryKey = 'refresh_token_expiry';
+  static const String _socialProviderKey = 'social_provider';
+  static const String _idTokenKey = 'id_token';
 
   /// Save tokens from sign-in response (has expiryDate, refreshToken)
   Future<void> saveSignInTokens({
@@ -41,6 +48,67 @@ class TokenStorageService {
       print('   Refresh token: ${refreshToken.substring(0, 20)}...');
       print('   Expiry date (ISO): $expiryDate');
       print('   Username: $username');
+    }
+  }
+
+  Future<void> saveSocialLoginTokens({
+    required String accessToken,
+    required String refreshToken,
+    required String idToken,
+    required String username,
+    required String userId,
+    required String provider,
+    String? email,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Extract expiry from JWT token instead of using 2-hour default
+    DateTime expiry = DateTime.now().add(const Duration(hours: 2)); // fallback
+
+    try {
+      final parts = accessToken.split('.');
+      if (parts.length == 3) {
+        final payload = parts[1];
+        final normalizedPayload = payload.padRight(
+          (payload.length + 3) ~/ 4 * 4,
+          '=',
+        );
+        final decoded = utf8.decode(base64Url.decode(normalizedPayload));
+        final jsonPayload = json.decode(decoded) as Map<String, dynamic>;
+
+        if (jsonPayload['exp'] != null) {
+          expiry = DateTime.fromMillisecondsSinceEpoch(
+            (jsonPayload['exp'] as int) * 1000,
+          );
+          if (kDebugMode) {
+            print('💾 Extracted JWT expiry: $expiry');
+          }
+        }
+      }
+    } catch (e) {
+      if (kDebugMode)
+        print('💾 Error extracting JWT expiry, using default: $e');
+    }
+
+    final expiryDate = expiry.toIso8601String();
+
+    await prefs.setString(_accessTokenKey, accessToken);
+    await prefs.setString(_refreshTokenKey, refreshToken);
+    await prefs.setString(_idTokenKey, idToken);
+    await prefs.setString(_expiryDateKey, expiryDate);
+    await prefs.setString(_usernameKey, username);
+    await prefs.setString(_idKey, userId);
+    await prefs.setString(_socialProviderKey, provider);
+
+    if (email != null) {
+      await prefs.setString(_emailKey, email);
+    }
+
+    if (kDebugMode) {
+      print('💾 Saved social login tokens:');
+      print('   Provider: $provider');
+      print('   Username: $username');
+      print('   JWT-based expiry: $expiryDate');
     }
   }
 
@@ -103,37 +171,6 @@ class TokenStorageService {
     }
   }
 
-  /// Save tokens with optional refresh token expiry (for future use)
-  Future<void> saveTokensWithRefreshExpiry({
-    required String accessToken,
-    required String refreshToken,
-    required String expiryDate,
-    required String username,
-    required String id,
-    String? refreshTokenExpiry,
-  }) async {
-    final prefs = await SharedPreferences.getInstance();
-
-    await prefs.setString(_accessTokenKey, accessToken);
-    await prefs.setString(_refreshTokenKey, refreshToken);
-    await prefs.setString(_expiryDateKey, expiryDate);
-    await prefs.setString(_usernameKey, username);
-    await prefs.setString(_idKey, id);
-
-    if (refreshTokenExpiry != null) {
-      await prefs.setString(_refreshTokenExpiryKey, refreshTokenExpiry);
-      if (kDebugMode) {
-        print('💾 Saved tokens with refresh expiry:');
-        print('   Access expiry: $expiryDate');
-        print('   Refresh expiry: $refreshTokenExpiry');
-      }
-    } else {
-      if (kDebugMode) {
-        print('💾 Saved tokens without refresh expiry');
-      }
-    }
-  }
-
   Future<UserData?> getStoredTokens() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -163,6 +200,24 @@ class TokenStorageService {
   Future<String?> getRefreshToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_refreshTokenKey);
+  }
+
+  /// Get stored ID token (for social logins)
+  Future<String?> getIdToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_idTokenKey);
+  }
+
+  /// Get social login provider
+  Future<String?> getSocialProvider() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_socialProviderKey);
+  }
+
+  /// Check if current login is social
+  Future<bool> isSocialLogin() async {
+    final provider = await getSocialProvider();
+    return provider != null;
   }
 
   Future<String?> getUsername() async {
@@ -239,6 +294,22 @@ class TokenStorageService {
         return true;
       }
 
+      // Check if this is a social login first
+      final isSocial = await isSocialLogin();
+      if (isSocial) {
+        try {
+          final session = await Amplify.Auth.fetchAuthSession();
+          if (!session.isSignedIn) {
+            if (kDebugMode) print('🔄 Social login session expired');
+            return true;
+          }
+          return false;
+        } catch (e) {
+          if (kDebugMode) print('🔄 Error checking social login session: $e');
+          return true;
+        }
+      }
+
       // Check if we have a specific refresh token expiry stored
       final refreshTokenExpiryString = prefs.getString(_refreshTokenExpiryKey);
 
@@ -266,9 +337,9 @@ class TokenStorageService {
       if (accessTokenExpiryString != null) {
         final accessTokenExpiry = DateTime.tryParse(accessTokenExpiryString);
         if (accessTokenExpiry != null) {
-          // Assume refresh token expires 30 days after the access token was issued
+          // Assume refresh token expires 60 days after the access token was issued
           final refreshTokenExpiry = accessTokenExpiry.add(
-            const Duration(days: 30),
+            const Duration(days: 60),
           );
           final now = DateTime.now();
           final bufferTime = now.add(const Duration(minutes: 5));
@@ -296,6 +367,61 @@ class TokenStorageService {
     }
   }
 
+  /// Enhanced social token refresh that calls your refresh endpoint every 2 hours
+  Future<bool> refreshSocialTokens() async {
+    try {
+      final provider = await getSocialProvider();
+      if (provider == null) {
+        if (kDebugMode)
+          print('🔄 Not a social login, cannot refresh social tokens');
+        return false;
+      }
+
+      if (kDebugMode) print('🔄 Refreshing $provider tokens via Amplify');
+
+      // Use Amplify to refresh the session
+      final session = await Amplify.Auth.fetchAuthSession(
+        options: const FetchAuthSessionOptions(forceRefresh: true),
+      );
+
+      if (session is CognitoAuthSession && session.isSignedIn) {
+        final tokens = session.userPoolTokensResult.value;
+
+        if (tokens?.accessToken != null && tokens?.refreshToken != null) {
+          final accessToken = tokens!.accessToken!;
+          final refreshToken = tokens.refreshToken!;
+          final idToken = tokens.idToken;
+          final user = await Amplify.Auth.getCurrentUser();
+
+          // Save refreshed tokens with JWT-based expiry
+          await saveSocialLoginTokens(
+            accessToken: accessToken.raw,
+            refreshToken: refreshToken,
+            idToken: idToken.raw,
+            username: user.username, // Use JWT username
+            userId: user.username, // Use same for consistency
+            provider: provider,
+            email: await getEmail(),
+          );
+
+          if (kDebugMode) {
+            print('🔄 ✅ Social tokens refreshed successfully');
+            print('   New JWT-based expiry calculated');
+          }
+
+          return true;
+        }
+      }
+
+      if (kDebugMode)
+        print('🔄 ❌ Failed to get valid tokens from refreshed session');
+      return false;
+    } catch (e) {
+      if (kDebugMode) print('🔄 ❌ Social token refresh failed: $e');
+      return false;
+    }
+  }
+
   Future<void> clearTokens() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -303,11 +429,24 @@ class TokenStorageService {
 
     await prefs.remove(_accessTokenKey);
     await prefs.remove(_refreshTokenKey);
+    await prefs.remove(_idTokenKey);
     await prefs.remove(_expiryDateKey);
     await prefs.remove(_usernameKey);
     await prefs.remove(_idKey);
     await prefs.remove(_emailKey);
     await prefs.remove(_refreshTokenExpiryKey);
+    await prefs.remove(_socialProviderKey);
+
+    // Also sign out from Amplify if it was a social login
+    try {
+      final currentSession = await Amplify.Auth.fetchAuthSession();
+      if (currentSession.isSignedIn) {
+        await Amplify.Auth.signOut();
+        if (kDebugMode) print('🗑️ Signed out from Amplify');
+      }
+    } catch (e) {
+      if (kDebugMode) print('⚠️ Failed to sign out from Amplify: $e');
+    }
   }
 
   /// Check if user has valid tokens (not expired)
@@ -399,18 +538,25 @@ class TokenStorageService {
     if (!kDebugMode) return;
 
     final prefs = await SharedPreferences.getInstance();
+    final isSocial = await isSocialLogin();
+    final provider = await getSocialProvider();
 
     print('🔍 === TOKEN DEBUG INFO ===');
+    print('Login Type: ${isSocial ? "Social ($provider)" : "Regular"}');
     print(
       'Access Token: ${prefs.getString(_accessTokenKey)?.substring(0, 20) ?? 'null'}...',
     );
     print(
       'Refresh Token: ${prefs.getString(_refreshTokenKey)?.substring(0, 20) ?? 'null'}...',
     );
+
+    if (isSocial) {
+      print(
+        'ID Token: ${prefs.getString(_idTokenKey)?.substring(0, 20) ?? 'null'}...',
+      );
+    }
+
     print('Access Token Expiry: ${prefs.getString(_expiryDateKey) ?? 'null'}');
-    print(
-      'Refresh Token Expiry: ${prefs.getString(_refreshTokenExpiryKey) ?? 'null (estimated)'}',
-    );
     print('Username: ${prefs.getString(_usernameKey) ?? 'null'}');
     print('Email: ${prefs.getString(_emailKey) ?? 'null'}');
     print('ID: ${prefs.getString(_idKey) ?? 'null'}');
@@ -423,15 +569,7 @@ class TokenStorageService {
       );
     }
 
-    final timeUntilRefreshExpiry = await getTimeUntilRefreshTokenExpiry();
-    if (timeUntilRefreshExpiry != null) {
-      print(
-        'Time Until Refresh Token Expires: ${timeUntilRefreshExpiry.inDays} days',
-      );
-    }
-
     print('Access Token Expired: ${await isTokenExpired()}');
-    print('Refresh Token Expired: ${await isRefreshTokenExpired()}');
     print('Has Valid Tokens: ${await hasValidTokens()}');
     print('🔍 === END TOKEN DEBUG ===');
   }
