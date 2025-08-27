@@ -1,16 +1,21 @@
+// lib/providers/authentication_provider.dart
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:math';
+import 'package:Wicore/models/user_update_request_model.dart';
+import 'package:Wicore/providers/user_provider.dart';
 import 'package:Wicore/repository/auth_repository.dart';
 import 'package:Wicore/repository/fcm_repository.dart';
 import 'package:Wicore/services/config_service.dart';
 import 'package:Wicore/services/fcm_api_client.dart';
+import 'package:Wicore/services/incognito_user_service.dart';
 import 'package:Wicore/states/auth_status.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:amplify_flutter/amplify_flutter.dart';
 import '../services/auth_api_client.dart';
 import '../services/token_storage_service.dart';
 import '../models/user_model.dart';
@@ -20,6 +25,7 @@ import '../models/refresh_token_response_model.dart';
 import '../models/forgot_password_response_model.dart';
 import '../models/resend_confirmation_response_model.dart';
 import '../models/change_password_response_model.dart';
+import '../models/social_login_models.dart';
 
 // Basic Dio provider without auth interceptor
 final dioProvider = Provider<Dio>((ref) {
@@ -48,7 +54,10 @@ class AuthDebugHelper {
       final refreshToken = await _tokenStorage.getRefreshToken();
       final expiryDate = await _tokenStorage.getTokenExpiryDate();
       final refreshExpiryDate = await _tokenStorage.getRefreshTokenExpiryDate();
+      final isSocial = await _tokenStorage.isSocialLogin();
+      final provider = await _tokenStorage.getSocialProvider();
 
+      print('🔍 Login Type: ${isSocial ? "Social ($provider)" : "Regular"}');
       print('🔍 Access Token Present: ${accessToken != null}');
       if (accessToken != null) {
         print(
@@ -105,7 +114,7 @@ class AuthDebugHelper {
   }
 }
 
-// Token refresh manager to handle proactive token refresh
+// Enhanced Token refresh manager for social login
 class TokenRefreshManager {
   Timer? _refreshTimer;
   final TokenStorageService _tokenStorage;
@@ -125,48 +134,62 @@ class TokenRefreshManager {
 
   Future<void> _scheduleNextRefresh() async {
     try {
-      // Use the stored expiryDate from TokenStorageService
-      final expiryDate = await _tokenStorage.getTokenExpiryDate();
-      if (expiryDate == null) {
-        if (kDebugMode)
-          print('🔄 No expiry date found, cannot schedule refresh');
-        return;
-      }
+      final isSocial = await _tokenStorage.isSocialLogin();
 
-      final now = DateTime.now();
-      final expiry = DateTime.parse(expiryDate);
+      if (isSocial) {
+        // For social login, use JWT expiry instead of fixed 2-hour refresh
+        final expiryDate = await _tokenStorage.getTokenExpiryDate();
+        if (expiryDate != null) {
+          final now = DateTime.now();
+          final expiry = DateTime.parse(expiryDate);
 
-      // Schedule refresh 2 minutes before expiry, but at least 30 seconds from now
-      final refreshTime = expiry.subtract(const Duration(minutes: 2));
-      final timeUntilRefresh = refreshTime.difference(now);
+          // Schedule refresh 5 minutes before JWT expiry
+          final refreshTime = expiry.subtract(const Duration(minutes: 5));
+          final timeUntilRefresh = refreshTime.difference(now);
 
-      if (kDebugMode) {
-        print('🔄 Token refresh scheduling:');
-        print('   Current time: $now');
-        print('   Token expires: $expiry');
-        print('   Refresh scheduled for: $refreshTime');
-        print('   Time until refresh: ${timeUntilRefresh.inMinutes} minutes');
-      }
+          if (kDebugMode) {
+            print('🔄 Social login JWT-based refresh scheduling:');
+            print('   Current time: $now');
+            print('   JWT expires: $expiry');
+            print('   Refresh scheduled for: $refreshTime');
+            print(
+              '   Time until refresh: ${timeUntilRefresh.inMinutes} minutes',
+            );
+          }
 
-      if (timeUntilRefresh.inSeconds > 30) {
-        if (kDebugMode) {
-          print(
-            '🔄 Scheduling token refresh in ${timeUntilRefresh.inMinutes} minutes',
-          );
+          if (timeUntilRefresh.inSeconds > 30) {
+            _refreshTimer = Timer(timeUntilRefresh, () {
+              if (kDebugMode) print('🔄 JWT-based social refresh triggered');
+              _onRefreshNeeded();
+            });
+          } else {
+            // Token expires soon, refresh immediately
+            if (kDebugMode)
+              print('🔄 Social token expires soon, refreshing now');
+            _onRefreshNeeded();
+          }
+          return;
         }
 
-        _refreshTimer = Timer(timeUntilRefresh, () {
-          if (kDebugMode) print('🔄 Proactive token refresh triggered');
-          _onRefreshNeeded();
-        });
-      } else if (timeUntilRefresh.inSeconds > 0) {
-        // Token expires soon, refresh immediately
-        if (kDebugMode) print('🔄 Token expires soon, refreshing immediately');
-        _onRefreshNeeded();
+        // Fallback to 2-hour refresh if we can't read JWT expiry
+        if (kDebugMode) print('🔄 Fallback to 2-hour social refresh');
+        const refreshInterval = Duration(hours: 2);
+        _refreshTimer = Timer(refreshInterval, _onRefreshNeeded);
       } else {
-        if (kDebugMode)
-          print('🔄 Token already expired, refresh needed immediately');
-        _onRefreshNeeded();
+        // Regular login logic remains the same
+        final expiryDate = await _tokenStorage.getTokenExpiryDate();
+        if (expiryDate == null) return;
+
+        final now = DateTime.now();
+        final expiry = DateTime.parse(expiryDate);
+        final refreshTime = expiry.subtract(const Duration(minutes: 2));
+        final timeUntilRefresh = refreshTime.difference(now);
+
+        if (timeUntilRefresh.inSeconds > 30) {
+          _refreshTimer = Timer(timeUntilRefresh, _onRefreshNeeded);
+        } else {
+          _onRefreshNeeded();
+        }
       }
     } catch (e) {
       if (kDebugMode) print('Error scheduling token refresh: $e');
@@ -178,7 +201,91 @@ class TokenRefreshManager {
   }
 }
 
-// Enhanced helper function to get valid access token with better error handling
+// Enhanced helper function to refresh access token with social login support
+Future<String?> _refreshAccessToken(
+  TokenStorageService tokenStorage,
+  String refreshToken,
+) async {
+  try {
+    // Check if this is a social login
+    final isSocial = await tokenStorage.isSocialLogin();
+
+    if (isSocial) {
+      // Handle social login token refresh via Amplify
+      if (kDebugMode)
+        print('🔄 Attempting social login token refresh via Amplify');
+
+      final success = await tokenStorage.refreshSocialTokens();
+
+      if (success) {
+        // Get the refreshed access token
+        final newAccessToken = await tokenStorage.getAccessToken();
+        if (kDebugMode) print('🔄 ✅ Social token refresh successful');
+        return newAccessToken;
+      } else {
+        if (kDebugMode) print('🔄 ❌ Social token refresh failed');
+        return null;
+      }
+    } else {
+      // Handle regular backend token refresh
+      if (kDebugMode) print('🔄 Attempting regular token refresh via backend');
+
+      // Create a separate dio instance for refresh to avoid circular calls
+      final refreshDio = Dio();
+      final baseUrl = ConfigService().getPrimaryApiEndpoint();
+
+      final response = await refreshDio.post(
+        '$baseUrl/auth/refreshtoken',
+        data: {'refreshToken': refreshToken},
+        options: Options(
+          headers: {'Content-Type': 'application/json'},
+          receiveTimeout: const Duration(seconds: 15),
+          sendTimeout: const Duration(seconds: 15),
+        ),
+      );
+
+      if (response.statusCode == 200 && response.data['data'] != null) {
+        final data = response.data['data'];
+        final newAccessToken = data['accessToken'] as String?;
+        final expiresIn = data['expiresIn'] as int?;
+        final username = data['username'] as String?;
+
+        if (newAccessToken == null || expiresIn == null || username == null) {
+          if (kDebugMode)
+            print('🔄 ❌ Missing required fields in refresh response');
+          return null;
+        }
+
+        // Use the specific refresh method for your server response format
+        await tokenStorage.saveRefreshTokens(
+          accessToken: newAccessToken,
+          expiresInSeconds: expiresIn,
+          username: username,
+        );
+
+        if (kDebugMode) {
+          print('🔄 ✅ Regular token refresh successful');
+          print('🔄 ✅ New access token: ${newAccessToken.substring(0, 20)}...');
+          print('🔄 ✅ Converted expiresIn ($expiresIn s) to ISO format');
+          print('🔄 ✅ Kept existing refresh token');
+        }
+        return newAccessToken;
+      } else {
+        if (kDebugMode) {
+          print('🔄 ❌ Token refresh failed - invalid response');
+          print('Response status: ${response.statusCode}');
+          print('Response data: ${response.data}');
+        }
+        return null;
+      }
+    }
+  } catch (e) {
+    if (kDebugMode) print('🔄 ❌ Token refresh failed: $e');
+    return null;
+  }
+}
+
+// Enhanced helper function to get valid access token with social login support
 Future<String?> _getValidAccessToken(
   TokenStorageService tokenStorage, {
   bool forceRefresh = false,
@@ -192,13 +299,33 @@ Future<String?> _getValidAccessToken(
       return null;
     }
 
-    // Check if refresh token is expired first (most critical check)
-    final isRefreshTokenExpired = await tokenStorage.isRefreshTokenExpired();
-    if (isRefreshTokenExpired) {
-      if (kDebugMode)
-        print('🔄 Refresh token expired, need to re-authenticate');
-      await tokenStorage.clearTokens();
-      return null;
+    // Check if this is a social login
+    final isSocial = await tokenStorage.isSocialLogin();
+
+    // For social logins, check if refresh token is still valid via Amplify
+    if (isSocial) {
+      try {
+        final session = await Amplify.Auth.fetchAuthSession();
+        if (!session.isSignedIn) {
+          if (kDebugMode)
+            print('🔄 Social login session expired, need to re-authenticate');
+          await tokenStorage.clearTokens();
+          return null;
+        }
+      } catch (e) {
+        if (kDebugMode) print('🔄 Error checking social login session: $e');
+        await tokenStorage.clearTokens();
+        return null;
+      }
+    } else {
+      // For regular logins, check refresh token expiry as before
+      final isRefreshTokenExpired = await tokenStorage.isRefreshTokenExpired();
+      if (isRefreshTokenExpired) {
+        if (kDebugMode)
+          print('🔄 Refresh token expired, need to re-authenticate');
+        await tokenStorage.clearTokens();
+        return null;
+      }
     }
 
     // Check if access token is expired or force refresh is requested
@@ -229,68 +356,6 @@ Future<String?> _getValidAccessToken(
   }
 }
 
-// Enhanced helper function to refresh access token with better error handling
-Future<String?> _refreshAccessToken(
-  TokenStorageService tokenStorage,
-  String refreshToken,
-) async {
-  try {
-    // Create a separate dio instance for refresh to avoid circular calls
-    final refreshDio = Dio();
-    final baseUrl = ConfigService().getPrimaryApiEndpoint();
-
-    if (kDebugMode) print('🔄 Attempting to refresh access token');
-
-    final response = await refreshDio.post(
-      '$baseUrl/auth/refreshtoken',
-      data: {'refreshToken': refreshToken},
-      options: Options(
-        headers: {'Content-Type': 'application/json'},
-        receiveTimeout: const Duration(seconds: 15),
-        sendTimeout: const Duration(seconds: 15),
-      ),
-    );
-
-    if (response.statusCode == 200 && response.data['data'] != null) {
-      final data = response.data['data'];
-      final newAccessToken = data['accessToken'] as String?;
-      final expiresIn = data['expiresIn'] as int?;
-      final username = data['username'] as String?;
-
-      if (newAccessToken == null || expiresIn == null || username == null) {
-        if (kDebugMode)
-          print('🔄 ❌ Missing required fields in refresh response');
-        return null;
-      }
-
-      // Use the specific refresh method for your server response format
-      await tokenStorage.saveRefreshTokens(
-        accessToken: newAccessToken,
-        expiresInSeconds: expiresIn,
-        username: username,
-      );
-
-      if (kDebugMode) {
-        print('🔄 ✅ Token refresh successful');
-        print('🔄 ✅ New access token: ${newAccessToken.substring(0, 20)}...');
-        print('🔄 ✅ Converted expiresIn ($expiresIn s) to ISO format');
-        print('🔄 ✅ Kept existing refresh token');
-      }
-      return newAccessToken;
-    } else {
-      if (kDebugMode) {
-        print('🔄 ❌ Token refresh failed - invalid response');
-        print('Response status: ${response.statusCode}');
-        print('Response data: ${response.data}');
-      }
-      return null;
-    }
-  } catch (e) {
-    if (kDebugMode) print('🔄 ❌ Token refresh failed: $e');
-    return null;
-  }
-}
-
 // Base URL provider
 final baseUrlProvider = Provider<String>((ref) {
   return '${ConfigService().getPrimaryApiEndpoint()}';
@@ -308,6 +373,11 @@ final tokenStorageProvider = Provider<TokenStorageService>((ref) {
   return TokenStorageService();
 });
 
+// Incognito user service provider
+final incognitoUserServiceProvider = Provider<IncognitoUserService>((ref) {
+  return IncognitoUserService();
+});
+
 // Repository provider
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   final apiClient = ref.watch(authApiClientProvider);
@@ -316,6 +386,7 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 });
 
 // Enhanced authenticated Dio provider that waits for auth initialization
+// Enhanced authenticated Dio provider with comprehensive token debugging
 final authenticatedDioProvider = Provider<Dio>((ref) {
   final dio = Dio();
   final tokenStorage = ref.watch(tokenStorageProvider);
@@ -329,7 +400,7 @@ final authenticatedDioProvider = Provider<Dio>((ref) {
     dio.interceptors.add(LogInterceptor(requestBody: true, responseBody: true));
   }
 
-  // Add auth interceptor with improved refresh token logic
+  // Add auth interceptor with comprehensive debugging
   dio.interceptors.add(
     InterceptorsWrapper(
       onRequest: (options, handler) async {
@@ -341,18 +412,125 @@ final authenticatedDioProvider = Provider<Dio>((ref) {
           final token = await _getValidAccessToken(tokenStorage);
           if (token != null) {
             options.headers['Authorization'] = 'Bearer $token';
-            if (kDebugMode) print('🔐 Added auth header to ${options.path}');
+
+            if (kDebugMode) {
+              print('🔐 DEBUG - === TOKEN DEBUG FOR ${options.path} ===');
+              print(
+                '🔐 DEBUG - Request URL: ${options.baseUrl}${options.path}',
+              );
+              print(
+                '🔐 DEBUG - Token (first 50 chars): ${token.substring(0, min(50, token.length))}...',
+              );
+              print('🔐 DEBUG - Token length: ${token.length}');
+
+              // Check if it's a social token
+              final provider = await tokenStorage.getSocialProvider();
+              final isSocial = provider != null;
+              print('🔐 DEBUG - Is social login: $isSocial');
+              if (isSocial) {
+                print('🔐 DEBUG - Social provider: $provider');
+              }
+
+              // Decode JWT token payload
+              try {
+                final parts = token.split('.');
+                if (parts.length == 3) {
+                  final payload = parts[1];
+                  final normalizedPayload = payload.padRight(
+                    (payload.length + 3) ~/ 4 * 4,
+                    '=',
+                  );
+                  final decoded = utf8.decode(
+                    base64Url.decode(normalizedPayload),
+                  );
+                  final jsonPayload =
+                      json.decode(decoded) as Map<String, dynamic>;
+
+                  print('🔐 DEBUG - JWT Claims:');
+                  print('   sub (user ID): ${jsonPayload['sub']}');
+                  print('   aud (audience): ${jsonPayload['aud']}');
+                  print('   iss (issuer): ${jsonPayload['iss']}');
+                  print('   exp (expires): ${jsonPayload['exp']}');
+                  print('   iat (issued at): ${jsonPayload['iat']}');
+                  print('   token_use: ${jsonPayload['token_use']}');
+                  print('   scope: ${jsonPayload['scope']}');
+                  print('   client_id: ${jsonPayload['client_id']}');
+                  print('   username: ${jsonPayload['username']}');
+                  print('   auth_time: ${jsonPayload['auth_time']}');
+
+                  // Check token expiry
+                  if (jsonPayload['exp'] != null) {
+                    final expiry = DateTime.fromMillisecondsSinceEpoch(
+                      (jsonPayload['exp'] as int) * 1000,
+                    );
+                    final now = DateTime.now();
+                    final timeRemaining = expiry.difference(now);
+                    print('   Token expires at: $expiry');
+                    print(
+                      '   Time remaining: ${timeRemaining.inMinutes} minutes',
+                    );
+                    print('   Is expired: ${timeRemaining.isNegative}');
+                  }
+                } else {
+                  print(
+                    '🔐 DEBUG - Invalid JWT format (${parts.length} parts)',
+                  );
+                }
+              } catch (e) {
+                print('🔐 DEBUG - Error decoding JWT: $e');
+              }
+
+              // Log all headers being sent
+              print('🔐 DEBUG - Request headers:');
+              options.headers.forEach((key, value) {
+                if (key.toLowerCase() == 'authorization') {
+                  print(
+                    '   $key: Bearer ${value.toString().substring(7, min(27, value.toString().length))}...',
+                  );
+                } else {
+                  print('   $key: $value');
+                }
+              });
+
+              print('🔐 DEBUG - === END TOKEN DEBUG ===');
+            }
+
+            print('🔐 Added auth header to ${options.path}');
           } else {
-            if (kDebugMode)
-              print('⚠️ No valid access token available for ${options.path}');
+            print('⚠️ No valid access token available for ${options.path}');
+
+            // Debug why no token is available
+            if (kDebugMode) {
+              final storedToken = await tokenStorage.getAccessToken();
+              final storedRefresh = await tokenStorage.getRefreshToken();
+              final isExpired = await tokenStorage.isTokenExpired();
+              final isRefreshExpired =
+                  await tokenStorage.isRefreshTokenExpired();
+
+              print('🔐 DEBUG - No token details:');
+              print('   Stored access token exists: ${storedToken != null}');
+              print('   Stored refresh token exists: ${storedRefresh != null}');
+              print('   Access token expired: $isExpired');
+              print('   Refresh token expired: $isRefreshExpired');
+            }
           }
+        } else {
+          print('🔐 Skipping auth header for auth endpoint: ${options.path}');
         }
+
         handler.next(options);
       },
       onError: (error, handler) async {
+        if (kDebugMode) {
+          print('🔐 DEBUG - HTTP Error occurred:');
+          print('   Status code: ${error.response?.statusCode}');
+          print('   URL: ${error.requestOptions.path}');
+          print('   Response data: ${error.response?.data}');
+        }
+
         if (error.response?.statusCode == 401 &&
             !error.requestOptions.path.contains('/auth/')) {
-          if (kDebugMode) print('🔄 401 error, attempting token refresh');
+          print('🔄 401 error, attempting token refresh');
 
           // Try to get a valid access token (this will handle refresh if needed)
           final token = await _getValidAccessToken(
@@ -361,7 +539,13 @@ final authenticatedDioProvider = Provider<Dio>((ref) {
           );
 
           if (token != null) {
-            if (kDebugMode) print('🔄 Got new token, retrying request');
+            print('🔄 Got new token, retrying request');
+
+            if (kDebugMode) {
+              print(
+                '🔐 DEBUG - Retry token: ${token.substring(0, min(50, token.length))}...',
+              );
+            }
 
             // Retry original request with new token
             error.requestOptions.headers['Authorization'] = 'Bearer $token';
@@ -378,11 +562,10 @@ final authenticatedDioProvider = Provider<Dio>((ref) {
               handler.resolve(cloneReq);
               return;
             } catch (e) {
-              if (kDebugMode) print('Retry request failed: $e');
+              print('Retry request failed: $e');
             }
           } else {
-            if (kDebugMode)
-              print('🔄 Failed to refresh token, clearing auth state');
+            print('🔄 Failed to refresh token, clearing auth state');
             // If all refresh attempts failed, clear tokens
             await tokenStorage.clearTokens();
 
@@ -392,6 +575,17 @@ final authenticatedDioProvider = Provider<Dio>((ref) {
         }
 
         handler.next(error);
+      },
+      onResponse: (response, handler) async {
+        if (kDebugMode && response.statusCode != 200) {
+          print('🔐 DEBUG - Response received:');
+          print('   Status: ${response.statusCode}');
+          print('   URL: ${response.requestOptions.path}');
+          print(
+            '   Response size: ${response.data?.toString().length ?? 0} chars',
+          );
+        }
+        handler.next(response);
       },
     ),
   );
@@ -406,10 +600,11 @@ class AuthNotifier extends StateNotifier<AuthState>
   final TokenStorageService _tokenStorage;
   late final TokenRefreshManager _refreshManager;
   late final AuthDebugHelper _debugHelper;
+  final Ref _ref; //
   bool _isInitialized = false;
   Completer<void>? _initCompleter;
 
-  AuthNotifier(this._repository, this._tokenStorage)
+  AuthNotifier(this._repository, this._tokenStorage, this._ref)
     : super(const AuthState(status: AuthStatus.unknown)) {
     _refreshManager = TokenRefreshManager(
       _tokenStorage,
@@ -661,13 +856,249 @@ class AuthNotifier extends StateNotifier<AuthState>
     return response;
   }
 
+  /// Handle social login (Google/Apple) tokens from Amplify Cognito
+  Future<SocialLoginServerResponse> signInWithSocial({
+    required String provider,
+    required String accessToken,
+    required String refreshToken,
+    required String idToken,
+    required String userId,
+    String? email,
+  }) async {
+    try {
+      if (kDebugMode) print('🔐 Social login attempt for provider: $provider');
+
+      // Clear existing user state
+      _ref.read(userProvider.notifier).clearState();
+
+      // Save tokens first
+      await _tokenStorage.saveSocialLoginTokens(
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+        idToken: idToken,
+        username: userId, // This is the JWT username (signinwithapple_xxx)
+        userId: userId,
+        provider: provider,
+        email: email,
+      );
+
+      // Get the auto-generated expiry date
+      final expiryDate = await _tokenStorage.getTokenExpiryDate();
+
+      // Create UserData object
+      final userData = UserData(
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+        expiryDate: expiryDate,
+        username: userId, // Use JWT username
+        id: userId, // Use JWT username as ID
+        email: email,
+      );
+
+      // Update auth state
+      state = AuthState(
+        status: AuthStatus.authenticated,
+        userData: userData,
+        token: accessToken,
+      );
+
+      // Start the refresh timer
+      _refreshManager.startTokenRefreshTimer();
+
+      // **CRITICAL**: Create/update user in backend immediately after authentication
+      try {
+        print('🔐 === STARTING SOCIAL USER CREATION ===');
+        print('🔐 Provider: $provider');
+        print('🔐 User ID: $userId');
+        print('🔐 Email: $email');
+
+        await _createOrUpdateSocialUser(userId, email, provider);
+
+        print('🔐 ✅ Social user creation/update completed successfully');
+        print('🔐 ✅ === SOCIAL USER CREATION COMPLETED ===');
+      } catch (e) {
+        print('🔐 ❌ === SOCIAL USER CREATION FAILED ===');
+        print('🔐 ❌ Error: $e');
+        // Don't fail the login if user creation fails - they can retry later
+      }
+
+      // Try to fetch user profile
+      try {
+        final userNotifier = _ref.read(userProvider.notifier);
+        await userNotifier.getCurrentUserProfile();
+        print('Social login - User profile fetched for onboarding check');
+      } catch (e) {
+        print('Social login - Error fetching user profile: $e');
+        // Continue anyway, router will handle it
+      }
+
+      // Create response object
+      final socialResponse = SocialLoginServerResponse(
+        isSuccess: true,
+        message: 'Social login successful',
+        data: SocialLoginData(
+          accessToken: accessToken,
+          refreshToken: refreshToken,
+          idToken: idToken,
+          expiryDate: expiryDate,
+          username: userId,
+          userId: userId,
+          email: email,
+          provider: provider,
+        ),
+      );
+
+      return socialResponse;
+    } catch (e) {
+      if (kDebugMode) print('🔐 ❌ Social login failed: $e');
+      return SocialLoginServerResponse(
+        isSuccess: false,
+        message: 'Social login failed: ${e.toString()}',
+        data: null,
+      );
+    }
+  }
+
+  Future<void> _createOrUpdateSocialUser(
+    String userId,
+    String? email,
+    String provider,
+  ) async {
+    try {
+      print('🔐 === STARTING SOCIAL USER BACKEND CREATION ===');
+      print('🔐 User ID for backend: $userId');
+      print('🔐 Email: $email');
+      print('🔐 Provider: $provider');
+
+      // Extract name from email or use default
+      final firstName = email?.split('@').first ?? 'Social User';
+      print('🔐 Extracted firstName: $firstName');
+
+      // Create update request for social user
+      final updateRequest = UserUpdateRequest(
+        id: userId, // Use the JWT username as ID),
+        firstName: firstName,
+        email: email,
+        onboarded: false, // Social users start as not onboarded
+        deviceStrength: 1, // Default device strength
+      );
+
+      print('🔐 Update request: ${updateRequest.toJson()}');
+      print('🔐 Calling updateCurrentUserProfileSmart...');
+
+      // Use the smart update method which handles social vs regular users
+      final userNotifier = _ref.read(userProvider.notifier);
+      await userNotifier.updateCurrentUserProfile(updateRequest);
+
+      print('🔐 ✅ updateCurrentUserProfileSmart completed');
+
+      // Give backend time to process
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      print('🔐 ✅ === SOCIAL USER BACKEND CREATION COMPLETED ===');
+    } catch (error) {
+      print('🔐 ❌ === SOCIAL USER BACKEND CREATION FAILED ===');
+      print('🔐 ❌ Error details: $error');
+      print('🔐 ❌ Error type: ${error.runtimeType}');
+      rethrow;
+    }
+  }
+
+  /// Enhanced method to set authenticated state with social login data
+  void setAuthenticatedWithSocialData({
+    required String provider,
+    required String accessToken,
+    required String refreshToken,
+    required String idToken,
+    required String userId,
+    String? email,
+  }) async {
+    // Save tokens first
+    await _tokenStorage.saveSocialLoginTokens(
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+      idToken: idToken,
+      username: userId,
+      userId: userId,
+      provider: provider,
+      email: email,
+    );
+
+    // Get the auto-generated expiry date (2 hours from now)
+    final expiryDate = await _tokenStorage.getTokenExpiryDate();
+
+    final userData = UserData(
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+      expiryDate: expiryDate,
+      username: userId,
+      id: userId,
+      email: email,
+    );
+
+    state = AuthState(
+      status: AuthStatus.authenticated,
+      userData: userData,
+      token: accessToken,
+    );
+
+    // Start the proactive refresh timer
+    _refreshManager.startTokenRefreshTimer();
+
+    if (kDebugMode) {
+      print('✅ Auth state set with social login data');
+      print('   Provider: $provider');
+      print('   User ID: $userId');
+      print('   Email: $email');
+    }
+  }
+
+  /// Check if current user is authenticated via social login
+  bool get isSocialLogin {
+    final userData = state.userData;
+    if (userData?.username == null) return false;
+
+    // Check if username contains social login patterns
+    return userData!.username!.contains('google_') ||
+        userData.username!.contains('signinwithapple_');
+  }
+
+  /// Get social login provider if user is authenticated via social
+  String? get socialLoginProvider {
+    if (!isSocialLogin) return null;
+
+    final username = state.userData?.username;
+    if (username == null) return null;
+
+    if (username.contains('google_')) return 'google';
+    if (username.contains('signinwithapple_')) return 'apple';
+
+    return null;
+  }
+
   void setUnauthenticated() {
     _refreshManager.dispose(); // Stop any refresh timers
     state = const AuthState(status: AuthStatus.unauthenticated);
   }
 
+  /// Enhanced sign out method that handles social login
   Future<void> signOut() async {
+    final wasIncognitoMode = await _tokenStorage.isSocialLogin();
+    _ref.read(userProvider.notifier).clearState();
+
     _refreshManager.dispose(); // Stop any refresh timers
+
+    // Clear incognito user data if this was a social login
+    if (wasIncognitoMode) {
+      try {
+        final incognitoService = IncognitoUserService();
+        await incognitoService.clearIncognitoData();
+        if (kDebugMode) print('Cleared incognito user data');
+      } catch (e) {
+        if (kDebugMode) print('Error clearing incognito data: $e');
+      }
+    }
+
     await _repository.signOut();
     setUnauthenticated();
   }
@@ -730,12 +1161,12 @@ class AuthNotifier extends StateNotifier<AuthState>
     final isRefreshTokenExpired = await _tokenStorage.isRefreshTokenExpired();
 
     if (isRefreshTokenExpired) {
-      if (kDebugMode) print('🔄 Cannot refresh - refresh token expired');
+      if (kDebugMode) print('Cannot refresh - refresh token expired');
       await signOut();
       return false;
     }
 
-    if (kDebugMode) print('🔄 Attempting manual token refresh');
+    if (kDebugMode) print('Attempting manual token refresh');
     final response = await _repository.refreshToken();
 
     if (response.isSuccess && response.data?.accessToken != null) {
@@ -753,10 +1184,10 @@ class AuthNotifier extends StateNotifier<AuthState>
         token: response.data!.accessToken,
       );
 
-      if (kDebugMode) print('🔄 ✅ Manual token refresh successful');
+      if (kDebugMode) print('Manual token refresh successful');
       return true;
     } else {
-      if (kDebugMode) print('🔄 ❌ Manual token refresh failed');
+      if (kDebugMode) print('Manual token refresh failed');
       await signOut();
       return false;
     }
@@ -782,7 +1213,7 @@ final authNotifierProvider = StateNotifierProvider<AuthNotifier, AuthState>((
 ) {
   final repository = ref.watch(authRepositoryProvider);
   final tokenStorage = ref.watch(tokenStorageProvider);
-  return AuthNotifier(repository, tokenStorage);
+  return AuthNotifier(repository, tokenStorage, ref);
 });
 
 // Convenience providers
@@ -814,7 +1245,7 @@ extension AuthNotifierExtension on AuthNotifier {
     );
 
     if (kDebugMode)
-      print('✅ Auth state set with stored data - User ID: ${userData.id}');
+      print('Auth state set with stored data - User ID: ${userData.id}');
   }
 }
 

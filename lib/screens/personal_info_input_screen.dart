@@ -179,7 +179,7 @@ class _PersonalInfoInputScreenState
         children: [
           CustomAppBar(
             title: '신체정보',
-            showTrailingButton: true,
+            showTrailingButton: false,
             trailingButtonText: '건너뛰기',
             showBackButton: false,
             onTrailingPressed: _skipAndContinue,

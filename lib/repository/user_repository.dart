@@ -1,4 +1,8 @@
 // lib/repository/user_repository.dart
+import 'package:Wicore/models/incognito_user.dart';
+import 'package:Wicore/models/incognito_user_request.dart';
+import 'package:Wicore/models/incognito_user_response.dart';
+import 'package:Wicore/models/notification_preferences_model.dart';
 import 'package:Wicore/models/user_request_model.dart';
 import 'package:Wicore/models/user_response_model.dart';
 import 'package:Wicore/models/user_update_request_model.dart';
@@ -15,19 +19,112 @@ class UserRepository {
 
   UserRepository(this._apiClient, this._ref);
 
-  Future<UserResponse> createUser(UserRequest request) async {
+  // Add this method to your existing UserRepository class
+
+  Future<IncognitoUserResponse> createOrUpdateIncognitoUser({
+    String? email,
+    String? phoneNumber,
+    String? firstName,
+    String? lastName,
+    String? birthdate,
+    int? weight,
+    int? height,
+    String? gender,
+    bool? onboarded,
+    NotificationPreferences? notificationPreferences,
+    int? deviceStrength,
+  }) async {
     try {
-      print('🔧 Repository - Creating user');
-      final response = await _apiClient.createUser(request);
-      print('🔧 ✅ Repository - User created successfully');
+      if (kDebugMode) print('Creating/updating incognito user');
+
+      final user = IncognitoUser(
+        email: email,
+        phoneNumber: phoneNumber,
+        firstName: firstName,
+        lastName: lastName,
+        birthdate: birthdate,
+        weight: weight,
+        height: height,
+        gender: gender,
+        onboarded: onboarded ?? false,
+        notificationPreferences:
+            notificationPreferences ??
+            const NotificationPreferences(
+              lowBattery: true,
+              deviceDisconnected: true,
+              fallDetection: true,
+            ),
+        deviceStrength: deviceStrength ?? 1,
+      );
+
+      final request = IncognitoUserRequest(item: user);
+      final response = await _apiClient.createOrUpdateIncognitoUser(request);
+
+      if (kDebugMode) {
+        print('Incognito user created/updated successfully');
+        print('   Success: ${response.success}');
+        print('   Message: ${response.message}');
+        print('   Email: ${response.data?.email}');
+        print('   Name: ${response.data?.firstName}');
+        print('   Incognito User ID: ${response.incognitoUserId}');
+      }
+
+      // Save incognito user data locally using your existing user provider
+      if (response.success && response.data != null) {
+        try {
+          final incognitoService = _ref.read(incognitoUserServiceProvider);
+          await incognitoService.saveIncognitoUserData(response.data!);
+          await incognitoService.setIncognitoMode(true);
+
+          // Save incognito user ID if provided
+          if (response.incognitoUserId != null) {
+            await incognitoService.saveIncognitoUserId(
+              response.incognitoUserId!,
+            );
+          }
+        } catch (storageError) {
+          if (kDebugMode)
+            print(
+              'Warning: Failed to save incognito data locally: $storageError',
+            );
+          // Continue even if local storage fails
+        }
+      }
+
       return response;
     } on DioException catch (e) {
-      print('🔧 ❌ Repository - Error creating user: $e');
+      if (kDebugMode) print('Dio error creating incognito user: ${e.message}');
       throw _handleDioError(e);
     } catch (error) {
-      print('🔧 ❌ Repository - Unexpected error creating user: $error');
+      if (kDebugMode) print('Unexpected error creating incognito user: $error');
       rethrow;
     }
+  }
+
+  // Helper method for social login integration
+  Future<IncognitoUserResponse> setupIncognitoUserForSocialLogin({
+    required String email,
+    required String firstName,
+    String? provider,
+  }) async {
+    if (kDebugMode) {
+      print('Setting up incognito user for social login');
+      print('   Email: $email');
+      print('   Name: $firstName');
+      print('   Provider: $provider');
+    }
+
+    return await createOrUpdateIncognitoUser(
+      email: email,
+      firstName: firstName,
+      onboarded: false,
+      notificationPreferences: const NotificationPreferences(
+        lowBattery: true,
+        deviceDisconnected: true,
+        fallDetection: true,
+      ),
+      deviceStrength: 1,
+    );
   }
 
   Future<UserResponse> getUser(String userId) async {
