@@ -5,56 +5,75 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:Wicore/providers/authentication_provider.dart';
 import 'package:Wicore/providers/fcm_provider.dart';
 import 'package:Wicore/states/auth_status.dart';
+import 'dart:io';
+
+// CRITICAL: This must be a top-level function for iOS background actions
+@pragma('vm:entry-point')
+void notificationTapBackground(NotificationResponse notificationResponse) {
+  print('Background notification action: ${notificationResponse.actionId}');
+  // Note: Background actions have limited capability on iOS
+  // For complex operations, consider launching the app to foreground
+}
 
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
-  static late Ref _ref; // Changed from WidgetRef to Ref
+  static late Ref _ref;
 
-  // Initialize the notification service - now accepts Ref instead of WidgetRef
+  // Initialize the notification service
   static Future<void> initialize(Ref ref) async {
     _ref = ref;
 
-    // Initialize local notifications
+    // Android settings remain the same
     const AndroidInitializationSettings androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    // Configure iOS notification categories with actions
+    // Configure iOS notification actions
     final List<DarwinNotificationAction> iosActions = [
       DarwinNotificationAction.plain(
-        // Changed to named constructor
-        'resolve_action',
+        'resolve_action', // This ID must match what you check for in the handler
         'Mark Emergency Resolved',
+        options: {
+          DarwinNotificationActionOption.foreground,
+          DarwinNotificationActionOption.authenticationRequired,
+        },
       ),
     ];
 
-    final DarwinNotificationCategory resolveCategory =
-        DarwinNotificationCategory(
-          'resolveCategory',
-          actions: iosActions,
-          options: {
-            DarwinNotificationCategoryOption.hiddenPreviewShowTitle,
-            DarwinNotificationCategoryOption.allowAnnouncement,
-          },
-        );
+    // Configure iOS category
+    final DarwinNotificationCategory
+    resolveCategory = DarwinNotificationCategory(
+      'resolveCategory', // This ID must match in showNotificationWithResolveButton
+      actions: iosActions,
+      options: {
+        DarwinNotificationCategoryOption.hiddenPreviewShowTitle,
+        DarwinNotificationCategoryOption.hiddenPreviewShowSubtitle,
+        DarwinNotificationCategoryOption.allowAnnouncement,
+      },
+    );
 
+    // iOS initialization settings - Configure to show notifications in foreground
     final DarwinInitializationSettings iosSettings =
         DarwinInitializationSettings(
           requestSoundPermission: true,
           requestBadgePermission: true,
           requestAlertPermission: true,
-          notificationCategories: [resolveCategory], // Changed from Set to List
+          notificationCategories: [resolveCategory],
+          defaultPresentAlert: true,
+          defaultPresentBadge: true,
+          defaultPresentSound: true,
+          defaultPresentBanner: true,
+          defaultPresentList: true,
         );
 
-    final InitializationSettings settings = InitializationSettings(
-      // Removed const
-      android: androidSettings,
-      iOS: iosSettings,
-    );
+    final InitializationSettings initializationSettings =
+        InitializationSettings(android: androidSettings, iOS: iosSettings);
 
+    // Initialize with proper callbacks
     await _notifications.initialize(
-      settings,
+      initializationSettings,
       onDidReceiveNotificationResponse: _onNotificationTapped,
+      onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
     );
 
     // Handle FCM messages
@@ -63,7 +82,7 @@ class NotificationService {
 
   // Handle FCM messages and show notifications with action button
   static Future<void> _handleForegroundMessage(RemoteMessage message) async {
-    print('📩 Received FCM message: ${message.messageId}');
+    print('Received FCM message: ${message.messageId}');
 
     await showNotificationWithResolveButton(
       id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
@@ -72,22 +91,24 @@ class NotificationService {
     );
   }
 
-  // Handle notification taps
+  // Handle notification taps (foreground)
   static void _onNotificationTapped(NotificationResponse response) {
-    print('📱 Action ID: ${response.actionId ?? "no action"}');
+    print('Notification response received');
+    print('Action ID: ${response.actionId ?? "no action"}');
+    print('Payload: ${response.payload}');
 
     if (response.actionId == 'resolve_action') {
-      print('🎯 Resolve action tapped');
+      print('Resolve action tapped');
       _callResolveEndpoint();
     } else {
-      print('👆 Regular notification tap');
+      print('Regular notification tap');
     }
   }
 
-  // Simple call to your resolve endpoint
+  // Call resolve endpoint
   static Future<void> _callResolveEndpoint() async {
     try {
-      print('🔄 Calling resolve endpoint...');
+      print('Calling resolve endpoint...');
 
       // Check authentication
       final authState = _ref.read(authNotifierProvider);
@@ -101,13 +122,13 @@ class NotificationService {
       final response = await fcmRepository.resolveEmergency();
 
       if (response.isSuccess) {
-        print('✅ Resolve endpoint called successfully');
-        _showSuccessMessage('Action completed successfully');
+        print('Resolve endpoint called successfully');
+        _showSuccessMessage('Emergency resolved successfully');
       } else {
-        _showErrorMessage('Action failed');
+        _showErrorMessage('Failed to resolve emergency');
       }
     } catch (e) {
-      print('❌ Error calling resolve endpoint: $e');
+      print('Error calling resolve endpoint: $e');
       _showErrorMessage('Action failed. Please try again.');
     }
   }
@@ -134,11 +155,12 @@ class NotificationService {
         ],
       ),
       iOS: const DarwinNotificationDetails(
-        categoryIdentifier: 'resolveCategory',
+        categoryIdentifier: 'resolveCategory', // Must match category ID above
         presentAlert: true,
         presentBadge: true,
         presentSound: true,
         interruptionLevel: InterruptionLevel.timeSensitive,
+        threadIdentifier: 'emergency_notifications',
       ),
     );
 
@@ -149,7 +171,7 @@ class NotificationService {
   static Future<void> _showSuccessMessage(String message) async {
     await _notifications.show(
       999999,
-      '✅ Success',
+      'Success',
       message,
       const NotificationDetails(
         android: AndroidNotificationDetails(
@@ -167,7 +189,7 @@ class NotificationService {
   static Future<void> _showErrorMessage(String message) async {
     await _notifications.show(
       999998,
-      '❌ Error',
+      'Error',
       message,
       const NotificationDetails(
         android: AndroidNotificationDetails(
