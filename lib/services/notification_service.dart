@@ -19,14 +19,35 @@ class NotificationService {
     const AndroidInitializationSettings androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    const DarwinInitializationSettings iosSettings =
+    // Configure iOS notification categories with actions
+    final List<DarwinNotificationAction> iosActions = [
+      DarwinNotificationAction.plain(
+        // Changed to named constructor
+        'resolve_action',
+        'Mark Emergency Resolved',
+      ),
+    ];
+
+    final DarwinNotificationCategory resolveCategory =
+        DarwinNotificationCategory(
+          'resolveCategory',
+          actions: iosActions,
+          options: {
+            DarwinNotificationCategoryOption.hiddenPreviewShowTitle,
+            DarwinNotificationCategoryOption.allowAnnouncement,
+          },
+        );
+
+    final DarwinInitializationSettings iosSettings =
         DarwinInitializationSettings(
           requestSoundPermission: true,
           requestBadgePermission: true,
           requestAlertPermission: true,
+          notificationCategories: [resolveCategory], // Changed from Set to List
         );
 
-    const InitializationSettings settings = InitializationSettings(
+    final InitializationSettings settings = InitializationSettings(
+      // Removed const
       android: androidSettings,
       iOS: iosSettings,
     );
@@ -53,10 +74,13 @@ class NotificationService {
 
   // Handle notification taps
   static void _onNotificationTapped(NotificationResponse response) {
-    print('📱 Action ID: ${response.actionId}');
+    print('📱 Action ID: ${response.actionId ?? "no action"}');
 
     if (response.actionId == 'resolve_action') {
+      print('🎯 Resolve action tapped');
       _callResolveEndpoint();
+    } else {
+      print('👆 Regular notification tap');
     }
   }
 
@@ -94,29 +118,28 @@ class NotificationService {
     required String title,
     required String body,
   }) async {
-    const AndroidNotificationDetails androidDetails =
-        AndroidNotificationDetails(
-          'default_channel',
-          'Default Notifications',
-          channelDescription: 'Default notifications with action button',
-          importance: Importance.high,
-          priority: Priority.high,
-          actions: <AndroidNotificationAction>[
-            AndroidNotificationAction(
-              'resolve_action',
-              'Mark Emergency Resolved',
-              icon: DrawableResourceAndroidBitmap('@drawable/ic_check_circle'),
-            ),
-          ],
-        );
-
-    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
-      categoryIdentifier: 'resolveCategory',
-    );
-
-    const NotificationDetails platformDetails = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
+    final NotificationDetails platformDetails = NotificationDetails(
+      android: const AndroidNotificationDetails(
+        'default_channel',
+        'Default Notifications',
+        channelDescription: 'Default notifications with action button',
+        importance: Importance.high,
+        priority: Priority.high,
+        actions: <AndroidNotificationAction>[
+          AndroidNotificationAction(
+            'resolve_action',
+            'Mark Emergency Resolved',
+            icon: DrawableResourceAndroidBitmap('@drawable/ic_check_circle'),
+          ),
+        ],
+      ),
+      iOS: const DarwinNotificationDetails(
+        categoryIdentifier: 'resolveCategory',
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+        interruptionLevel: InterruptionLevel.timeSensitive,
+      ),
     );
 
     await _notifications.show(id, title, body, platformDetails);

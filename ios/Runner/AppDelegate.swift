@@ -32,19 +32,23 @@ import UserNotifications
 
   // 🔥 UPDATED: Configure notification categories with proper permission flow
   func configureNotificationCategories() {
+    // Create the action with additional options
     let resolveAction = UNNotificationAction(
       identifier: "resolve_action",
       title: "Mark Emergency Resolved",
-      options: [.foreground]
+      options: [.foreground, .authenticationRequired]
     )
 
+    // Configure category with more options
     let resolveCategory = UNNotificationCategory(
       identifier: "resolveCategory",
       actions: [resolveAction],
       intentIdentifiers: [],
-      options: []
+      // Add these options to show in more states
+      options: [.customDismissAction, .allowInCarPlay]
     )
 
+    // Set the categories
     UNUserNotificationCenter.current().setNotificationCategories([resolveCategory])
 
     // 🔥 FIXED: Request permissions and register for remote notifications in the callback
@@ -120,13 +124,38 @@ import UserNotifications
     }
   }
 
-  // Handle notification tap
+  // Update the notification tap handler
   override func userNotificationCenter(
     _ center: UNUserNotificationCenter,
     didReceive response: UNNotificationResponse,
     withCompletionHandler completionHandler: @escaping () -> Void
   ) {
-    print("📱 iOS notification tapped - Action: \(response.actionIdentifier)")
+    let actionIdentifier = response.actionIdentifier
+
+    print("📱 iOS notification action received: \(actionIdentifier)")
+
+    if actionIdentifier == "resolve_action" {
+      // Handle the resolve action
+      print("🎯 Resolve action tapped")
+
+      // Get the notification data
+      let userInfo = response.notification.request.content.userInfo
+      print("📦 Notification data: \(userInfo)")
+
+      // Get Flutter engine from root view controller
+      if let rootViewController = window?.rootViewController as? FlutterViewController {
+        let flutterChannel = FlutterMethodChannel(
+          name: "com.wicore.app/notifications",
+          binaryMessenger: rootViewController.binaryMessenger
+        )
+
+        flutterChannel.invokeMethod(
+          "handleNotificationAction",
+          arguments: ["action": "resolve", "data": userInfo]
+        )
+      }
+    }
+
     completionHandler()
   }
 }
