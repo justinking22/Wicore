@@ -649,6 +649,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         resizeToAvoidBottomInset: false,
         appBar: AppBar(
           backgroundColor: Colors.white,
+          scrolledUnderElevation: 0, // Add this line
+          surfaceTintColor: Colors.transparent, // Add this line too
           elevation: 0,
           actions: [
             Container(

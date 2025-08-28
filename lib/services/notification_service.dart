@@ -78,12 +78,27 @@ class NotificationService {
 
     // Handle FCM messages
     FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+
+    // Handle notification taps when app was in background/terminated
+    FirebaseMessaging.onMessageOpenedApp.listen(_handleBackgroundMessage);
   }
 
   // Handle FCM messages and show notifications with action button
   static Future<void> _handleForegroundMessage(RemoteMessage message) async {
     print('Received FCM message: ${message.messageId}');
 
+    await showNotificationWithResolveButton(
+      id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      title: message.notification?.title ?? 'Notification',
+      body: message.notification?.body ?? 'You have a new notification',
+    );
+  }
+
+  // Handle when user taps system notification (app was in background)
+  static Future<void> _handleBackgroundMessage(RemoteMessage message) async {
+    print('User tapped background notification: ${message.messageId}');
+
+    // Show notification with action button when user opens the app
     await showNotificationWithResolveButton(
       id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
       title: message.notification?.title ?? 'Notification',
@@ -140,7 +155,7 @@ class NotificationService {
     required String body,
   }) async {
     final NotificationDetails platformDetails = NotificationDetails(
-      android: const AndroidNotificationDetails(
+      android: AndroidNotificationDetails(
         'default_channel',
         'Default Notifications',
         channelDescription: 'Default notifications with action button',
@@ -151,6 +166,8 @@ class NotificationService {
             'resolve_action',
             'Mark Emergency Resolved',
             icon: DrawableResourceAndroidBitmap('@drawable/ic_check_circle'),
+            showsUserInterface:
+                true, // This brings app to foreground on Android
           ),
         ],
       ),
@@ -180,7 +197,11 @@ class NotificationService {
           importance: Importance.high,
           priority: Priority.high,
         ),
-        iOS: DarwinNotificationDetails(),
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentSound: true,
+          presentBadge: true,
+        ),
       ),
     );
   }
@@ -198,7 +219,11 @@ class NotificationService {
           importance: Importance.high,
           priority: Priority.high,
         ),
-        iOS: DarwinNotificationDetails(),
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentSound: true,
+          presentBadge: true,
+        ),
       ),
     );
   }

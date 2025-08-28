@@ -137,8 +137,22 @@ class AppInitializationNotifier extends StateNotifier<AppInitializationState> {
         await _waitForAPNSToken();
       }
 
-      // 🔥 ADD: Initialize the NotificationService
+      // Initialize the NotificationService
       await NotificationService.initialize(ref);
+
+      // Handle initial message when app is opened from terminated state
+      RemoteMessage? initialMessage = await messaging.getInitialMessage();
+      if (initialMessage != null) {
+        print('📱 FCM initial message: ${initialMessage.notification?.title}');
+        // Show notification with action button when app launches from notification tap
+        await NotificationService.showNotificationWithResolveButton(
+          id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          title: initialMessage.notification?.title ?? 'Notification',
+          body:
+              initialMessage.notification?.body ??
+              'You have a new notification',
+        );
+      }
 
       // Initialize FCM token provider after auth is ready
       Future.microtask(() {
@@ -148,12 +162,6 @@ class AppInitializationNotifier extends StateNotifier<AppInitializationState> {
           print('❌ Error initializing FCM token provider: $e');
         }
       });
-
-      // Handle initial message when app is opened from terminated state
-      RemoteMessage? initialMessage = await messaging.getInitialMessage();
-      if (initialMessage != null) {
-        print('📱 FCM initial message: ${initialMessage.notification?.title}');
-      }
 
       print('✅ Firebase Messaging initialized successfully');
     } catch (e) {
@@ -261,10 +269,6 @@ class AppInitializationNotifier extends StateNotifier<AppInitializationState> {
     _initializeApp();
   }
 }
-
-// Rest of your existing code remains the same...
-// (All the other classes: AuthInitializationWrapper, AppInitializationErrorScreen,
-//  Wicore, WicoreApp, extensions, etc.)
 
 // Auth initialization wrapper widget
 class AuthInitializationWrapper extends ConsumerWidget {
@@ -399,7 +403,7 @@ class WicoreApp extends ConsumerWidget {
         print('  Username: ${next.userData?.username}');
       }
 
-      // 🔥 ADD THIS: Handle FCM token registration on auth state changes
+      // Handle FCM token registration on auth state changes
       _handleFcmTokenOnAuthChange(ref, previous, next);
     });
 
@@ -423,7 +427,7 @@ class WicoreApp extends ConsumerWidget {
     );
   }
 
-  // 🔥 ADD THIS METHOD: Handle FCM token registration on auth changes
+  // Handle FCM token registration on auth changes
   void _handleFcmTokenOnAuthChange(
     WidgetRef ref,
     AuthState? previous,
